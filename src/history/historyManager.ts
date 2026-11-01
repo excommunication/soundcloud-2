@@ -9,6 +9,7 @@ import { lastWeek, recapImage, recapName, recapPeople } from './recap';
 
 const HEADER = 32;
 const DAY = 86400000;
+const RECAP_KEEP = 6 * 3600000;
 const ARTIST_PATH = /^\/[a-z0-9_-]{1,100}$/;
 const INVOKE = ['history:init', 'history:overview', 'history:wave', 'history:day', 'history:search', 'history:play', 'history:taste', 'history:taste-remove', 'history:people', 'history:recap-copy', 'history:recap-save'] as const;
 const SEND = ['history:ready', 'history:close', 'history:artist', 'history:recap-seen'] as const;
@@ -52,6 +53,9 @@ export class HistoryManager {
     private recapPending = '';
     private recapOnOpen = false;
     private recapChecking = false;
+    // Ответ по закрытой неделе: сутки после её конца сигналы ещё дописываются, дальше он почти не меняется.
+    // Держится 6 часов: прослушивания из восстановленной копии всё же попадут в сводку
+    private recapChecked: { key: string; pending: string; at: number } | null = null;
     private resize = (): void => this.updateBounds();
     private ready = (event: IpcMainEvent): void => {
         if (!this.owns(event)) return;
@@ -318,9 +322,13 @@ export class HistoryManager {
             const key = userId ? userId + ':' + week.id : '';
             let pending = '';
             if (key && this.host.recapSeen() !== key) {
-                await this.index.request('sync', userId);
-                const overview = await this.index.request('overview', userId, week.from, week.to);
-                if (overview && overview.heard > 0) pending = key;
+                if (this.recapChecked?.key === key && Date.now() - this.recapChecked.at < RECAP_KEEP) pending = this.recapChecked.pending;
+                else {
+                    await this.index.request('sync', userId);
+                    const overview = await this.index.request('overview', userId, week.from, week.to);
+                    if (overview && overview.heard > 0) pending = key;
+                    if (overview && Date.now() >= week.to + DAY) this.recapChecked = { key, pending, at: Date.now() };
+                }
             }
             if (this.disposed || pending === this.recapPending) return;
             this.recapPending = pending;
