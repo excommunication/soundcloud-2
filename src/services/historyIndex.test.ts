@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, expect, it, vi } from 'vitest';
 import { COUNTED_MS, HistoryIndex, ftsQuery, genreKey, localClock, localDayStart, loopedPlays, waveBinHours } from './historyIndex';
 import type { SignalSource } from './historyIndex';
+import { WaveSignals } from './waveSignals';
 import type { PlaySignal } from '../types';
 
 const dirs: string[] = [];
@@ -66,6 +67,24 @@ const downgrade = (directory: string, version: number, columns: string[]): void 
     old.close();
 };
 
+it('sync не перечитывает журнал, пока в нём нет новых записей', () => {
+    const directory = dir();
+    const journal = new WaveSignals(directory, 0);
+    const load = vi.spyOn(journal, 'load');
+    const index = open(journal as unknown as Journal, directory);
+    journal.add(USER, [signal(), signal({ at: T0 + HOUR, id: 12 })]);
+    expect(index.sync(USER)).toBe(2);
+    expect(index.sync(USER)).toBe(0);
+    expect(index.sync(USER)).toBe(0);
+    expect(load).toHaveBeenCalledTimes(1);
+    // Новая запись в журнале: sync читает его снова
+    journal.add(USER, [signal({ at: T0 + 2 * HOUR, id: 13 })]);
+    expect(index.sync(USER)).toBe(1);
+    expect(load).toHaveBeenCalledTimes(2);
+    // Индекс пересобран с нуля: журнал читается с начала, хотя файлы те же
+    expect(index.reindex(USER, true)).toBe(3);
+    expect(index.sync(USER)).toBe(0);
+});
 it('sync переносит журнал один раз и дальше читает только хвост', () => {
     const journal = new Journal();
     journal.list = [signal(), signal({ at: T0 + HOUR, id: 12 })];

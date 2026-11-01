@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'fs';
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import type { PlaySignal } from '../types';
 
@@ -258,10 +258,8 @@ export class WaveSignals {
             else this.pending.delete(userId);
         }
     }
-    /** События пользователя не старше since, по порядку записи; битые строки пропускаются */
-    public load(userId: unknown, since = 0): PlaySignal[] {
-        if (!isId(userId)) return [];
-        this.flush();
+    /** Файлы месяцев пользователя, где могут быть события не старше since */
+    private files(userId: number, since: number): string[] {
         let names: string[];
         try {
             names = readdirSync(this.directory).filter((name) => name.startsWith('signals-' + userId + '-') && name.endsWith('.jsonl')).sort();
@@ -270,10 +268,36 @@ export class WaveSignals {
             return [];
         }
         const sinceMonth = since ? new Date(since).getFullYear() * 12 + new Date(since).getMonth() : 0;
-        const result: PlaySignal[] = [];
-        for (const name of names) {
+        return names.filter((name) => {
             const match = /-(\d{4})-(\d{2})\.jsonl$/.exec(name);
-            if (!match || Number(match[1]) * 12 + Number(match[2]) - 1 < sinceMonth) continue;
+            return !!match && Number(match[1]) * 12 + Number(match[2]) - 1 >= sinceMonth;
+        });
+    }
+    /**
+     * Отпечаток файлов, которые прочитал бы load с тем же since: размер и время записи. Пока он прежний, читать
+     * нечего. Пустая строка, если файлов нет или их не прочитать
+     */
+    public stamp(userId: unknown, since = 0): string {
+        if (!isId(userId)) return '';
+        this.flush();
+        const parts: string[] = [];
+        for (const name of this.files(userId, since)) {
+            try {
+                const info = statSync(join(this.directory, name));
+                parts.push(name + ':' + info.size + ':' + info.mtimeMs);
+            } catch (error) {
+                console.warn('Журнал сигналов не прочитан:', error);
+                return '';
+            }
+        }
+        return parts.join('|');
+    }
+    /** События пользователя не старше since, по порядку записи; битые строки пропускаются */
+    public load(userId: unknown, since = 0): PlaySignal[] {
+        if (!isId(userId)) return [];
+        this.flush();
+        const result: PlaySignal[] = [];
+        for (const name of this.files(userId, since)) {
             let content: string;
             try {
                 content = readFileSync(join(this.directory, name), 'utf8');

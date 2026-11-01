@@ -28,6 +28,8 @@ const SQLITE_NOTADB = 26;
 
 export interface SignalSource {
     load(userId: unknown, since?: number): PlaySignal[];
+    /** Отпечаток того, что прочитал бы load: совпал с прошлым, значит в журнале ничего нового */
+    stamp?(userId: unknown, since?: number): string;
 }
 export interface HistoryRow {
     at: number;
@@ -318,6 +320,8 @@ interface Handle {
 
 export class HistoryIndex {
     private handles = new Map<number, Handle>();
+    // Отпечаток журнала на момент последнего sync в этом запуске
+    private stamps = new Map<number, string>();
 
     constructor(private directory: string, private source: SignalSource) {}
 
@@ -404,8 +408,24 @@ export class HistoryIndex {
     public sync(userId: unknown): number {
         if (!isId(userId)) return 0;
         return this.guarded(userId, (handle) => {
-            const synced = num((handle.db.prepare("select value from meta where key = 'synced_at'").get() as Values | undefined)?.value);
-            return this.ingest(handle, synced ? synced - 2 * DAY : 0, userId);
+            const sinceNow = (): number => {
+                const synced = num((handle.db.prepare("select value from meta where key = 'synced_at'").get() as Values | undefined)?.value);
+                return synced ? synced - 2 * DAY : 0;
+            };
+            // sync зовут история, вкус, радар и сводка недели; без новых записей журнал месяца не перечитывается.
+            // В отпечатке и since: пересобранный с нуля индекс читает журнал с начала, даже если файлы те же
+            const stampOf = (since: number): string => {
+                const files = this.source.stamp?.(userId, since);
+                return files ? since + '|' + files : '';
+            };
+            const since = sinceNow();
+            const stamp = stampOf(since);
+            if (stamp && this.stamps.get(userId) === stamp) return 0;
+            const added = this.ingest(handle, since, userId);
+            // Чтение сдвигает since вперёд: запоминается отпечаток уже для него, иначе следующий sync читал бы зря
+            const next = stampOf(sinceNow());
+            if (next) this.stamps.set(userId, next);
+            return added;
         });
     }
     /**
