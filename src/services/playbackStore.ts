@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { WaveReason, WaveTrack } from './wave';
 import { artworkOf, text, trackPathOf } from './waveSignals';
 import { isLibraryMode, isLibrarySource, type LibraryMode } from './libraryMix';
@@ -18,6 +18,8 @@ export interface PlaybackSnapshot {
     version: 1; at: number; items: SavedQueueItem[]; index: number; position: number; paused: boolean;
     active: boolean; mode: 'similar' | 'fresh'; genre: string | null; seed: SavedSeed | null; fallback: boolean;
 }
+/** Где сейчас очередь: пишется часто и отдельно от снимка, count и current сверяют её с очередью снимка */
+export interface PlaybackProgress { version: 1; progress: true; index: number; position: number; paused: boolean; count: number; current: number }
 export interface LocalMix { id: string; title: string; at: number; tracks: WaveTrack[] }
 export interface LibraryCatalog { at: number; tracks: WaveTrack[] }
 const isId = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
@@ -101,8 +103,16 @@ export function cleanPlaybackSnapshot(input: unknown): PlaybackSnapshot | null {
         ...(kind === 'library' && library ? { library } : {}),
         ...((kind === 'artist' || kind === 'artistAll') && isId(rawSeed.artist) ? { artist: rawSeed.artist } : {}),
     } : null;
-    return { version: 1, at: Date.now(), items, index, position: typeof value.position === 'number' && Number.isFinite(value.position) ? Math.max(0, Math.min(value.position, 86400000)) : 0,
+    return { version: 1, at: Date.now(), items, index, position: cleanPosition(value.position),
         paused: value.paused, active: value.active === true, mode: value.mode === 'fresh' ? 'fresh' : 'similar', genre: text(value.genre, 300) || null, seed, fallback: value.fallback === true };
+}
+const cleanPosition = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(value, 86400000)) : 0;
+export function cleanPlaybackProgress(input: unknown): PlaybackProgress | null {
+    const value = object(input);
+    if (value.version !== 1 || value.progress !== true || typeof value.paused !== 'boolean' || !isId(value.current)) return null;
+    const { index, count } = value;
+    if (!Number.isInteger(count) || !Number.isInteger(index) || (count as number) < 1 || (count as number) > 5000 || (index as number) < 0 || (index as number) >= (count as number)) return null;
+    return { version: 1, progress: true, index: index as number, position: cleanPosition(value.position), paused: value.paused, count: count as number, current: value.current };
 }
 
 /** Содержимое файла подборок: до 100 штук с id, временем, названием и проверенными треками */
@@ -116,6 +126,8 @@ export function cleanMixes(input: unknown): LocalMix[] {
 
 // Вызывается только в worker. Снимки отделены по аккаунтам, запись заменяет файл атомарно.
 export class PlaybackStore {
+    // Отпечаток снимка без места в очереди, записанного в этом запуске: такой же снимок второй раз не пишется
+    private sessions = new Map<number, string>();
     constructor(private directory: string) {}
     private file(user: unknown, kind: string): string {
         if (!isId(user)) throw new Error('Пользователь не определён');
@@ -131,11 +143,32 @@ export class PlaybackStore {
         writeFileSync(file + '.tmp', JSON.stringify(value), 'utf8');
         renameSync(file + '.tmp', file);
     }
-    public loadSession(user: unknown): PlaybackSnapshot | null { return cleanPlaybackSnapshot(this.read(user, 'session')); }
+    public loadSession(user: unknown): PlaybackSnapshot | null {
+        const snapshot = cleanPlaybackSnapshot(this.read(user, 'session'));
+        if (!snapshot) return null;
+        // Место пишется чаще снимка; от другой очереди оно не подходит
+        const progress = cleanPlaybackProgress(this.read(user, 'session-progress'));
+        if (!progress || progress.count !== snapshot.items.length || snapshot.items[progress.index].track.id !== progress.current) return snapshot;
+        return { ...snapshot, index: progress.index, position: progress.position, paused: progress.paused };
+    }
+    /**
+     * Очередь на тысячи треков весит мегабайт, а при игре меняется в основном место в ней. Место идёт в маленький
+     * файл, снимок переписывается, только когда в нём поменялось что-то кроме места
+     */
     public saveSession(user: unknown, input: unknown): boolean {
+        const progress = cleanPlaybackProgress(input);
+        if (progress) { this.write(user, 'session-progress', progress); return true; }
         const snapshot = cleanPlaybackSnapshot(input);
         if (!snapshot) return false;
-        this.write(user, 'session', snapshot); return true;
+        const { index, position, paused } = snapshot;
+        const content = createHash('sha1').update(JSON.stringify({ ...snapshot, at: 0, index: 0, position: 0, paused: false })).digest('base64');
+        // Сначала место: если снимок потом не запишется, место от новой очереди к старому снимку не подойдёт
+        this.write(user, 'session-progress', { version: 1, progress: true, index, position, paused, count: snapshot.items.length, current: snapshot.items[index].track.id });
+        if (this.sessions.get(user as number) !== content) {
+            this.write(user, 'session', snapshot);
+            this.sessions.set(user as number, content);
+        }
+        return true;
     }
     public loadCatalog(user: unknown): LibraryCatalog | null {
         const input = object(this.read(user, 'catalog'));

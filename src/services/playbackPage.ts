@@ -1,5 +1,5 @@
 import type { SitePlayer, SiteQueueItem, WaveTrack, WaveWindow } from './wave';
-import type { PlaybackSnapshot, LocalMix } from './playbackStore';
+import type { PlaybackSnapshot, PlaybackProgress, LocalMix } from './playbackStore';
 
 export interface PlaybackPageHost {
     player(): SitePlayer | null;
@@ -44,6 +44,9 @@ export function installPlaybackPage(host: PlaybackPageHost): PlaybackPage {
     let lastQueue = '';
     let lastSave = 0;
     let lastState = '';
+    // Состав очереди и состояние волны из последнего записанного полного снимка; пока они те же, пишется только место
+    let savedContent = '';
+    let savedContentAt = 0;
     // Снимок не записан: сбой записи или сессия ещё не восстановлена
     let unsaved = false;
     let dragged: SiteQueueItem | null = null;
@@ -117,7 +120,7 @@ export function installPlaybackPage(host: PlaybackPageHost): PlaybackPage {
         const shape = document.createElementNS(svg.namespaceURI, 'path'); shape.setAttribute('d', path); svg.append(shape); node.append(svg);
         return node;
     }
-    function changed(): void { revision++; host.changed(); void save().catch(fail); renderQueue(); }
+    function changed(): void { revision++; host.changed(); void persist(false).catch(fail); renderQueue(); }
     function move(item: SiteQueueItem, delta: number): void {
         const current = queue();
         if (!current) return;
@@ -269,10 +272,24 @@ export function installPlaybackPage(host: PlaybackPageHost): PlaybackPage {
         renderQueue(); renderMixes(); dialog.showModal();
         void host.user().then(async (id) => { mixes = await host.library?.listMixes(id) ?? []; if (!disposed) renderMixes(); }).catch(fail);
     }
-    async function save(): Promise<void> {
+    const itemsKey = (items: SiteQueueItem[]): string => items.map((item) => (item.explicit ? '!' : '') + item.sound?.id).join(',');
+    function progress(): PlaybackProgress | null {
+        const current = queue();
+        const sound = current?.items[current.index]?.sound;
+        if (!current || !sound || current.items.length > 5000) return null;
+        const position = typeof sound.currentTime === 'function' ? sound.currentTime() || 0 : 0;
+        return { version: 1, progress: true, index: current.index, position, paused: !current.player.isPlaying(), count: current.items.length, current: sound.id };
+    }
+    // Явное сохранение (выход, подъём упавшей страницы) всегда полное, тик и правки очереди решают сами
+    const save = (): Promise<void> => persist(true);
+    async function persist(force: boolean): Promise<void> {
         if (!host.library || !restored || restoring) { unsaved = true; return; }
-        if (saving) { await saving; return save(); }
-        const snapshot = host.snapshot(); if (!snapshot) return;
+        if (saving) { await saving; return persist(force); }
+        const content = itemsKey(queue()?.items ?? []) + '|' + host.state();
+        // Раз в 10 минут снимок всё же целиком: в нём есть подробности волны, которых нет в отпечатке.
+        // Worker такой же снимок повторно на диск не пишет
+        const full = force || content !== savedContent || Date.now() - savedContentAt >= 10 * 60 * 1000;
+        const snapshot = full ? host.snapshot() : progress(); if (!snapshot) return;
         saving = (async () => {
             const id = await host.user();
             if (id && !await host.library!.saveSession(id, snapshot)) throw new Error('Сессия не сохранена');
@@ -280,6 +297,7 @@ export function installPlaybackPage(host: PlaybackPageHost): PlaybackPage {
         try {
             await saving;
             unsaved = false;
+            if (full) { savedContent = content; savedContentAt = Date.now(); }
         } catch (error) {
             unsaved = true;
             throw error;
@@ -351,7 +369,7 @@ export function installPlaybackPage(host: PlaybackPageHost): PlaybackPage {
         // Сразу при смене очереди, паузы или волны; место в треке при игре раз в 30 с, на паузе оно не меняется.
         // Раньше снимок уходил в worker каждые 5 с и на паузе в трее тоже
         if (state !== lastState || ((playing || unsaved) && Date.now() - lastSave >= 30000)) {
-            lastSave = Date.now(); lastState = state; void save().catch(fail);
+            lastSave = Date.now(); lastState = state; void persist(false).catch(fail);
         }
     }
     function dispose(): void { disposed = true; revision++; dialog?.remove(); style.remove(); }

@@ -2,7 +2,7 @@
 // Функции ниже уходят на страницу текстом, поэтому они не ссылаются на импорты и константы модуля,
 // только друг на друга по имени: waveScript кладёт их объявления в одну обёртку со скриптом.
 import type { PlaySignal, TrackMeta } from '../types';
-import type { PlaybackSnapshot, LocalMix, LibraryCatalog } from './playbackStore';
+import type { PlaybackSnapshot, PlaybackProgress, LocalMix, LibraryCatalog } from './playbackStore';
 import { installPlaybackPage } from './playbackPage';
 import { installPlaybackRecovery } from './playbackRecovery';
 import * as identity from './trackIdentity';
@@ -148,7 +148,8 @@ export interface WaveWindow extends Window {
     soundcloudAPI?: {
         library?: {
             loadSession(user: number): Promise<PlaybackSnapshot | null>;
-            saveSession(user: number, snapshot: PlaybackSnapshot): Promise<boolean>;
+            /** Полный снимок или только место в той же очереди */
+            saveSession(user: number, snapshot: PlaybackSnapshot | PlaybackProgress): Promise<boolean>;
             loadCatalog(user: number): Promise<LibraryCatalog | null>;
             saveCatalog(user: number, tracks: WaveTrack[]): Promise<boolean>;
             listMixes(user: number): Promise<LocalMix[]>;
@@ -841,7 +842,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     const queueControls = createPlayback({
         player: () => player, user: ensureUser, library: host.soundcloudAPI?.library, language: T.lang,
         snapshot, restore: restoreSnapshot, create: createQueueItem,
-        state: () => [active, mode, genre, fallbackBefore, seed?.kind, seed?.title, seed?.card, seed?.order, seed?.mode, seed?.library?.pick.join(','), seed?.library?.mode].join('|'),
+        // Метки волны у треков тоже в снимке: без них полный снимок не перепишется, если волна пометила уже стоящий трек
+        state: () => [active, mode, genre, fallbackBefore, player?.getState('fallbackEnabled'), seed?.kind, seed?.title, seed?.card, seed?.order, seed?.mode, seed?.library?.pick.join(','), seed?.library?.mode,
+            queueView().items.map((item) => ours.has(item) ? 'w' : '-').join('')].join('|'),
         resolve: async (ids) => {
             const tracks: WaveTrack[] = [];
             for (let i = 0; i < ids.length && !disposed; i += 100) {

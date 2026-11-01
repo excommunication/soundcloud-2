@@ -3021,6 +3021,13 @@ it('сессия пишется по изменению: на паузе ни о
     await vi.advanceTimersByTimeAsync(1000);
     expect(library.saveSession).toHaveBeenCalledTimes(4);
     expect(library.saveSession).toHaveBeenLastCalledWith(77, expect.objectContaining({ index: 1, paused: false }));
+    // Состав очереди тот же: уходит только место, без треков. Первая запись полная, страховочная: с прошлой полной прошло 10 минут паузы
+    expect((library.saveSession.mock.calls as unknown as [number, { progress?: boolean }][]).map(([, payload]) => payload.progress === true)).toEqual([false, true, true, true]);
+
+    // Другой состав очереди снова пишет снимок целиком
+    site.player.getQueue().reset(site.player.getQueue().slice().slice(0, 2));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(library.saveSession).toHaveBeenLastCalledWith(77, expect.objectContaining({ items: expect.any(Array) }));
 });
 it('добавляет трек следующим и в конец без остановки текущего', async () => {
     const site = fakeSite(relatedTracks, siteExtra);

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -12,6 +12,29 @@ it('сохраняет позицию, паузу и очередь отдель
     expect(store.saveSession(77, saved)).toBe(true);
     expect(store.loadSession(77)).toMatchObject({ position: 52000, paused: true, items: [{ explicit: true, track: { id: 42 }, reason: { kind: 'similar', seed: 'Original seed' } }] });
     expect(store.loadSession(78)).toBeNull();
+});
+it('место в очереди пишется отдельно, а снимок с тем же составом второй раз на диск не ложится', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'sc-playback-test-')); folders.push(folder);
+    const store = new PlaybackStore(folder);
+    const saved = snapshot();
+    saved.items.push({ track: { id: 43, title: 'Next', duration: 1000 }, explicit: false, wave: false });
+    expect(store.saveSession(77, saved)).toBe(true);
+    const file = join(folder, 'session-77.json');
+    const written = readFileSync(file, 'utf8');
+    // Тот же состав с другим местом: снимок не переписывается, место видно после перезапуска
+    writeFileSync(file, written.replace('"position":52000', '"position":1'));
+    expect(store.saveSession(77, { ...saved, index: 1, position: 7000, paused: false })).toBe(true);
+    expect(readFileSync(file, 'utf8')).toContain('"position":1');
+    expect(store.loadSession(77)).toMatchObject({ index: 1, position: 7000, paused: false });
+    expect(store.saveSession(77, { version: 1, progress: true, index: 0, position: 9000, paused: true, count: 2, current: 42 })).toBe(true);
+    expect(store.loadSession(77)).toMatchObject({ index: 0, position: 9000, paused: true });
+    // Место от другой очереди к снимку не подходит
+    expect(store.saveSession(77, { version: 1, progress: true, index: 0, position: 3000, paused: true, count: 2, current: 99 })).toBe(true);
+    expect(store.loadSession(77)).toMatchObject({ index: 0, position: 1 });
+    expect(store.saveSession(77, { version: 1, progress: true, index: 2, position: 3000, paused: true, count: 2, current: 42 })).toBe(false);
+    // Новый состав пишется сразу
+    expect(store.saveSession(77, { ...saved, items: saved.items.slice(0, 1) })).toBe(true);
+    expect(store.loadSession(77)?.items).toHaveLength(1);
 });
 it('A19: очередь после перезапуска хранит точный id, название версии, кредиты, даты и причину', () => {
     const store = open(); const saved = snapshot();
