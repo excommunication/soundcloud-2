@@ -99,6 +99,19 @@ describe('Discord presence', () => {
         await service.updatePresence({ ...track, elapsed: '0:15' });
         expect(mocks.setActivity).toHaveBeenCalledTimes(1);
     });
+    it('секунды, пришедшие в разный момент секунды, карточку не меняют; перемотка меняет', async () => {
+        await service.updatePresence(track);
+        // Обновление раз в секунду, но со сдвигом внутри секунды: начало трека дрожит на сотни миллисекунд
+        for (let second = 1; second <= 60; second++) {
+            await vi.advanceTimersByTimeAsync(second % 2 ? 1300 : 700);
+            await service.updatePresence({ ...track, elapsed: '0:' + String(10 + second).padStart(2, '0') });
+        }
+        await vi.advanceTimersByTimeAsync(PRESENCE_INTERVAL_MS);
+        expect(mocks.setActivity).toHaveBeenCalledTimes(1);
+        await service.updatePresence({ ...track, elapsed: '3:00' });
+        await vi.advanceTimersByTimeAsync(PRESENCE_INTERVAL_MS);
+        expect(mocks.setActivity).toHaveBeenCalledTimes(2);
+    });
     it('восстанавливает активность после разрыва без нового события трека', async () => {
         await service.updatePresence(track);
         mocks.clients[0].isConnected = false;

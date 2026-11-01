@@ -10,6 +10,8 @@ interface Settings {
     get(key: string, fallback?: unknown): unknown;
 }
 export const PRESENCE_INTERVAL_MS = 5000;
+// Расхождение начала трека меньше этого считается дрожанием секунд, больше значит перемотку или паузу
+const START_DRIFT_MS = 2000;
 export const GITHUB_REPOSITORY_URL = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop';
 export const GITHUB_ICON_URL = 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png';
 /** Ассет приложения Discord: логотип вместо обложки, когда картинки нет */
@@ -114,6 +116,8 @@ export class PresenceService {
     private revision = 0;
     private lastSentAt = -Infinity;
     private lastPayload: string | null = null;
+    // Начало текущего трека, уже показанное в карточке
+    private started: { url: string; at: number } | null = null;
     private retryMs = 2000;
     private displaySCSmallIcon: boolean;
     private displayButtons: boolean;
@@ -217,7 +221,11 @@ export class PresenceService {
         const details = label(card.details);
         const state = label(card.state);
         card.statusLine = (this.statusDisplayType === 1 ? state : this.statusDisplayType === 2 ? details : undefined)?.trim() || 'SoundCloud';
-        const startTimestamp = observedAt - elapsed * 1000;
+        // Прошедшее время приходит целыми секундами в случайный момент секунды, и начало трека каждый раз
+        // сдвигается на доли секунды. Без привязки карточка отличалась бы всегда и уходила в Discord каждые 5 с
+        let startTimestamp = observedAt - elapsed * 1000;
+        if (this.started?.url === track.url && Math.abs(this.started.at - startTimestamp) < START_DRIFT_MS) startTimestamp = this.started.at;
+        else this.started = { url: track.url, at: startTimestamp };
         // Приватный трек: его адрес с секретной ссылкой не уходит ни в кнопку, ни в ссылки карточки
         const trackUrl = publicTrackPath(track.url) ? soundcloudLink(track.url) : undefined;
         const openUrl = openPageUrl(track.url);
