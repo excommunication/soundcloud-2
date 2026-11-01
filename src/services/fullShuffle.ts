@@ -6,6 +6,9 @@ const { siteRequires } = siteModules;
 
 interface QueueItem {
     explicit?: boolean;
+    sound?: { isPlayable?(): boolean };
+    clone?(changes: object): QueueItem;
+    release?(): void;
 }
 interface PlayQueue {
     readonly length: number;
@@ -21,6 +24,13 @@ interface PlayManager {
     pullNext(count: number): void;
     on(event: string, callback: (value?: unknown) => void): unknown;
     off(event: string, callback: (value?: unknown) => void): unknown;
+}
+// Методы запуска списка нужны только для обхода повторной загрузки, без них перемешивание работает как раньше
+interface SourcePlayer extends PlayManager {
+    playSource(...args: unknown[]): unknown;
+    isSourceActive(source: unknown): boolean;
+    setCurrentItem(item: QueueItem, options?: unknown): void;
+    toggleState?(name: string, value: boolean): unknown;
 }
 interface ShuffleWindow extends Window {
     __disposeFullShuffle?: () => void;
@@ -66,6 +76,9 @@ export function installFullShuffle(enabled: boolean, texts: Record<'ru' | 'en', 
     let manager: PlayManager | null = null;
     let resetEvent = 'queueReset';
     let run = 0;
+    // Очередь догружена до конца источника: клик по другому треку того же списка грузить её заново не должен
+    let loaded = false;
+    let restorePlaySource: (() => void) | undefined;
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
@@ -173,6 +186,7 @@ export function installFullShuffle(enabled: boolean, texts: Record<'ru' | 'en', 
             return;
         }
         reshuffleAhead(player);
+        loaded = !failure && !player.hasMoreAhead();
         if (failure) {
             console.warn('Перемешивание всей очереди:', failure);
             showStatus(failure, 8000);
@@ -187,9 +201,76 @@ export function installFullShuffle(enabled: boolean, texts: Record<'ru' | 'en', 
         }
     };
     const onReset = (): void => {
+        loaded = false;
         if (manager?.getState('shuffle')) onShuffle(true);
         else run++;
     };
+
+    // Сайт на клик по треку из списка выбрасывает очередь и строит новую с этого трека, а её пришлось бы
+    // снова догружать целиком. Если весь список уже в очереди, трек ставится сразу за текущим и включается.
+    function playFromLoaded(player: SourcePlayer, source: unknown, sound: unknown, options: unknown): boolean {
+        if (!loaded || !sound || !player.getState('shuffle') || player.getState('globalPlayLock') || player.hasMoreAhead()) return false;
+        const getSourceInfo = (source as { getSourceInfo?: unknown } | null)?.getSourceInfo;
+        if (typeof getSourceInfo !== 'function') return false;
+        // Пустое описание источника у разных списков совпадает, по нему один список от другого не отличить
+        const info: unknown = getSourceInfo.call(source);
+        if (!info || typeof info !== 'object' || Object.keys(info).length === 0 || !player.isSourceActive(source)) return false;
+        const queue = player.getQueue();
+        const items = queue.slice();
+        const current = player.getQueueState().currentIndex;
+        if (current < 0 || items[current]?.sound === sound) return false;
+        const matches = (index: number): boolean => items[index]?.sound === sound;
+        let index = current + 1;
+        while (index < items.length && !matches(index)) index++;
+        if (index === items.length) {
+            index = current - 1;
+            while (index >= 0 && !matches(index)) index--;
+            if (index < 0) return false;
+        }
+        // Недоступный трек сайт пропускает назад, если до этого нажимали «назад», и сбрасывает это только своим запуском списка
+        if (items[index].sound?.isPlayable?.() === false) return false;
+        const rest = items.slice(current + 1);
+        let target = items[index];
+        if (index > current) rest.splice(index - current - 1, 1);
+        else {
+            // Трек уже в истории очереди: там он и остаётся, а за текущим встаёт его копия
+            if (typeof target.clone !== 'function') return false;
+            target = target.clone({ explicit: false });
+            target.release?.();
+        }
+        queue.reset(items.slice(0, current + 1).concat(target, rest));
+        player.setCurrentItem(target, options);
+        // Во время рекламы, которую нельзя пропустить, сайт клик не выполняет: порядок очереди возвращается
+        if (player.getQueueState().currentIndex === current && queue.slice(current)[0] === items[current]) {
+            queue.reset(items);
+            return true;
+        }
+        // Как и запуск списка сайтом, клик снова включает похожие треки после конца очереди
+        player.toggleState?.('fallbackEnabled', true);
+        return true;
+    }
+
+    function canPlaySource(player: PlayManager): player is SourcePlayer {
+        const candidate = player as Partial<SourcePlayer>;
+        return typeof candidate.playSource === 'function' && typeof candidate.isSourceActive === 'function' && typeof candidate.setCurrentItem === 'function';
+    }
+
+    function hookPlaySource(player: PlayManager): void {
+        if (!canPlaySource(player)) return;
+        const original = player.playSource;
+        const patched = function (this: unknown, ...args: unknown[]): unknown {
+            try {
+                if (playFromLoaded(player, args[0], args[1], args[3])) return undefined;
+            } catch (error) {
+                console.error('Перемешивание всей очереди: трек из загруженной очереди не включился, очередь строит сайт:', error);
+            }
+            return original.apply(this, args);
+        };
+        player.playSource = patched;
+        restorePlaySource = () => {
+            if (player.playSource === patched) player.playSource = original;
+        };
+    }
     const onMissingClick = (event: MouseEvent): void => {
         if (event.target instanceof Element && event.target.closest('.shuffleControl'))
             showStatus(T.unsupported, 6000);
@@ -203,6 +284,7 @@ export function installFullShuffle(enabled: boolean, texts: Record<'ru' | 'en', 
         if (manager) {
             manager.on('state:shuffle', onShuffle);
             manager.on(resetEvent, onReset);
+            hookPlaySource(manager);
             if (manager.getState('shuffle')) onShuffle(true);
             return;
         }
@@ -220,6 +302,7 @@ export function installFullShuffle(enabled: boolean, texts: Record<'ru' | 'en', 
         if (retryTimer !== undefined) clearTimeout(retryTimer);
         manager?.off('state:shuffle', onShuffle);
         manager?.off(resetEvent, onReset);
+        restorePlaySource?.();
         document.removeEventListener('click', onMissingClick, true);
         hideStatus();
         window.removeEventListener('pagehide', dispose);
