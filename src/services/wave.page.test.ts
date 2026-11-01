@@ -3113,6 +3113,12 @@ it('не прерывает первую подборку ожиданием с�
     expect(continuePage).toBeDefined(); continuePage!({ collection: likes.slice(200).map((t) => t.id) });
     await vi.advanceTimersByTimeAsync(1000);
     expect(library.saveCatalog).toHaveBeenCalledWith(77, expect.arrayContaining([expect.objectContaining({ id: 20249 })]));
+    // Повторная догрузка (возврат сети) с теми же лайками: каталог не читается с диска и не переписывается
+    expect(library.loadCatalog).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(new Event('online'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(library.loadCatalog).toHaveBeenCalledTimes(1);
+    expect(library.saveCatalog).toHaveBeenCalledTimes(1);
 });
 
 it('зёрна обычной волны от разных артистов: любимый артист в истории не даёт два-три зерна из трёх', async () => {

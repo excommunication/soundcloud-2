@@ -1015,6 +1015,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     }
     let expanding: Profile | null = null;
     let expansion: Promise<void> | null = null;
+    // Каталог лайков на диске после последней полной догрузки. Новый профиль получает его треки от прошлого,
+    // поэтому файл второй раз не читается, а без новых лайков и снятых не переписывается
+    let catalog: { userId: number; ids: Set<number> } | null = null;
     function expandLibrary(current: Profile): Promise<void> {
         if (expanding === current && expansion) return expansion;
         expansion = expandLibraryData(current);
@@ -1023,10 +1026,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     async function expandLibraryData(current: Profile): Promise<void> {
         expanding = current;
         try {
-            const cached = await host.soundcloudAPI?.library?.loadCatalog(current.userId);
+            let stored = catalog?.userId === current.userId ? catalog.ids : null;
+            const cached = stored ? null : await host.soundcloudAPI?.library?.loadCatalog(current.userId);
             if (disposed || profile !== current) return;
             const byId = new Map(current.likedTracks.map((track) => [track.id, track]));
-            if (cached) for (const track of cached.tracks) byId.set(track.id, track);
+            if (cached) {
+                for (const track of cached.tracks) byId.set(track.id, track);
+                stored = new Set(cached.tracks.map((track) => track.id));
+            }
+            let fetched = false;
             // Имена дополняются только новыми треками: разбор всей библиотеки на каждой порции заморозил бы страницу
             const named = new Set([...current.history, ...current.likedTracks].map((track) => track.id));
             const publish = (): void => {
@@ -1041,7 +1049,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 const missing = [...current.liked].filter((id) => !byId.has(id));
                 for (let i = 0; i < missing.length && !disposed && profile === current; i += 100) {
                     await Promise.all([missing.slice(i, i + 50), missing.slice(i + 50, i + 100)].filter((part) => part.length).map(async (part) => {
-                        for (const track of tracksOf(await call('trackBatch', {}, { ids: part.join(',') }))) byId.set(track.id, track);
+                        for (const track of tracksOf(await call('trackBatch', {}, { ids: part.join(',') }))) { byId.set(track.id, track); fetched = true; }
                     }));
                     if (disposed || profile !== current) return;
                     publish();
@@ -1064,7 +1072,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             for (const id of current.unconfirmed ?? []) current.liked.delete(id);
             current.unconfirmed = undefined;
             publish();
-            if (host.soundcloudAPI?.library && !await host.soundcloudAPI.library.saveCatalog(current.userId, current.likedTracks)) throw new Error('Каталог не сохранён');
+            const ids = new Set(current.likedTracks.map((track) => track.id));
+            const same = !fetched && !!stored && stored.size === ids.size && [...ids].every((id) => stored?.has(id));
+            if (!same && host.soundcloudAPI?.library && !await host.soundcloudAPI.library.saveCatalog(current.userId, current.likedTracks)) throw new Error('Каталог не сохранён');
+            if (host.soundcloudAPI?.library) catalog = { userId: current.userId, ids };
         } finally {
             if (expanding === current) expanding = null;
         }
