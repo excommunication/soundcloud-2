@@ -129,6 +129,8 @@ export interface QuietCore {
 export interface QuietSection {
     /** Трек сменился плавным переходом за секунды до конца: для журнала он дослушан */
     crossfaded(id: number): boolean;
+    /** Звуковая цепочка сайта у играющего трека: к её регулятору переливы цепляют анализатор, звук он не меняет */
+    siteAudio(): { context: AudioContext; gain: GainNode } | null;
     dispose(): void;
 }
 
@@ -828,6 +830,11 @@ export function installQuiet(core: QuietCore): QuietSection {
     timer = setTimeout(loop, 500);
     return {
         crossfaded: (id) => crossfadedIds.includes(id),
+        siteAudio: () => {
+            const sound = core.player()?.getCurrentSound();
+            const found = sound ? siteAudioOf(sound) : null;
+            return found ? { context: found.context, gain: found.gain } : null;
+        },
         dispose: () => {
             if (timer !== undefined) clearTimeout(timer);
             timer = undefined;

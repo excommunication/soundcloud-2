@@ -1,5 +1,7 @@
 // Английские подписи панели настроек. Ключ это русская строка из settings.html или settings.js
 window.SETTINGS_EN = {
+    'Под бит': 'To the beat',
+    'Скорость по темпу трека, вспышки на ударах': 'Speed follows the tempo, flashes on the beats',
     'Провайдер': 'Provider',
     'Оформление': 'Appearance',
     'Переливы за сайтом': 'Living background',
