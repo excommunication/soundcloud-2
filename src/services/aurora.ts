@@ -404,12 +404,12 @@ export function appearanceCss(appearance: Appearance): string {
     const w = 'html body #sc-wave';
     rows.push(
         `${w}{--scw-surface:var(--sc2-surface-2);--scw-film:var(--sc2-surface-1);--scw-film-strong:var(--sc2-surface-2);--scw-tile:var(--sc2-surface-2);--scw-muted:var(--sc2-text-2);--scw-faint:var(--sc2-text-3);--scw-btn:#fff;--scw-btn-ink:#0b0c10}`,
-        `${w} .scw-title{font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.4px;color:var(--sc2-text)}`,
-        `${w} .scw-hint{color:var(--sc2-text-3)}`,
-        `${w} .scw-seg{padding:3px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-title{font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.3px;color:var(--sc2-text);padding-top:4px}`,
+        `${w} .scw-head .scw-hint{display:none}`,
+        `${w} .scw-seg{padding:3px;border-radius:999px;background:var(--sc2-surface-2);box-shadow:none}`,
         `${w} .scw-seg button{border-radius:999px;transition:background var(--sc2-mid) var(--sc2-ease),color var(--sc2-mid)}`,
-        `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line);transition:background var(--sc2-fast)}`,
-        `${w} .scw-icon:hover,${w} .scw-genre:hover{background:var(--sc2-surface-2);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:var(--sc2-surface-2);box-shadow:none;transition:background var(--sc2-fast)}`,
+        `${w} .scw-icon:hover,${w} .scw-genre:hover{background:var(--sc2-surface-3);box-shadow:none}`,
         `${w} .scw-genre.set{background:#fff;color:#0b0c10}`,
         `${w} .scw-pop{border-radius:var(--sc2-r3);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
         `${w} .scw-body{margin:0;padding:20px;gap:24px;border-radius:var(--sc2-r4);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
@@ -424,14 +424,14 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-like:hover{background:var(--sc2-surface-2)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 16px;background:var(--sc2-surface-2)}`,
-        `${w} .scw-up-h{font-size:12px;font-weight:600;color:var(--sc2-text-3);letter-spacing:.02em}`,
+        `${w} .scw-up-h{font-size:12px;font-weight:500;color:var(--sc2-text-3);margin:20px 0 6px}`,
         `${w} .scw-tile{padding:8px;margin:0;border-radius:var(--sc2-r3);background:transparent;transition:background var(--sc2-fast)}`,
         `${w} .scw-tile:hover{background:var(--sc2-surface-1)}`,
         `${w} .scw-tile>.scw-art,${w} .scw-row .scw-art{border-radius:var(--sc2-r1);overflow:hidden}`,
-        `${w} .scw-chip{height:30px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line);color:var(--sc2-text-2);font-weight:500;transition:background var(--sc2-fast),color var(--sc2-fast)}`,
-        `${w} .scw-chip:hover{background:var(--sc2-surface-2);color:var(--sc2-text)}`,
+        `${w} .scw-chip{height:30px;border-radius:999px;background:var(--sc2-surface-2);box-shadow:none;color:var(--sc2-text-2);font-weight:500;transition:background var(--sc2-fast),color var(--sc2-fast)}`,
+        `${w} .scw-chip:hover{background:var(--sc2-surface-3);color:var(--sc2-text)}`,
         `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:#fff;color:#0b0c10;box-shadow:none}`,
-        `${w} .scw-pin{height:30px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-pin{height:30px;border-radius:999px;background:var(--sc2-surface-2);box-shadow:none}`,
         `${w} .scw-shelf-h{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.3px}`,
         `${w} .scw-card .scw-art{border-radius:var(--sc2-r3);overflow:hidden}`,
         `${w} .scw-card .scw-art::after{background:var(--sc2-accent)}`,
@@ -813,9 +813,13 @@ export function auroraPage(config: AuroraConfig): void {
         // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
         const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
         // Темп и громкость двигают скорость мягко, дроп разгоняет фон почти вдвое; никаких вспышек на ударах
-        const drive = 1 + amount * ((tempo - 1) * 0.6 + (beat.level - 0.35) * 0.5 + beat.drop * 0.9);
-        const speedWant = calm ? 0.18 : Math.max(0.5, drive);
-        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 900 : 1600));
+        // Ритм ведёт скорость: громкость относительно своей средней по треку и плотность ударов за 4 с (3 удара в секунду
+        // это много). Быстрее и плотнее стало, фон ускоряется за ~0,6 с; дроп добавляет сверху; назад за ~1,5 с
+        const rel = Math.min(1.8, Math.max(0.4, beat.short / (beat.long + 0.02)));
+        const density = Math.min(1, beat.beats.filter((at) => now - at < 4000).length / 12);
+        const drive = 1 + amount * ((tempo - 1) * 0.5 + (rel - 1) * 0.9 + (density - 0.35) * 0.9 + beat.drop * 0.8);
+        const speedWant = calm ? 0.18 : Math.min(2.4, Math.max(0.5, drive));
+        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 600 : 1500));
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * speedNow;
         // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
         const drop = calm ? 0 : beat.drop * amount;
@@ -845,17 +849,18 @@ export function auroraPage(config: AuroraConfig): void {
     // снятие лайка без салюта. Кнопки лайка сайта, бара и блока волны
     const LIKE = '.sc-button-like, .playbackSoundBadge__like, #sc-wave .scw-like[data-act="like"]';
     let chime: AudioContext | null = null;
-    function playChime(): void {
+    // Лайк: две ноты вверх; дизлайк: две ноты вниз, ниже и тише
+    function playChime(notes: number[] = [880, 1318.5], type: OscillatorType = 'sine', volume = 0.05): void {
         try {
             chime ??= new AudioContext();
             const at = chime.currentTime + 0.01;
-            [880, 1318.5].forEach((freq, i) => {
+            notes.forEach((freq, i) => {
                 const osc = chime!.createOscillator();
                 const amp = chime!.createGain();
-                osc.type = 'sine';
+                osc.type = type;
                 osc.frequency.value = freq;
                 amp.gain.setValueAtTime(0, at + i * 0.07);
-                amp.gain.linearRampToValueAtTime(0.05, at + i * 0.07 + 0.008);
+                amp.gain.linearRampToValueAtTime(volume, at + i * 0.07 + 0.008);
                 amp.gain.exponentialRampToValueAtTime(0.0001, at + i * 0.07 + 0.16);
                 osc.connect(amp);
                 amp.connect(chime!.destination);
@@ -893,7 +898,34 @@ export function auroraPage(config: AuroraConfig): void {
         setTimeout(() => layer.remove(), 700);
         (button as HTMLElement).animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.22)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.2,0,0,1)' });
     }
+    // Дизлайк: кнопка коротко «мотает головой», вниз осыпаются серые точки
+    const DISLIKE = '.scd-dock button[data-act="dislike"], #sc-wave .scw-like[data-act="dislike"], .scw-menu [data-menu="dislike"]';
+    function shake(button: Element): void {
+        (button as HTMLElement).animate?.(
+            [{ transform: 'translateX(0)' }, { transform: 'translateX(-4px) rotate(-6deg)' }, { transform: 'translateX(4px) rotate(6deg)' }, { transform: 'translateX(-2px)' }, { transform: 'translateX(0)' }],
+            { duration: 320, easing: 'ease-out' },
+        );
+        const box = button.getBoundingClientRect();
+        const layer = document.createElement('div');
+        layer.style.cssText = `position:fixed;left:${box.left + box.width / 2}px;top:${box.top + box.height / 2}px;width:0;height:0;z-index:2147483600;pointer-events:none`;
+        for (let i = 0; i < 6; i++) {
+            const dot = document.createElement('i');
+            const size = 3 + Math.random() * 3;
+            dot.style.cssText = `position:absolute;left:${-size / 2}px;top:${-size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:rgba(245,246,248,.55)`;
+            layer.append(dot);
+            const x = (Math.random() - 0.5) * 28;
+            dot.animate([{ transform: 'translate(0,0)', opacity: 0.9 }, { transform: `translate(${x}px,${22 + Math.random() * 16}px)`, opacity: 0 }], { duration: 420 + Math.random() * 120, easing: 'cubic-bezier(.5,0,.8,.4)' });
+        }
+        document.body.append(layer);
+        setTimeout(() => layer.remove(), 650);
+    }
     const onLikeClick = (event: MouseEvent): void => {
+        const disliked = event.target instanceof Element ? event.target.closest(DISLIKE) : null;
+        if (disliked && disliked.getAttribute('aria-pressed') !== 'true') {
+            if (!document.documentElement.classList.contains('scm-reduce')) shake(disliked);
+            if (cfg.appearance.likeSound) playChime([392, 293.7], 'triangle', 0.04);
+            return;
+        }
         const button = event.target instanceof Element ? event.target.closest(LIKE) : null;
         if (!button) return;
         const was = button.classList.contains('sc-button-selected') || button.getAttribute('aria-pressed') === 'true';

@@ -1,18 +1,19 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: transparent; overflow: hidden; }
 body {
+    background: #10121a;
     font: 13px/18px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: #f5f6f8;
     -webkit-font-smoothing: antialiased;
     user-select: none;
-    padding: 6px;
+    padding: 0;
 }
 .pop {
     height: 100%;
-    border-radius: 18px;
-    padding: 12px;
+    border-radius: 0;
+    padding: 14px;
     background: radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--c, #7c8cff) 26%, transparent), transparent 60%), rgba(16, 18, 26, 0.94);
-    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
     animation: pop-in 160ms cubic-bezier(.2, 0, 0, 1);
 }
 @keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }

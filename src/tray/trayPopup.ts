@@ -16,8 +16,8 @@ export interface TrayPopupDeps {
     quit(): void;
 }
 
-const WIDTH = 304;
-const HEIGHT = 336;
+const WIDTH = 292;
+const HEIGHT = 324;
 
 export class TrayPopup {
     private window: BrowserWindow | null = null;
@@ -58,7 +58,8 @@ export class TrayPopup {
             width: WIDTH,
             height: HEIGHT,
             frame: false,
-            transparent: true,
+            // Непрозрачное окно: прозрачные окна без рамки падают вместе с режимом совместимости NVIDIA (in-process-gpu)
+            backgroundColor: '#10121a',
             resizable: false,
             movable: false,
             minimizable: false,
@@ -67,7 +68,6 @@ export class TrayPopup {
             skipTaskbar: true,
             alwaysOnTop: true,
             show: false,
-            hasShadow: false,
             webPreferences: { preload: join(__dirname, 'trayPreload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
         });
         trustLocalFile(window.webContents, join(__dirname, 'tray.html'));
@@ -79,11 +79,20 @@ export class TrayPopup {
         return window;
     }
     /** Показать у значка: над ним, если панель задач снизу, иначе под ним; повторный клик по значку прячет */
-    public toggle(anchor: Rectangle): void {
-        if (this.window?.isVisible()) return this.hide();
+    /** false, если окно не открылось: тогда main показывает системное меню */
+    public toggle(anchor: Rectangle): boolean {
+        if (this.window?.isVisible()) {
+            this.hide();
+            return true;
+        }
         // Клик по значку сразу после потери фокуса окном это тот же клик, которым окно закрылось
-        if (Date.now() - this.hiddenAt < 250) return;
-        this.window ??= this.create();
+        if (Date.now() - this.hiddenAt < 250) return true;
+        try {
+            this.window ??= this.create();
+        } catch (error) {
+            console.error('Меню трея не создалось:', error);
+            return false;
+        }
         const area = screen.getDisplayNearestPoint({ x: anchor.x, y: anchor.y }).workArea;
         const above = anchor.y > area.y + area.height / 2;
         const x = Math.round(Math.min(area.x + area.width - WIDTH - 8, Math.max(area.x + 8, anchor.x + anchor.width / 2 - WIDTH / 2)));
@@ -92,6 +101,7 @@ export class TrayPopup {
         this.window.webContents.send('tray-popup:state', this.state());
         this.window.show();
         this.window.focus();
+        return true;
     }
     public hide(): void {
         if (!this.window || this.window.isDestroyed() || !this.window.isVisible()) return;

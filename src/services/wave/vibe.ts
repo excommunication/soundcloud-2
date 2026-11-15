@@ -55,7 +55,7 @@ export function installVibe(core: VibeCore): VibeSection {
     const ru = core.lang === 'ru';
     const T = ru
         ? {
-            placeholder: 'Настрой волну словами: «radio 2026 vibes», «tiktok», «фонк в зал», «как Daft Punk, но мягче»',
+            placeholder: 'Настрой волну: «radio 2026 vibes», «tiktok», «фонк в зал»',
             label: 'Настроить волну',
             go: 'Настроить',
             ai: 'ИИ',
@@ -79,7 +79,7 @@ export function installVibe(core: VibeCore): VibeSection {
             examples: ['radio 2026 vibes', 'tiktok', 'фонк в зал', 'ночной драйв', 'лоуфай для учёбы', 'новый инди'],
         }
         : {
-            placeholder: 'Tune your wave in words: “radio 2026 vibes”, “tiktok”, “gym phonk”, “like Daft Punk but softer”',
+            placeholder: 'Tune your wave: “radio 2026 vibes”, “tiktok”, “gym phonk”',
             label: 'Tune the wave',
             go: 'Tune',
             ai: 'AI',
@@ -108,7 +108,6 @@ export function installVibe(core: VibeCore): VibeSection {
     let status: HTMLElement | null = null;
     let results: HTMLElement | null = null;
     let chip: HTMLButtonElement | null = null;
-    let badge: HTMLElement | null = null;
     let busy = false;
     let request = 0;
     let lastText = '';
@@ -128,7 +127,7 @@ export function installVibe(core: VibeCore): VibeSection {
         const style = el('style', '');
         style.id = 'sc-vibe-style';
         style.textContent = [
-            '#sc-vibe{position:relative;margin:4px 0 24px 16px;font-size:14px;line-height:20px;color:var(--sc2-text,#f5f6f8)}',
+            '#sc-vibe{position:relative;margin:4px 0 28px 16px;font-size:14px;line-height:20px;color:var(--sc2-text,#f5f6f8)}',
             '#sc-vibe button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}',
             '.scv-bar{display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 16px;border-radius:var(--sc2-r4,22px);background:var(--sc2-panel,rgba(14,16,24,.55));',
             'backdrop-filter:var(--sc2-blur,blur(20px));-webkit-backdrop-filter:var(--sc2-blur,blur(20px));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));transition:box-shadow var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
@@ -143,11 +142,12 @@ export function installVibe(core: VibeCore): VibeSection {
             '#sc-vibe .scv-go:active{transform:scale(.96)}',
             '#sc-vibe .scv-go:disabled{opacity:.5;cursor:default}',
             '.scv-go svg{width:16px;height:16px}',
-            '.scv-under{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}',
-            '#sc-vibe .scv-ex,#sc-vibe .scv-toggle,#sc-vibe .scv-btn{height:30px;padding:0 12px;border-radius:999px;background:var(--sc2-surface-1,rgba(255,255,255,.045));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));',
+            '.scv-under{position:absolute;left:0;right:0;top:58px;z-index:20;display:none;flex-wrap:wrap;gap:6px;padding:10px;border-radius:var(--sc2-r3,16px);background:rgba(16,18,26,.95);backdrop-filter:var(--sc2-blur,blur(20px));-webkit-backdrop-filter:var(--sc2-blur,blur(20px));box-shadow:var(--sc2-shadow,0 16px 48px -20px rgba(0,0,0,.8)),inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));animation:scv-in var(--sc2-fast,.12s) var(--sc2-ease,ease)}',
+            '#sc-vibe:has(.scv-input:focus:placeholder-shown) .scv-under{display:flex}',
+            '#sc-vibe .scv-ex,#sc-vibe .scv-toggle,#sc-vibe .scv-btn{height:30px;padding:0 12px;border-radius:999px;background:var(--sc2-surface-2,rgba(255,255,255,.075));',
             'color:var(--sc2-text-2,rgba(245,246,248,.66));font-size:13px;font-weight:500;transition:background var(--sc2-fast,.12s),color var(--sc2-fast,.12s)}',
             '#sc-vibe .scv-ex:hover,#sc-vibe .scv-toggle:hover,#sc-vibe .scv-btn:hover{background:var(--sc2-surface-2,rgba(255,255,255,.075));color:var(--sc2-text,#f5f6f8)}',
-            '#sc-vibe .scv-toggle{margin-left:auto;display:flex;align-items:center;gap:8px;padding-left:8px}',
+            '#sc-vibe .scv-toggle{flex:none;display:flex;align-items:center;gap:7px;padding:0 10px 0 7px;background:transparent;font-size:12px}',
             '.scv-toggle i{position:relative;width:26px;height:16px;border-radius:999px;background:var(--sc2-surface-3,rgba(255,255,255,.12));transition:background var(--sc2-mid,.2s)}',
             '.scv-toggle i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
             '#sc-vibe .scv-toggle[aria-pressed="true"]{color:var(--sc2-text,#f5f6f8)}',
@@ -161,7 +161,7 @@ export function installVibe(core: VibeCore): VibeSection {
             '.scv-status span.on::before{opacity:1;background:var(--sc2-accent,#9aa8ff);animation:scv-blink 1s ease-in-out infinite}',
             '.scv-status span.done{color:var(--sc2-text-2,rgba(245,246,248,.66))}',
             '@keyframes scv-blink{50%{opacity:.35}}',
-            '.scv-card{margin-top:12px;padding:12px 12px 12px 16px;border-radius:var(--sc2-r3,16px);background:var(--sc2-surface-1,rgba(255,255,255,.045));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));animation:scv-in var(--sc2-mid,.2s) var(--sc2-ease,ease) both}',
+            '.scv-card{margin-top:10px;padding:10px 10px 10px 16px;border-radius:var(--sc2-r3,16px);background:var(--sc2-surface-1,rgba(255,255,255,.045));animation:scv-in var(--sc2-mid,.2s) var(--sc2-ease,ease) both}',
             '.scv-head{display:flex;align-items:center;gap:10px}',
             '.scv-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--sc2-accent,#9aa8ff);box-shadow:0 0 0 4px color-mix(in srgb,var(--sc2-accent,#9aa8ff) 22%,transparent)}',
             '.scv-titles{min-width:0;flex:1}',
@@ -204,33 +204,34 @@ export function installVibe(core: VibeCore): VibeSection {
         input.spellcheck = false;
         input.placeholder = T.placeholder;
         input.setAttribute('aria-label', T.label);
-        badge = el('span', 'scv-badge', T.web);
-        badge.title = T.webHint;
+        chip = el('button', 'scv-toggle');
+        chip.type = 'button';
+        chip.title = T.noRuHint;
+        chip.append(el('i', ''), document.createTextNode(ru ? 'Без RU' : 'No RU'));
+        chip.addEventListener('click', () => core.setNoRussian(!core.noRussian()));
         const go = el('button', 'scv-go');
         go.type = 'submit';
+        go.title = T.webHint;
         go.append(T.go);
         go.insertAdjacentHTML('beforeend', ICON_GO);
-        bar.append(input, badge, go);
+        bar.append(input, chip, go);
         bar.addEventListener('submit', (event) => {
             event.preventDefault();
             void run(input?.value ?? '', false);
         });
+        // Примеры: выпадают под строкой, только пока поле в фокусе и пустое; mousedown не уводит фокус до клика
         const under = el('div', 'scv-under');
-        for (const text of T.examples.slice(0, 5)) {
+        for (const text of T.examples) {
             const ex = el('button', 'scv-ex', text);
             ex.type = 'button';
+            ex.addEventListener('mousedown', (event) => event.preventDefault());
             ex.addEventListener('click', () => {
                 if (input) input.value = text;
+                input?.blur();
                 void run(text, false);
             });
             under.append(ex);
         }
-        chip = el('button', 'scv-toggle');
-        chip.type = 'button';
-        chip.title = T.noRuHint;
-        chip.append(el('i', ''), document.createTextNode(T.noRu));
-        chip.addEventListener('click', () => core.setNoRussian(!core.noRussian()));
-        under.append(chip);
         status = el('div', 'scv-status');
         status.hidden = true;
         results = el('div', '');
@@ -246,10 +247,8 @@ export function installVibe(core: VibeCore): VibeSection {
         } catch {
             aiReady = false;
         }
-        if (badge) {
-            badge.textContent = aiReady ? T.ai + ' + ' + T.web : T.web;
-            badge.title = aiReady ? T.aiHint + '. ' + T.webHint : T.webHint;
-        }
+        const go = root?.querySelector<HTMLElement>('.scv-go');
+        if (go) go.title = aiReady ? T.aiHint + '. ' + T.webHint : T.webHint;
     }
 
     function setStep(step: number): void {
