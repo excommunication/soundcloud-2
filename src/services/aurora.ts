@@ -855,7 +855,10 @@ export function auroraPage(config: AuroraConfig): void {
         const drive = 1 + amount * ((tempo - 1) * 0.5 + (rel - 1) * 0.9 + (density - 0.35) * 0.9 + beat.drop * 0.8);
         const speedWant = calm ? 0.18 : Math.min(2.4, Math.max(0.5, drive));
         speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 600 : 1500));
-        time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * speedNow;
+        // Каждый удар даёт короткий толчок скорости (затухает за ~0,2 с): фон попадает в ритм, а не только ускоряется в среднем.
+        // Это движение, а не вспышка: яркость не меняется
+        const kick = calm ? 0 : beat.pulse * amount * 0.5;
+        time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * (speedNow + kick);
         // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
         const drop = calm ? 0 : beat.drop * amount;
         if (Math.abs(drop - cssPulse) > 0.05) {
