@@ -296,7 +296,7 @@ it('ПКМ по треку в списке: меню и волна от этог
 
     const event = rightClick(row.querySelector('.soundTitle__title')!);
     expect(event.defaultPrevented).toBe(true);
-    expect(menuActs()).toEqual(['wave-track', 'wave-artist', 'artist-all', 'queue-next', 'queue-last', 'pick', 'more', 'later', 'dislike', 'versions', 'hide-family', 'hide-artist']);
+    expect(menuActs()).toEqual(['wave-track', 'wave-artist', 'artist-all', 'queue-next', 'queue-last', 'pick', 'more', 'later', 'dislike', 'versions', 'hide-family', 'hide-artist', 'copy-link']);
     choose('wave-track');
     expect(document.querySelector('.scw-menu')).toBeNull();
     // Трек из списка сайта волне ещё не знаком: плашка без названия, сразу, до ответа сайта
@@ -330,7 +330,7 @@ it('меню мышью без фокуса на пункте, стрелки и
     expect(menu.style.transformOrigin).toMatch(/px top$/);
     const key = (name: string): void => void document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
     key('ArrowUp');
-    expect((document.activeElement as HTMLElement).dataset.menu).toBe('hide-artist');
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('copy-link');
     key('ArrowDown');
     expect((document.activeElement as HTMLElement).dataset.menu).toBe('wave-track');
     key('Escape');
@@ -410,7 +410,7 @@ it('ПКМ по артисту: волна от его треков, его тр
     window.eval(waveScript());
     await vi.advanceTimersByTimeAsync(100);
     rightClick(row.querySelector('.soundTitle__username')!);
-    expect(menuActs()).toEqual(['wave-artist', 'artist-all', 'pin', 'later-artist', 'hide-artist']);
+    expect(menuActs()).toEqual(['wave-artist', 'artist-all', 'pin', 'later-artist', 'hide-artist', 'copy-link']);
     choose('wave-artist');
     await vi.advanceTimersByTimeAsync(100);
     expect(site.api.callEndpoint).toHaveBeenCalledWith('userToptracks', { id: 900 }, { limit: 20 });
@@ -442,7 +442,7 @@ it('Ф1: «Все треки артиста»: загрузки по стран�
     window.eval(waveScript());
     await vi.advanceTimersByTimeAsync(100);
     rightClick(row.querySelector('.soundTitle__username')!);
-    expect(menuActs()).toEqual(['wave-artist', 'artist-all', 'pin', 'later-artist', 'show-artist']);
+    expect(menuActs()).toEqual(['wave-artist', 'artist-all', 'pin', 'later-artist', 'show-artist', 'copy-link']);
     choose('artist-all');
     expect(document.querySelector('.scw-toast.on')?.textContent).toBe('Collecting the artist’s tracks…');
     await vi.advanceTimersByTimeAsync(500);
@@ -487,7 +487,7 @@ it('В5: плейлист и артист закрепляются из меню
     expect(section.querySelector('.scw-pins')).toBeNull();
 
     rightClick(mix);
-    expect(menuActs()).toEqual(['wave-playlist', 'pin']);
+    expect(menuActs()).toEqual(['wave-playlist', 'pin', 'copy-link']);
     choose('pin');
     await vi.advanceTimersByTimeAsync(100);
     expect(document.querySelector('.scw-toast')?.textContent).toBe('Pinned to home: Mix');
@@ -496,7 +496,7 @@ it('В5: плейлист и артист закрепляются из меню
     await vi.advanceTimersByTimeAsync(100);
     expect(pinTitles()).toEqual(['Mix', 'Art']);
     rightClick(mix);
-    expect(menuActs()).toEqual(['wave-playlist', 'unpin']);
+    expect(menuActs()).toEqual(['wave-playlist', 'unpin', 'copy-link']);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     // Порядок главной: волна, пять следующих, быстрый ряд (настроения и закрепления), «Моя музыка»
