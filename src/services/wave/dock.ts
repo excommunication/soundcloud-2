@@ -37,7 +37,7 @@ export function installDock(core: DockCore): DockSection {
             '.scd-dock button:active,.scd-quick button:active{transform:scale(.9)}',
             '.scd-dock button:focus-visible,.scd-quick button:focus-visible{outline:2px solid var(--sc2-accent,#9aa8ff);outline-offset:1px}',
             '.scd-dock svg,.scd-quick svg{width:15px;height:15px;fill:currentColor}',
-            '.scd-dock button[aria-pressed="true"]{background:var(--sc2-vice,#ff4fa3);color:var(--sc2-ink,#1b0a1f);box-shadow:0 6px 16px -6px rgba(255,79,163,.9)}',
+            '.scd-dock button[aria-pressed="true"]{background:#fff;color:#0b0c10}',
             '.scd-dock button.pop{animation:scd-pop .22s var(--sc2-ease,ease)}',
             '.scd-quick{position:fixed;z-index:2147480000;display:flex;gap:2px;padding:3px;border-radius:999px;background:var(--sc2-panel,rgba(13,15,22,.8));backdrop-filter:var(--sc2-blur,blur(16px));-webkit-backdrop-filter:var(--sc2-blur,blur(16px));box-shadow:var(--sc2-shadow,0 10px 30px -10px rgba(0,0,0,.8)),inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity var(--sc2-fast,.12s) ease,transform var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
             '.scd-quick.on{opacity:1;transform:none;pointer-events:auto}',

@@ -9,7 +9,7 @@ import * as glowModule from './wave/glow';
 const { glowPalette } = glowModule;
 
 export const AURORA_EFFECTS = ['off', 'liquid', 'aurora', 'mesh', 'silk', 'nebula', 'contour'] as const;
-export const AURORA_PALETTES = ['cover', 'vice', 'ocean', 'aurum', 'sunset', 'emerald', 'violet', 'ember', 'sakura', 'mono', 'custom'] as const;
+export const AURORA_PALETTES = ['cover', 'ocean', 'aurum', 'sunset', 'emerald', 'violet', 'ember', 'sakura', 'mono', 'custom'] as const;
 export const AURORA_QUALITY = ['eco', 'balanced', 'high'] as const;
 export type AuroraEffect = (typeof AURORA_EFFECTS)[number];
 export type AuroraPaletteName = (typeof AURORA_PALETTES)[number];
@@ -44,7 +44,7 @@ export interface Appearance {
 
 export const APPEARANCE_DEFAULTS: Appearance = {
     effect: 'liquid',
-    palette: 'vice',
+    palette: 'aurum',
     colors: ['#3a6bff', '#7a3cff', '#00c2ff'],
     speed: 35,
     intensity: 60,
@@ -62,7 +62,6 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 
 /** Готовые палитры: три цвета, первый главный */
 export const PALETTES: Record<Exclude<AuroraPaletteName, 'cover' | 'custom'>, [string, string, string]> = {
-    vice: ['#ff4fa3', '#2b1fb8', '#ffb35c'],
     ocean: ['#1b4dff', '#0a1f7a', '#2fb8ff'],
     aurum: ['#2350ff', '#0b1540', '#6f8bff'],
     sunset: ['#ff5e3a', '#ff2d87', '#ffb347'],
@@ -377,38 +376,32 @@ export function appearanceCss(appearance: Appearance): string {
         'html.scm-reduce #sca-line{display:none}',
         '@media (prefers-reduced-motion:reduce){.playbackSoundBadge__avatar,#sc-wave .scw-cover{transition:none!important;transform:none!important}}',
     );
-    // Дизайн-система SoundCloud 2 «Vice»: фирменный градиент Vice City (кобальт → маджента → розовый → оранжевый → золото)
-    // на главных кнопках, со стеклом вокруг. Карточки большие, с обложкой на всю площадь, подсветкой за курсором (--mx, --my
-    // ставит переливам pointermove) и бегущей рамкой у играющего. Цвет обложки в фоне карточки волны (--sca-cover)
+    // Дизайн-система SoundCloud 2: белые главные кнопки и стекло, один мягкий акцент из обложки, без градиентов. Карточки большие, с обложкой на всю площадь, подсветкой за курсором (--mx, --my
+    // ставит переливам pointermove). Цвет обложки в фоне карточки волны (--sca-cover)
     const panelAlpha = (0.38 + (a.glass / 100) * 0.4).toFixed(3);
     rows.push(
         `:root{--sc2-surface-1:rgba(255,255,255,.05);--sc2-surface-2:rgba(255,255,255,.085);--sc2-surface-3:rgba(255,255,255,.14);--sc2-line:rgba(255,255,255,.1);` +
             `--sc2-text:#fff;--sc2-text-2:rgba(255,255,255,.72);--sc2-text-3:rgba(255,255,255,.48);` +
-            `--sc2-vice:linear-gradient(100deg,#7b5cff 0%,#ff4fa3 38%,#ff7a59 70%,#ffc35c 100%);--sc2-vice-soft:linear-gradient(100deg,rgba(123,92,255,.35),rgba(255,79,163,.35),rgba(255,122,89,.35));` +
-            `--sc2-ink:#1b0a1f;--sc2-accent:#ff6fae;--sc2-panel:rgba(14,12,26,${panelAlpha});--sc2-blur:blur(${a.blur}px) saturate(1.5);` +
+            `--sc2-vice:#fff;--sc2-vice-soft:rgba(255,255,255,.1);` +
+            `--sc2-ink:#0b0c10;--sc2-accent:color-mix(in srgb,var(--sca-c1,#8aa0ff) 55%,#fff);--sc2-panel:rgba(12,14,22,${panelAlpha});--sc2-blur:blur(${a.blur}px) saturate(1.4);` +
             `--sc2-r1:${Math.max(6, Math.round(r * 0.6))}px;--sc2-r2:${Math.max(8, Math.round(r * 0.9))}px;--sc2-r3:${Math.round(r * 1.15)}px;--sc2-r4:${Math.round(r * 1.7)}px;` +
             `--sc2-fast:140ms;--sc2-mid:240ms;--sc2-ease:cubic-bezier(.2,.8,.2,1);--sc2-shadow:0 24px 60px -24px rgba(0,0,0,.85)}`,
-        '@property --sc2-angle{syntax:"<angle>";inherits:false;initial-value:0deg}',
-        '@keyframes sc2-spin{to{--sc2-angle:360deg}}',
-        '@keyframes sc2-sheen{from{transform:translateX(-120%) skewX(-20deg)}to{transform:translateX(220%) skewX(-20deg)}}',
-        // Фирменная кнопка: градиент Vice, тёмный текст, блик пробегает на наведении, нажатие проседает
-        `.sc2-cta{position:relative;overflow:hidden;background:var(--sc2-vice)!important;color:var(--sc2-ink)!important;font-weight:800!important;letter-spacing:.01em;box-shadow:0 10px 28px -10px rgba(255,79,163,.75),inset 0 1px 0 rgba(255,255,255,.45)!important;transition:transform var(--sc2-fast) var(--sc2-ease),box-shadow var(--sc2-mid)!important}`,
-        `.sc2-cta::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);transform:translateX(-120%) skewX(-20deg);pointer-events:none}`,
-        `.sc2-cta:hover::after{animation:sc2-sheen .7s var(--sc2-ease)}`,
-        `.sc2-cta:hover{box-shadow:0 14px 34px -10px rgba(255,79,163,.95),inset 0 1px 0 rgba(255,255,255,.5)!important}`,
-        `.sc2-cta:active{transform:scale(.96)}`,
+        // Главная кнопка: белая с тёмным текстом, на наведении чуть светлеет тень, нажатие проседает
+        `.sc2-cta{background:#fff!important;color:var(--sc2-ink)!important;font-weight:700!important;box-shadow:0 8px 22px -12px rgba(0,0,0,.8)!important;transition:transform var(--sc2-fast) var(--sc2-ease),box-shadow var(--sc2-mid)!important}`,
+        `.sc2-cta:hover{box-shadow:0 10px 26px -10px rgba(0,0,0,.9)!important}`,
+        `.sc2-cta:active{transform:scale(.97)}`,
         // Меню по правому клику, подсказки и тосты волны
         `.scw-menu{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);border:0!important;border-radius:var(--sc2-r3)!important;padding:6px!important;box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)!important;min-width:240px}`,
         `.scw-menu .scw-mi{height:36px!important;padding:0 12px!important;border-radius:var(--sc2-r1)!important;border:0!important;background:none!important;color:var(--sc2-text-2)!important;font-weight:600!important;transition:background var(--sc2-fast),color var(--sc2-fast)}`,
         `.scw-menu .scw-mi:hover,.scw-menu .scw-mi:focus-visible{background:var(--sc2-vice-soft)!important;color:#fff!important;outline:none!important}`,
         `.scw-toast{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);border-radius:999px!important;padding:11px 20px!important;box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)!important;color:#fff!important;font-weight:600}`,
-        `.scw-toast .scw-undo{background:var(--sc2-vice)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important}`,
+        `.scw-toast .scw-undo{color:var(--sc2-accent)!important}`,
         `.scw-tip{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);border-radius:var(--sc2-r1)!important;box-shadow:inset 0 0 0 1px var(--sc2-line)!important}`,
         `.sc-button-small,.sc-button-medium{border-radius:999px!important}`,
         `.sc-button-selected,.playbackSoundBadge__like.sc-button-selected,.sc-button-like.sc-button-selected{color:var(--sc2-accent)!important}`,
         // Подсветка за курсором у всех карточек: мягкое пятно цвета там, где мышь
         `.sc2-spot{position:relative;isolation:isolate}`,
-        `.sc2-spot::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity var(--sc2-mid);background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),rgba(255,111,174,.18),rgba(123,92,255,.10) 40%,transparent 70%)}`,
+        `.sc2-spot::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity var(--sc2-mid);background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.09),transparent 70%)}`,
         `.sc2-spot:hover::before{opacity:1}`,
         // Боковые колонки сайта: карточки-стекло, обложки скруглены, строки подсвечиваются
         `.sidebarModule{border-radius:var(--sc2-r4)!important;padding:8px 14px 4px!important;background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)!important}`,
@@ -420,11 +413,11 @@ export function appearanceCss(appearance: Appearance): string {
     const w = 'html body #sc-wave';
     rows.push(
         `${w}{--scw-surface:var(--sc2-surface-2);--scw-film:var(--sc2-surface-1);--scw-film-strong:var(--sc2-surface-2);--scw-tile:var(--sc2-surface-2);--scw-muted:var(--sc2-text-2);--scw-faint:var(--sc2-text-3);--scw-btn:#fff;--scw-btn-ink:var(--sc2-ink)}`,
-        `${w} .scw-title{font-size:34px;line-height:40px;font-weight:900;letter-spacing:-.8px;color:#fff;text-transform:none}`,
+        `${w} .scw-title{font-size:30px;line-height:36px;font-weight:800;letter-spacing:-.6px;color:#fff}`,
         `${w} .scw-head .scw-hint{display:none}`,
         `${w} .scw-seg{padding:4px;border-radius:999px;background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
         `${w} .scw-seg button{border-radius:999px;font-weight:700;transition:background var(--sc2-mid),color var(--sc2-mid)}`,
-        `${w} .scw-seg button[aria-checked="true"]{background:var(--sc2-vice);color:var(--sc2-ink);box-shadow:0 6px 18px -8px rgba(255,79,163,.9)}`,
+        `${w} .scw-seg button[aria-checked="true"]{background:var(--sc2-vice);color:var(--sc2-ink);box-shadow:0 6px 18px -8px rgba(0,0,0,.55)}`,
         `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line);transition:background var(--sc2-fast),transform var(--sc2-fast)}`,
         `${w} .scw-icon:hover,${w} .scw-genre:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-genre.set{background:var(--sc2-vice);color:var(--sc2-ink)}`,
@@ -432,22 +425,20 @@ export function appearanceCss(appearance: Appearance): string {
         // Карточка «сейчас играет»: под стеклом размытая обложка играющего трека и бегущая рамка Vice, пока играет
         `${w} .scw-body{margin:0;padding:24px;gap:28px;border-radius:var(--sc2-r4);overflow:hidden;background:rgba(14,12,26,.35);backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
         `${w} .scw-body::before{content:"";position:absolute;inset:-40px;z-index:-2;background:var(--sca-cover,none) center/cover;filter:blur(48px) saturate(1.7) brightness(.55);opacity:.85;transition:opacity .6s}`,
-        `${w} .scw-body::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;padding:1.5px;pointer-events:none;background:conic-gradient(from var(--sc2-angle),transparent 0 55%,#ff4fa3 70%,#ffc35c 80%,transparent 90%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .6s}`,
-        `html.sca-playing ${w} .scw-body::after{opacity:1;animation:sc2-spin 6s linear infinite}`,
         `${w} .scw-body.lit{background:rgba(14,12,26,.3)}`,
         `${w} .scw-cover{width:236px;height:236px;border-radius:var(--sc2-r3);overflow:hidden;box-shadow:0 30px 60px -22px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.08)}`,
-        `${w} .scw-play{width:64px;height:64px;background:var(--sc2-vice);box-shadow:0 12px 30px -10px rgba(255,79,163,.9),inset 0 1px 0 rgba(255,255,255,.45);transition:transform var(--sc2-fast) var(--sc2-ease)}`,
+        `${w} .scw-play{width:64px;height:64px;background:#fff;box-shadow:0 12px 30px -12px rgba(0,0,0,.9);transition:transform var(--sc2-fast) var(--sc2-ease)}`,
         `${w} .scw-play svg{fill:var(--sc2-ink)}`,
         `${w} .scw-play:not(:disabled):hover{transform:scale(1.06);filter:none}`,
         `${w} .scw-play:not(:disabled):active{transform:scale(.94)}`,
-        `${w} .scw-track{font-size:28px;line-height:34px;font-weight:900;letter-spacing:-.5px}`,
+        `${w} .scw-track{font-size:26px;line-height:32px;font-weight:800;letter-spacing:-.4px}`,
         `${w} .scw-artist{color:var(--sc2-text-2);font-weight:600}`,
         `${w} .scw-why{color:var(--sc2-text-2)}`,
         `${w} .scw-like{border-radius:999px;transition:background var(--sc2-fast),transform var(--sc2-fast) var(--sc2-ease)}`,
         `${w} .scw-like:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 18px;background:var(--sc2-surface-2);font-weight:700}`,
-        `${w} .scw-up-h{font-size:13px;font-weight:800;color:#fff;letter-spacing:.06em;text-transform:uppercase;margin:28px 0 12px}`,
+        `${w} .scw-up-h{font-size:13px;font-weight:700;color:var(--sc2-text-2);margin:26px 0 10px}`,
         // «Далее»: карточки-обложки в полный рост, название под ними, подъём и увеличение обложки на наведении
         `${w} .scw-tiles:not(.scw-shelf){gap:16px}`,
         `${w} .scw-tile{display:flex;flex-direction:column;gap:2px;padding:10px;margin:0;border-radius:var(--sc2-r3);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line);transition:transform var(--sc2-mid) var(--sc2-ease),box-shadow var(--sc2-mid)}`,
@@ -460,9 +451,9 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-t3{font-size:11px;color:var(--sc2-text-3)}`,
         `${w} .scw-chip{height:32px;padding:0 14px;border-radius:999px;background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line);color:var(--sc2-text-2);font-weight:700;transition:background var(--sc2-fast),color var(--sc2-fast),transform var(--sc2-fast)}`,
         `${w} .scw-chip:hover{background:var(--sc2-surface-3);color:#fff;transform:translateY(-1px)}`,
-        `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:var(--sc2-vice);color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(255,79,163,.9)}`,
+        `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:var(--sc2-vice);color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.55)}`,
         `${w} .scw-pin{height:32px;border-radius:999px;background:var(--sc2-panel);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
-        `${w} .scw-shelf-h{font-size:26px;line-height:32px;font-weight:900;letter-spacing:-.5px}`,
+        `${w} .scw-shelf-h{font-size:24px;line-height:30px;font-weight:800;letter-spacing:-.4px}`,
         // Подборки на полке: обложка-карточка с затемнением снизу, увеличение картинки и подсветка
         `${w} .scw-card .scw-art{border-radius:var(--sc2-r3);overflow:hidden;box-shadow:0 18px 40px -20px rgba(0,0,0,.9)}`,
         `${w} .scw-card .scw-art .scw-img{transition:transform .5s var(--sc2-ease),opacity .2s}`,

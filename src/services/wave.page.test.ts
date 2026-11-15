@@ -174,7 +174,9 @@ it('подбирает треки до запуска, запускает вол
     window.eval(waveScript());
     await vi.advanceTimersByTimeAsync(100);
     const section = document.getElementById('sc-wave')!;
-    expect(section.nextElementSibling?.className).toBe('modular-home-mixed-selection');
+    // Между блоком и полкой сайта стоит «Для тебя» (#sc-foryou)
+    const after = section.nextElementSibling?.id === 'sc-foryou' ? section.nextElementSibling.nextElementSibling : section.nextElementSibling;
+    expect(after?.className).toBe('modular-home-mixed-selection');
     expect(section.querySelectorAll('.scw-tile[data-track]')).toHaveLength(5);
     expect(section.querySelector('.scw-track')?.textContent).toMatch(/Seed \d/);
     expect(section.textContent).not.toContain('Rel 1-7');

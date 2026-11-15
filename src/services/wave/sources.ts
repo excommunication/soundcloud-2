@@ -10,7 +10,7 @@ const { localDay } = waveTexts;
 const { isWaveEligible } = wavePicks;
 
 /** Похожий артист из relatedartists: число треков и подписчиков, чтобы не брать пустые аккаунты */
-export interface RelatedArtist { id: number; username: string; tracks: number; followers: number }
+export interface RelatedArtist { id: number; username: string; tracks: number; followers: number; avatar?: string; url?: string }
 /** Персональная подборка SoundCloud: вид, название, урна и номера треков по порядку. owner у «Liked By» это аккаунт,
  *  чьи лайки в подборке */
 export interface ScMix { kind: 'mix' | 'daily' | 'weekly' | 'liked'; title: string; urn: string; ids: number[]; owner: number }
@@ -27,7 +27,12 @@ export function relatedArtistsOf(body: unknown): RelatedArtist[] {
         seen.add(user.id);
         const count = (item: unknown): number => (typeof item === 'number' && Number.isFinite(item) && item > 0 ? item : 0);
         const tracks = count(user.track_count);
-        return tracks ? [{ id: user.id, username: typeof user.username === 'string' ? user.username.trim() : '', tracks, followers: count(user.followers_count) }] : [];
+        // Аватарка и страница для карточек «Для тебя», только если сайт их отдал
+        const extra = {
+            ...(typeof user.avatar_url === 'string' && /^https:\/\//.test(user.avatar_url) ? { avatar: user.avatar_url } : {}),
+            ...(typeof user.permalink_url === 'string' && /^https:\/\/soundcloud\.com\//.test(user.permalink_url) ? { url: user.permalink_url } : {}),
+        };
+        return tracks ? [{ id: user.id, username: typeof user.username === 'string' ? user.username.trim() : '', tracks, followers: count(user.followers_count), ...extra }] : [];
     });
 }
 
