@@ -31,6 +31,8 @@ export interface VibePlan {
     /** Только свежее: последние полтора года */
     fresh: boolean;
     source: 'local' | 'ai';
+    /** Откуда взяты треки из интернета: названия плейлистов Deezer, «Чарт Deezer» */
+    sources?: string[];
 }
 
 /** Сколько раз трек нашёлся и нашёлся ли он точным совпадением с треком из плана */
@@ -78,6 +80,9 @@ export function vibeScore(track: WaveTrack, hit: VibeHit | undefined, plan: Vibe
         score += 1.4 * (found / plan.words.length);
     }
     if (plan.avoid.some((word) => word.length >= 3 && hay.includes(word))) score -= 2.5;
+    // slowed, nightcore, bass boosted и «tiktok version» вниз, если о них не просили словами запроса
+    const junk = /\b(slowed|sped\s*up|speed\s*up|nightcore|reverb|bass\s*boost(ed)?|8d|tik\s*tok\s*(version|remix)|tiktok\s*(version|remix))\b/i;
+    if (junk.test(track.title ?? '') && !plan.words.some((word) => ['slowed', 'spedup', 'nightcore', 'reverb', 'bassboosted'].includes(word))) score -= 3;
     const plays = typeof track.playback_count === 'number' && track.playback_count > 0 ? track.playback_count : 0;
     const likes = typeof track.likes_count === 'number' && track.likes_count > 0 ? track.likes_count : 0;
     // 1k прослушиваний это 0.43, 100k это 0.71, 10M это 1

@@ -15,6 +15,8 @@ export interface VibeIpcDeps {
     store: Settings;
     secrets: SecretBox;
     fetcher: FetchLike;
+    /** GET с JSON для поиска в интернете (Deezer); без него ищется только на SoundCloud */
+    getJson?: (url: string) => Promise<unknown>;
     applySettingChange(change: SettingChange): void;
     /** Страница перечитывает, подключена ли модель */
     notifyPage(): void;
@@ -74,7 +76,8 @@ export function registerVibeIpc(ipc: IpcRegistry, deps: VibeIpcDeps): void {
     ipc.handle('soundcloud:vibe:plan', async (event, text: unknown, context: unknown) => {
         if (!trustedSite(event) || typeof text !== 'string' || !text.trim() || text.length > 300) return null;
         const config = readAiConfig(store, secrets);
-        return planVibe(text, cleanContext(context), ready(config) ? config : null, deps.fetcher);
+        const web = store.get('vibeWeb', true) !== false ? deps.getJson : undefined;
+        return planVibe(text, cleanContext(context), ready(config) ? config : null, deps.fetcher, web);
     });
     ipc.handle('soundcloud:vibe:status', (event) => trustedSite(event) && ready(readAiConfig(store, secrets)));
     // Настройки волны из блока: пока только «Без русского», ввод проверяется как смена в F1

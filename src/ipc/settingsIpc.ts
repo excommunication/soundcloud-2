@@ -29,9 +29,9 @@ export interface SettingsIpcDeps {
 export function registerSettingsIpc(ipc: IpcRegistry, deps: SettingsIpcDeps): void {
     const { trustedLocal: isTrustedLocalSender } = deps;
     // Add settings toggle handler
-    ipc.on('toggle-settings', (event) => {
+    ipc.on('toggle-settings', (event, section: unknown) => {
         if (!isTrustedLocalSender(event)) return;
-        deps.settings().toggle();
+        deps.settings().toggle(typeof section === 'string' && /^[a-z]{1,20}$/.test(section) ? section : '');
     });
     ipc.removeAllListeners('toggle-history');
     ipc.removeAllListeners('toggle-queue');

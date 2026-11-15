@@ -779,6 +779,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         el,
         trackRow,
         nowPlaying: () => (active ? player?.getCurrentSound()?.id ?? 0 : 0),
+        resetWave: () => clearSeed(),
     });
     // «Без русского» сменился: подборка и очередь впереди чистятся так же, как после «Не нравится»
     function applyNoRussian(value: boolean): void {

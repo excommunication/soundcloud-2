@@ -23,6 +23,7 @@ const defaults: Record<string, string | number | boolean> = {
     crossfadeSeconds: 5,
     reduceMotion: false,
     waveNoRussian: false,
+    vibeWeb: true,
     gpuCompatibilityMode: 'auto',
     siteLanguage: 'ru',
     ...homeBlockDefaults,
@@ -52,6 +53,8 @@ const defaults: Record<string, string | number | boolean> = {
 export class SettingsManager {
     private view: WebContentsView | null = null;
     private disposed = false;
+    /** Раздел, который показать при открытии: «Оформление» из шапки и трея */
+    private section = '';
     /** Чего страница не нашла у поменявшегося сайта; null, пока всё на месте */
     private siteState: SiteState | null = null;
     private resize = (): void => this.updateBounds();
@@ -60,6 +63,8 @@ export class SettingsManager {
         const view = this.view!;
         if (view.webContents.isDestroyed()) return;
         view.webContents.send('update-translations');
+        if (this.section) view.webContents.send('settings-section', this.section);
+        this.section = '';
         view.setVisible(true);
         view.webContents.focus();
         void view.webContents.executeJavaScript("requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('visible')))").catch((error: unknown) => {
@@ -101,12 +106,18 @@ export class SettingsManager {
             this.view !== null && event.sender === this.view.webContents && event.senderFrame === event.sender.mainFrame
         );
     }
-    public toggle(): void {
+    /** section: открыть сразу на разделе; уже открытая панель с разделом переключается на него, а не закрывается */
+    public toggle(section = ''): void {
         if (this.disposed) return;
         if (this.view) {
+            if (section && !this.view.webContents.isDestroyed()) {
+                this.view.webContents.send('settings-section', section);
+                return;
+            }
             this.teardownView();
             return;
         }
+        this.section = section;
         this.beforeOpen();
         this.view = new WebContentsView({
             webPreferences: {

@@ -39,6 +39,7 @@ import { registerUpdateIpc } from './ipc/updateIpc';
 import { registerPageIpc, type PlaybackState } from './ipc/pageIpc';
 import { registerWaveIpc } from './ipc/waveIpc';
 import { registerVibeIpc } from './ipc/vibeIpc';
+import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
@@ -203,6 +204,8 @@ let iconicThumbnail: IconicThumbnail | null = null;
 let playbackController: PlaybackController;
 let shortcutService: ShortcutService;
 let tray: Tray | null = null;
+// Меню трея SoundCloud 2 на Windows: своё стеклянное окошко вместо системного меню
+let trayPopup: TrayPopup | null = null;
 let trayMenu: Menu | null = null;
 let isQuitting = false;
 const devMode = process.argv.includes('--dev');
@@ -408,7 +411,24 @@ function setupTray() {
     tray = new Tray(trayIcon);
     tray.setToolTip(appTitle);
     trayMenu = buildTrayMenu();
-    tray.setContextMenu(trayMenu);
+    if (process.platform === 'win32') {
+        trayPopup?.dispose();
+        trayPopup = new TrayPopup({
+            track: () => playback.info,
+            incognito: () => store.get('discordIncognito', false) === true,
+            language: () => appLanguage(),
+            command: (name) => void playbackController?.execute(name).catch(console.error),
+            open: (section) => {
+                showMainWindow();
+                if (section && settingsManager) settingsManager.toggle(section === 'appearance' ? 'appearance' : 'general');
+            },
+            setIncognito: (value) => setDiscordIncognito(value, false),
+            quit: () => app.quit(),
+        });
+        tray.on('right-click', () => {
+            if (tray) trayPopup?.toggle(tray.getBounds());
+        });
+    } else tray.setContextMenu(trayMenu);
 
     tray.on('click', () => showMainWindow());
 }
@@ -422,7 +442,7 @@ function headerTexts(): Record<string, string> {
 function applyAppLanguage(): void {
     if (tray) {
         trayMenu = buildTrayMenu();
-        tray.setContextMenu(trayMenu);
+        if (process.platform !== 'win32') tray.setContextMenu(trayMenu);
     }
     if (headerView && !headerView.webContents.isDestroyed()) headerView.webContents.send('header-texts', headerTexts());
     historyManager?.setLanguage(appLanguage());
@@ -954,6 +974,7 @@ async function init() {
         webhooks: () => webhookService,
         previewPresence: sendPresencePreview,
         updateThumbar: (track) => {
+            trayPopup?.push();
             if (!thumbarService) return;
             thumbarService.updateThumbarButtons(mainWindow, track.isPlaying, track.isLiked);
             thumbarService.updateTrack(mainWindow, track, store.get('trackParserEnabled', true) === true, appTitle);
@@ -1001,6 +1022,11 @@ async function init() {
         store,
         secrets: safeStorage,
         fetcher: ((url, init) => net.fetch(url, init)) as FetchLike,
+        getJson: async (url) => {
+            const response = await net.fetch(url, { signal: AbortSignal.timeout(6000) });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        },
         applySettingChange,
         notifyPage: () => {
             if (contentView && !contentView.webContents.isDestroyed())
