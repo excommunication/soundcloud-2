@@ -29,6 +29,37 @@ export function scoutStart(samples: number[], duration: number, span = 20000): n
     return Math.round(Math.max(0, Math.min(start, duration - span - 2000)));
 }
 
+/** «К дропу» (2.7.0): место, где трек раскрывается. Окна по 4 с: первое впереди текущей позиции, где громкость доходит
+ *  до 85% самой громкой после заметно более тихих 6 с (подъём, а не просто громкий кусок). Нет подъёма впереди: первое
+ *  громкое место впереди, иначе самое громкое в треке. На полторы секунды раньше, чтобы слышать разгон. -1, если формы нет */
+export function dropAt(samples: number[], duration: number, position: number): number {
+    if (!(duration > 0) || samples.length < 30) return -1;
+    const step = duration / samples.length;
+    const width = Math.max(1, Math.round(4000 / step));
+    const before = Math.max(1, Math.round(6000 / step));
+    const means: number[] = [];
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) {
+        sum += samples[i];
+        if (i >= width) sum -= samples[i - width];
+        means.push(sum / Math.min(i + 1, width));
+    }
+    const peak = Math.max(...means);
+    if (!(peak > 0)) return -1;
+    // means[i] это окно, которое кончается на i: начало окна на width раньше
+    const startOf = (i: number): number => Math.max(0, (i - width + 1) * step);
+    const ahead = (i: number): boolean => startOf(i) > position + 3000;
+    const quietBefore = (i: number): boolean => {
+        const j = i - width;
+        return j >= 0 && means[Math.max(0, j - before + width)] < peak * 0.7 && means[j] < peak * 0.75;
+    };
+    let at = means.findIndex((value, i) => ahead(i) && value >= peak * 0.85 && quietBefore(i));
+    if (at < 0) at = means.findIndex((value, i) => ahead(i) && value >= peak * 0.85);
+    if (at < 0) at = means.findIndex((value, i) => i * step >= duration * 0.08 && value >= peak * 0.85);
+    if (at < 0) return -1;
+    return Math.round(Math.max(0, Math.min(startOf(at) - 1500, duration - 5000)));
+}
+
 export interface ScoutCore {
     texts: WaveTexts;
     player(): SitePlayer | null;

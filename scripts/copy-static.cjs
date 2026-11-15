@@ -12,7 +12,7 @@ for (const name of fs.readdirSync(updateSource)) {
     if (/\.(html|css|js)$/.test(name)) fs.copyFileSync(path.join(updateSource, name), path.join(updateTarget, name));
 }
 
-for (const folder of ['settings', 'history', 'tray']) {
+for (const folder of ['settings', 'history', 'tray', 'intro']) {
     const source = path.join(root, 'src', folder);
     const target = path.join(root, 'tsc', folder);
     fs.mkdirSync(target, { recursive: true });
