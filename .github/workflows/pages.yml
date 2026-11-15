@@ -1,10 +1,6 @@
 name: Страница-переходник на Pages
+# Только вручную: сначала включи Pages в Settings → Pages (Source: GitHub Actions)
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'pages/**'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 permissions:
   contents: read
