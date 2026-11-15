@@ -1,9 +1,4 @@
 /* Заставка запуска: логотип собирается, его «берут», подбрасывают, он взрывается, и сквозь круг взрыва проступает клиент */
-@property --r {
-    syntax: '<length>';
-    inherits: false;
-    initial-value: 0px;
-}
 html,
 body {
     margin: 0;
@@ -20,8 +15,12 @@ body {
     inset: 0;
     background: radial-gradient(120% 90% at 50% 40%, #0d1222 0%, #070a12 60%, #04060b 100%);
     overflow: hidden;
-    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 90px));
-    mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 90px));
+    will-change: transform;
+}
+/* Дыра взрыва: маска с маленьким кругом, растёт масштабом слоя (на видеокарте, без перерисовки каждый кадр) */
+.veil.open {
+    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent 22px, #000 30px);
+    mask-image: radial-gradient(circle at var(--x) var(--y), transparent 22px, #000 30px);
 }
 .blob {
     position: absolute;

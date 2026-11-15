@@ -860,6 +860,8 @@ async function init() {
     });
 
     trustLocalFile(headerView.webContents, path.join(__dirname, 'header', 'header.html'));
+    // Тёмный фон видов с первого кадра: до загрузки страниц они были белыми и мигали при запуске
+    headerView.setBackgroundColor('#070a12');
     mainWindow.addBrowserView(headerView);
     headerView.setBounds({ x: 0, y: 0, width: mainWindow.getBounds().width, height: 32 });
     headerView.setAutoResize({ width: true, height: false });
@@ -888,6 +890,7 @@ async function init() {
         },
     });
 
+    contentView.setBackgroundColor('#070a12');
     mainWindow.addBrowserView(contentView);
     // Заставка только при обычном запуске: окно, спрятанное в трей, её не показывает
     if (mainWindow.isVisible() && !process.argv.includes('--hidden')) introScreen = new IntroScreen(mainWindow);
