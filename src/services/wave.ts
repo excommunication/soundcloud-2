@@ -34,6 +34,7 @@ import * as glowModule from './wave/glow';
 import * as vibeSectionModule from './wave/vibe';
 import * as dockSectionModule from './wave/dock';
 import * as swapSectionModule from './wave/swap';
+import * as forYouSectionModule from './wave/forYou';
 import * as waveVibeModule from './waveVibe';
 import type { VibePlan } from './waveVibe';
 import type { QuietOptions } from './wave/quiet';
@@ -65,6 +66,7 @@ const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
 const { installSwap, trackAccess } = swapSectionModule;
+const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
 const { installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes } = waveSourcesModule;
 // Прежние импорты из wave.ts остаются рабочими
@@ -762,6 +764,23 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         disposed: () => disposed,
         searchTracks,
         makeItem: (track, seedTitle) => makeItems([{ track, reason: { kind: 'version', seed: seedTitle } }])[0] ?? null,
+        showToast,
+    });
+    // «Для тебя»: карточки артистов и подборок SoundCloud под блоком волны, раздел в wave/forYou.ts
+    const forYouSection = installForYou({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        disposed: () => disposed,
+        ensureProfile,
+        relatedArtists: (id) => waveSources.relatedArtists(id),
+        scMixes: () => waveSources.scMixes(),
+        tracksByIds: (ids) => waveSources.tracksByIds(ids),
+        isExcluded: (track) => isExcluded(track),
+        excludedArtist: (id) => excludedArtists.has(id) || marked(laterArtists, id),
+        startArtist: (url, title) => menuSection.startLink('artist', url, title),
+        beginSeed,
+        nextSeedRequest: () => ++seedRequest,
+        paintArt: (node, url, key) => paintArt(node, url, key),
+        artworkUrl: (track, size) => artworkUrl(track, size),
         showToast,
     });
     // «Волна по описанию» и «Без русского»: строка над блоком, раздел в wave/vibe.ts
@@ -5031,7 +5050,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 else if (event.target.classList.contains('scw-lib-rows')) keptLibraryScroll = event.target.scrollTop;
             }, true);
         }
-        if (!(section.isConnected && section.nextElementSibling === anchor)) {
+        // Между блоком и якорем сайта может стоять «Для тебя» (#sc-foryou): это тоже своё место
+        const after = section.nextElementSibling;
+        const placed = after === anchor || (after?.id === 'sc-foryou' && after.nextElementSibling === anchor);
+        if (!(section.isConnected && placed)) {
             // Возврат на главную («Назад» после перехода по ссылке): списки встают на прежнюю прокрутку
             const back = !section.isConnected && section.childElementCount > 0;
             anchor.parentElement.insertBefore(section, anchor);
@@ -5041,6 +5063,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             keptPageScroll = null;
         }
         vibeSection.mount(section);
+        forYouSection.mount(section);
         // Подбор до запуска только для видимого блока: скрытая в F1 волна не ходит в API
         if (state === 'idle' && !active && !preview.length && player && isVisible()) void preparePreview();
         // Подборки собираются, когда блок виден и сайт готов, и пересобираются после местной полуночи
@@ -5183,6 +5206,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         vibeSection.dispose();
         dockSection.dispose();
         swapSection.dispose();
+        forYouSection.dispose();
         document.getElementById('sc-vibe-style')?.remove();
         delete host.__scWaveNoRussian;
         delete host.__scVibeStatus;
@@ -5248,7 +5272,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installSwap, trackAccess,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installSwap, trackAccess, installForYou,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
