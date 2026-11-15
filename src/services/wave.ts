@@ -148,6 +148,8 @@ export interface WaveWindow extends Window {
     __scWaveNoRussian?: (value: unknown) => void;
     /** Перечитать, подключена ли модель для «Волны по описанию» */
     __scVibeStatus?: () => void;
+    __scAudioTap?: () => { context: AudioContext; gain: GainNode } | null;
+    __scEnvelope?: () => { id: number; raw: number[] | null; position: number; duration: number; playing: boolean } | null;
     __scQueue?: () => void;
     // Горячие клавиши волны из main: лайк, «Не сейчас», «Больше такого», «Встряхнуть»
     __scWaveKey?: (action: string) => boolean;
@@ -4532,6 +4534,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (!context) return;
         context.scale(ratio, ratio);
         const ink = (alpha: number): string => 'rgba(255,255,255,' + alpha + ')';
+        // Сыгранная часть в цвет палитры оформления (обложка или выбранная), без оформления оранжевая SoundCloud
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--sca-c1').trim();
+        const playedTop = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#ff5500';
+        const playedLow = playedTop + '6b';
         const current = currentCandidate();
         let samples: Array<number | null> | null = null;
         let look: 'live' | 'dim' | 'flat' = 'flat';
@@ -4591,7 +4597,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const hovered = look === 'live' && hover !== null && fraction <= hover && !played;
             let upper: string;
             let lower: string;
-            if (played) { upper = '#ff5500'; lower = 'rgba(255,85,0,.42)'; }
+            if (played) { upper = playedTop; lower = playedLow; }
             else if (hovered) { upper = ink(0.85); lower = ink(0.34); }
             else if (look === 'live') { upper = ink(0.55); lower = ink(0.2); }
             else { upper = ink(0.22); lower = ink(0.08); }
@@ -5157,6 +5163,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         document.getElementById('sc-vibe-style')?.remove();
         delete host.__scWaveNoRussian;
         delete host.__scVibeStatus;
+        delete host.__scAudioTap;
+        delete host.__scEnvelope;
         quietSection.dispose();
         scoutSection.dispose();
         delete host.__scQuietOptions;
@@ -5167,6 +5175,16 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (typeof value === 'boolean') applyNoRussian(value);
     };
     host.__scVibeStatus = () => vibeSection.recheck();
+    // Переливы под бит: звуковая цепочка сайта для анализатора и форма волны играющего трека с позицией,
+    // если анализатор слышит тишину (зашифрованный поток Web Audio не отдаёт)
+    host.__scAudioTap = () => quietSection.siteAudio();
+    host.__scEnvelope = () => {
+        const sound = player?.getCurrentSound();
+        if (!sound) return null;
+        const track = known.get(sound.id)?.track ?? sound.attributes;
+        const raw = track ? waveformOf(track)?.raw ?? null : null;
+        return { id: sound.id, raw, position: positionOf(sound), duration: durationOf(sound), playing: !!player?.isPlaying() };
+    };
     // Выход из приложения: main забирает недописанное вместе с текущим прослушиванием,
     // pagehide при закрытии окна приходит, когда main уже дописал журнал
     host.__scWaveTakeSignals = () => {

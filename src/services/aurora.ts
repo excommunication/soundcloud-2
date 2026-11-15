@@ -36,6 +36,8 @@ export interface Appearance {
     parallax: boolean;
     /** Подъём карточек и плавные наведения */
     hoverMotion: boolean;
+    /** Под бит 0..100: скорость по темпу трека, вспышки на ударах; 0 выключает */
+    beat: number;
 }
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -52,6 +54,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
     calmOnPause: true,
     parallax: true,
     hoverMotion: true,
+    beat: 65,
 };
 
 /** Готовые палитры: три цвета, первый главный */
@@ -93,6 +96,7 @@ export function normalizeAppearance(input: unknown): Appearance {
         calmOnPause: bool('calmOnPause'),
         parallax: bool('parallax'),
         hoverMotion: bool('hoverMotion'),
+        beat: num('beat', 0, 100),
     };
 }
 
@@ -105,6 +109,49 @@ function sortKeys(value: Record<string, unknown>): Record<string, unknown> {
     const order = Object.keys(APPEARANCE_DEFAULTS);
     if (Object.keys(value).length !== order.length || !order.every((key) => key in value)) return {};
     return Object.fromEntries(order.map((key) => [key, value[key]]));
+}
+
+/** Состояние детектора бита: огибающие баса, вспышка, моменты ударов и темп */
+export interface BeatState {
+    fast: number;
+    slow: number;
+    level: number;
+    pulse: number;
+    last: number;
+    beats: number[];
+    bpm: number;
+}
+export function beatInit(): BeatState {
+    return { fast: 0, slow: 0, level: 0, pulse: 0, last: -1e9, beats: [], bpm: 0 };
+}
+/** Шаг детектора: bass и level 0..1 в момент now (мс), dt с прошлого шага. Удар это всплеск быстрой огибающей баса над
+ *  медленной не чаще раза в 280 мс. Темп по медиане промежутков последних ударов, сведённый в 80..170 ударов в минуту.
+ *  Возвращает true на ударе */
+export function beatStep(state: BeatState, bass: number, level: number, now: number, dt: number): boolean {
+    const ema = (value: number, target: number, tau: number): number => value + (target - value) * (1 - Math.exp(-dt / tau));
+    // Первый отсчёт после тишины ставит обе огибающие сразу: иначе разгон медленной даёт ложные удары
+    if (state.fast === 0 && state.slow === 0) state.fast = state.slow = bass;
+    state.fast = ema(state.fast, bass, 45);
+    state.slow = ema(state.slow, bass, 900);
+    state.level = ema(state.level, level, 220);
+    state.pulse *= Math.exp(-dt / 180);
+    let hit = false;
+    if (state.fast > state.slow * 1.22 + 0.04 && now - state.last > 280) {
+        hit = true;
+        state.last = now;
+        state.pulse = Math.min(1, 0.55 + (state.fast - state.slow) * 3);
+        state.beats.push(now);
+        if (state.beats.length > 16) state.beats.shift();
+    }
+    const recent = state.beats.filter((at) => now - at < 8000);
+    if (recent.length >= 5) {
+        const gaps = recent.slice(1).map((at, i) => at - recent[i]).sort((a, b) => a - b);
+        let bpm = 60000 / gaps[gaps.length >> 1];
+        while (bpm < 80) bpm *= 2;
+        while (bpm > 170) bpm /= 2;
+        state.bpm = state.bpm ? state.bpm + (bpm - state.bpm) * 0.15 : bpm;
+    } else if (now - state.last > 4000) state.bpm = 0;
+    return hit;
 }
 
 /** Три цвета палитры; у «Из обложки» это цвета до первой обложки */
@@ -126,6 +173,8 @@ uniform float u_intensity;
 uniform float u_grain;
 uniform vec2 u_mouse;
 uniform float u_seed;
+uniform float u_pulse;
+uniform float u_energy;
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
@@ -133,6 +182,7 @@ float fbm(vec2 p){ float v = 0.0; float a = 0.5; mat2 r = mat2(0.8, -0.6, 0.6, 0
 vec3 base(){ return mix(vec3(0.012, 0.016, 0.035), u_c2 * 0.08, 0.6); }
 vec3 finish(vec3 col, vec2 uv){
   vec2 q = uv - 0.5; col *= 1.0 - dot(q, q) * 0.9;
+  col *= 1.0 + 0.5 * u_pulse + 0.3 * u_energy;
   col = mix(base(), col, u_intensity);
   col = col / (1.0 + col * 0.55);
   col += (hash(gl_FragCoord.xy + fract(u_time * 7.0) * 100.0) - 0.5) * u_grain * 0.12;
@@ -246,7 +296,7 @@ export function fragmentSource(effect: Exclude<AuroraEffect, 'off'>): string {
         `
 void main(){
   vec2 uv = gl_FragCoord.xy / u_res;
-  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y) + u_mouse * 0.04 + u_seed;
+  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y) * (1.0 - 0.04 * u_pulse) + u_mouse * 0.04 + u_seed;
   gl_FragColor = vec4(finish(effect(uv, p), uv), 1.0);
 }`
     );
@@ -294,6 +344,47 @@ export function appearanceCss(appearance: Appearance): string {
             `#sc-vibe .scv-bar{backdrop-filter:${blur};-webkit-backdrop-filter:${blur}}`,
         );
     }
+    // Главная: блок «Моей волны», подборки и «Моя музыка» в одном стиле со стеклом. html body в начале
+    // перебивает правила волны (#sc-wave …) без !important; цвет палитры берётся из --sca-c1..3, вспышка бита из --sca-pulse
+    const w = 'html body #sc-wave';
+    const card = `rgba(12,14,24,${(0.3 + (a.glass / 100) * 0.4).toFixed(3)})`;
+    rows.push(
+        `${w}{--scw-surface:rgba(255,255,255,.07);--scw-film:rgba(255,255,255,.05);--scw-film-strong:rgba(255,255,255,.1);--scw-tile:rgba(255,255,255,.06);--scw-muted:rgba(255,255,255,.6);--scw-faint:rgba(255,255,255,.42)}`,
+        `${w} .scw-title{font-size:30px;line-height:36px;font-weight:800;letter-spacing:-.6px;background:linear-gradient(100deg,#fff 30%,color-mix(in srgb,var(--sca-c1,#8ab4ff) 70%,#fff));-webkit-background-clip:text;background-clip:text;color:transparent}`,
+        `${w} .scw-seg{padding:3px;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}`,
+        `${w} .scw-seg button{border-radius:999px;transition:background .25s,color .25s,box-shadow .25s}`,
+        `${w} .scw-seg button[aria-checked="true"]{box-shadow:0 4px 14px -4px rgba(0,0,0,.6)}`,
+        `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:background .2s,transform .2s}`,
+        `${w} .scw-icon:hover,${w} .scw-genre:hover{background:rgba(255,255,255,.11)}`,
+        `${w} .scw-pop{border-radius:${r + 2}px;background:rgba(18,20,32,.92);backdrop-filter:blur(20px);box-shadow:0 20px 60px -10px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.08)}`,
+        `${w} .scw-body{margin:0;padding:22px;gap:28px;border-radius:${r + 14}px;background:linear-gradient(135deg,color-mix(in srgb,var(--sca-c1,#3a6bff) 16%,${card}),${card} 55%,color-mix(in srgb,var(--sca-c2,#7a3cff) 12%,${card}));backdrop-filter:blur(${a.blur}px) saturate(1.4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 30px 80px -40px color-mix(in srgb,var(--sca-c1,#3a6bff) 70%,transparent)}`,
+        `${w} .scw-body.lit{background:linear-gradient(135deg,color-mix(in srgb,var(--sca-c1,#3a6bff) 22%,${card}),${card} 55%,color-mix(in srgb,var(--sca-c2,#7a3cff) 16%,${card}))}`,
+        `${w} .scw-cover{width:220px;height:220px;border-radius:${r + 6}px;overflow:hidden;box-shadow:0 24px 50px -18px rgba(0,0,0,.8),0 0 70px -20px var(--sca-c1,#3a6bff);transform:scale(calc(1 + var(--sca-pulse,0) * .025));transition:transform .12s ease-out}`,
+        `${w} .scw-cover.collage{gap:2px}`,
+        `${w} .scw-play{width:68px;height:68px;box-shadow:0 0 0 calc(var(--sca-pulse,0) * 10px) color-mix(in srgb,var(--sca-c1,#3a6bff) 35%,transparent),0 12px 32px -8px color-mix(in srgb,var(--sca-c1,#3a6bff) 80%,transparent);transition:box-shadow .12s ease-out,transform .2s cubic-bezier(.2,.8,.2,1.4),filter .15s}`,
+        `${w} .scw-play:not(:disabled):hover{transform:scale(1.06);filter:none}`,
+        `${w} .scw-track{font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.3px}`,
+        `${w} .scw-like{border-radius:999px;transition:background .2s,transform .2s cubic-bezier(.2,.8,.2,1.4)}`,
+        `${w} .scw-like:active{transform:scale(.88)}`,
+        `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sca-c1,#ff5500)}`,
+        `${w} .scw-btn{border-radius:999px;padding:0 16px}`,
+        `${w} .scw-up-h{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:700;color:rgba(255,255,255,.45)}`,
+        `${w} .scw-tile{padding:8px;margin:0;border-radius:${r}px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);transition:background .2s,transform .3s cubic-bezier(.2,.8,.2,1)}`,
+        `${w} .scw-tile:hover{background:rgba(255,255,255,.08)}`,
+        `${w} .scw-tile>.scw-art,${w} .scw-row .scw-art{border-radius:${Math.max(6, r - 4)}px;overflow:hidden}`,
+        `${w} .scw-chip{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:background .2s,color .2s,transform .2s}`,
+        `${w} .scw-chip:hover{background:rgba(255,255,255,.11)}`,
+        `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:linear-gradient(120deg,var(--sca-c1,#4f7bff),var(--sca-c3,#9a5cff));color:#fff;box-shadow:0 6px 20px -8px var(--sca-c1,#4f7bff)}`,
+        `${w} .scw-pin{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}`,
+        `${w} .scw-shelf-h{font-size:24px;line-height:30px;font-weight:800;letter-spacing:-.4px}`,
+        `${w} .scw-card .scw-art{border-radius:${r + 2}px;overflow:hidden;box-shadow:0 14px 34px -18px rgba(0,0,0,.9)}`,
+        `${w} .scw-card .scw-art::after{background:var(--sca-c1,#ff5500)}`,
+        `${w} .scw-card .scw-card-play:hover{background:var(--sca-c1,#ff7133)}`,
+        `${w} .scw-mix,${w} .scw-lib{border-radius:${r + 8}px;padding:18px 18px 10px;background:${card};backdrop-filter:blur(${a.blur}px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}`,
+        `${w} .scw-row{border-radius:${Math.max(6, r - 4)}px}`,
+        `${w} .scw-row[aria-current="true"] .scw-row-t b,${w} .scw-lib-here{color:color-mix(in srgb,var(--sca-c1,#ff5500) 60%,#fff)}`,
+        `${w} .scw-lib-opt{border-radius:10px}`,
+    );
     if (a.hoverMotion) {
         rows.push(
             '.badgeList__item,.sound__coverArt,.playableTile,.scw-card,.scw-tile{transition:transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease}',
@@ -319,7 +410,12 @@ interface AuroraConfig {
 /** Скрипт страницы: ставит холст или обновляет уже стоящий. Повторный вызов с новыми настройками применяет их плавно */
 export function auroraPage(config: AuroraConfig): void {
     interface AuroraApi { update(next: AuroraConfig): void; dispose(): void }
-    const host = window as unknown as Window & { __scAurora?: AuroraApi; __scAuroraPalette?: (colors: string[]) => void };
+    const host = window as unknown as Window & {
+        __scAurora?: AuroraApi;
+        __scAuroraPalette?: (colors: string[]) => void;
+        __scAudioTap?: () => { context: AudioContext; gain: GainNode } | null;
+        __scEnvelope?: () => { id: number; raw: number[] | null; position: number; duration: number; playing: boolean } | null;
+    };
     if (host.__scAurora) {
         host.__scAurora.update(config);
         return;
@@ -343,6 +439,78 @@ export function auroraPage(config: AuroraConfig): void {
     let colorsNow = cfg.colors.map(hexRgb);
     let colorsWant = colorsNow.map((c) => c.slice() as [number, number, number]);
     let coverColors: string[] | null = null;
+    // Под бит: анализатор на регуляторе звука сайта; если он слышит тишину при игре (зашифрованный поток), огибающая
+    // по форме волны трека из волны
+    const beat = beatInit();
+    let analyser: AnalyserNode | null = null;
+    let tappedGain: GainNode | null = null;
+    let tapCheck = 0;
+    let freq: Uint8Array<ArrayBuffer> | null = null;
+    let silentSince = 0;
+    let useEnvelope = false;
+    const envMax = new Map<number, number>();
+    let cssPulse = -1;
+    function readAudio(now: number): { bass: number; level: number; playing: boolean } {
+        const env = host.__scEnvelope?.() ?? null;
+        const playing = env ? env.playing : musicPlaying();
+        if (now - tapCheck > 1000) {
+            tapCheck = now;
+            const tap = host.__scAudioTap?.() ?? null;
+            if (tap && tap.gain !== tappedGain) {
+                try {
+                    if (tappedGain && analyser) tappedGain.disconnect(analyser);
+                } catch {
+                    // регулятор прошлого трека уже снят
+                }
+                if (!analyser || analyser.context !== tap.context) {
+                    analyser = tap.context.createAnalyser();
+                    analyser.fftSize = 1024;
+                    analyser.smoothingTimeConstant = 0.45;
+                    freq = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+                }
+                tap.gain.connect(analyser);
+                tappedGain = tap.gain;
+                useEnvelope = false;
+                silentSince = 0;
+            }
+        }
+        if (!playing) return { bass: 0, level: 0, playing };
+        if (analyser && freq && !useEnvelope) {
+            analyser.getByteFrequencyData(freq);
+            const hz = analyser.context.sampleRate / analyser.fftSize;
+            let bass = 0;
+            let bassN = 0;
+            let level = 0;
+            const top = Math.min(freq.length, Math.round(4000 / hz));
+            for (let i = 1; i < top; i++) {
+                const f = i * hz;
+                if (f >= 40 && f <= 160) {
+                    bass += freq[i];
+                    bassN++;
+                }
+                level += freq[i];
+            }
+            bass = bassN ? bass / bassN / 255 : 0;
+            level = level / Math.max(1, top - 1) / 255;
+            if (level > 0.01) silentSince = 0;
+            else if (!silentSince) silentSince = now;
+            else if (now - silentSince > 1500) useEnvelope = true;
+            if (!useEnvelope) return { bass, level, playing };
+        }
+        if (env?.raw?.length && env.duration > 0) {
+            let max = envMax.get(env.id);
+            if (max === undefined) {
+                max = Math.max(1, ...env.raw);
+                if (envMax.size > 50) envMax.clear();
+                envMax.set(env.id, max);
+            }
+            const at = (env.position / env.duration) * (env.raw.length - 1);
+            const i = Math.max(0, Math.min(env.raw.length - 2, Math.floor(at)));
+            const value = (env.raw[i] + (env.raw[i + 1] - env.raw[i]) * (at - i)) / max;
+            return { bass: value, level: value * 0.8, playing };
+        }
+        return { bass: 0, level: 0.3, playing };
+    }
     let coverUrl = '';
     const mouse = [0, 0];
     const mouseWant = [0, 0];
@@ -392,7 +560,7 @@ export function auroraPage(config: AuroraConfig): void {
         program = next;
         programEffect = effect;
         gl.useProgram(program);
-        for (const name of ['u_res', 'u_time', 'u_c1', 'u_c2', 'u_c3', 'u_intensity', 'u_grain', 'u_mouse', 'u_seed']) uniforms[name] = gl.getUniformLocation(program, name);
+        for (const name of ['u_res', 'u_time', 'u_c1', 'u_c2', 'u_c3', 'u_intensity', 'u_grain', 'u_mouse', 'u_seed', 'u_pulse', 'u_energy']) uniforms[name] = gl.getUniformLocation(program, name);
         return true;
     }
     function setup(): boolean {
@@ -480,10 +648,23 @@ export function auroraPage(config: AuroraConfig): void {
         if (!useEffect(cfg.appearance.effect)) return;
         resize();
         const a = cfg.appearance;
-        const calm = a.calmOnPause && !musicPlaying();
-        const speedWant = calm ? 0.18 : 1;
-        speedNow += (speedWant - speedNow) * Math.min(1, dt / 900);
+        const amount = a.beat / 100;
+        const sound = amount > 0 ? readAudio(now) : { bass: 0, level: 0, playing: musicPlaying() };
+        if (amount > 0) beatStep(beat, sound.bass, sound.level, now, dt);
+        else beat.pulse = beat.level = 0;
+        const calm = a.calmOnPause && !sound.playing;
+        // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
+        const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
+        const drive = 1 + amount * ((tempo - 1) + (beat.level - 0.35) * 0.9 + beat.pulse * 0.6);
+        const speedWant = calm ? 0.18 : Math.max(0.4, drive);
+        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 120 : 600));
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * speedNow;
+        const pulse = calm ? 0 : beat.pulse * amount;
+        // Вспышка видна и интерфейсу: --sca-pulse светит кнопке волны и строке поиска
+        if (Math.abs(pulse - cssPulse) > 0.06) {
+            cssPulse = pulse;
+            document.documentElement.style.setProperty('--sca-pulse', pulse.toFixed(2));
+        }
         const k = Math.min(1, dt / 400);
         colorsNow = colorsNow.map((c, i) => c.map((v, j) => v + (colorsWant[i][j] - v) * k) as [number, number, number]);
         mouse[0] += (mouseWant[0] - mouse[0]) * Math.min(1, dt / 600);
@@ -497,6 +678,8 @@ export function auroraPage(config: AuroraConfig): void {
         gl.uniform1f(uniforms.u_grain, a.grain / 100);
         gl.uniform2f(uniforms.u_mouse, mouse[0], mouse[1]);
         gl.uniform1f(uniforms.u_seed, seed);
+        gl.uniform1f(uniforms.u_pulse, pulse);
+        gl.uniform1f(uniforms.u_energy, calm ? 0 : beat.level * amount);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         canvas.classList.add('on');
     }
@@ -545,6 +728,11 @@ export function auroraPage(config: AuroraConfig): void {
             clearInterval(coverTimer);
             window.removeEventListener('pointermove', onMove);
             canvas?.remove();
+            try {
+                if (tappedGain && analyser) tappedGain.disconnect(analyser);
+            } catch {
+                // уже снят
+            }
             delete host.__scAurora;
             delete host.__scAuroraPalette;
         },
@@ -559,5 +747,5 @@ export function auroraScript(input: unknown): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
     const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX };
-    return '(function(){\n' + glowPalette.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
+    return '(function(){\n' + glowPalette.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }

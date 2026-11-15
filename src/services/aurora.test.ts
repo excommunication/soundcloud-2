@@ -15,6 +15,7 @@ describe('оформление', () => {
     it('isAppearance принимает только полный правильный объект; валидатор настроек тоже', () => {
         expect(isAppearance({ ...APPEARANCE_DEFAULTS })).toBe(true);
         expect(isAppearance({ ...APPEARANCE_DEFAULTS, speed: 101 })).toBe(false);
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS, beat: 0 })).toBe(true);
         expect(isAppearance({ ...APPEARANCE_DEFAULTS, extra: 1 })).toBe(false);
         expect(isAppearance({ effect: 'mesh' })).toBe(false);
         expect(validateSettingChange({ key: 'appearance', value: { ...APPEARANCE_DEFAULTS, effect: 'silk' } })).toBe(true);
@@ -43,5 +44,33 @@ describe('оформление', () => {
         expect(script).toContain('function glowPalette');
         expect(script).toContain('"effect":"nebula"');
         expect(() => new Function(script)).not.toThrow();
+    });
+});
+
+import { beatInit, beatStep } from './aurora';
+
+describe('бит', () => {
+    const run = (bpm: number, seconds: number, beatAt = (t: number) => (t % (60000 / bpm)) < 90) => {
+        const state = beatInit();
+        let hits = 0;
+        for (let t = 0; t < seconds * 1000; t += 16) if (beatStep(state, beatAt(t) ? 0.9 : 0.15, 0.5, t, 16)) hits++;
+        return { state, hits };
+    };
+    it('находит удары и темп 120', () => {
+        const { state, hits } = run(120, 10);
+        expect(hits).toBeGreaterThanOrEqual(18);
+        expect(state.bpm).toBeGreaterThan(112);
+        expect(state.bpm).toBeLessThan(128);
+    });
+    it('медленный темп сводится в 80..170', () => {
+        const { state } = run(60, 12);
+        expect(state.bpm).toBeGreaterThan(110);
+        expect(state.bpm).toBeLessThan(130);
+    });
+    it('ровный звук без ударов не даёт вспышек', () => {
+        const { hits, state } = run(120, 8, () => false);
+        expect(hits).toBeLessThanOrEqual(1);
+        expect(state.bpm).toBe(0);
+        expect(state.pulse).toBeLessThan(0.05);
     });
 });
