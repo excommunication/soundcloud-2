@@ -80,6 +80,7 @@ import { formatClock, trackSeconds } from './utils/trackParser';
 import { WebhookService } from './services/webhookService';
 import { UpdateService, type UpdateMode, type UpdateStatus } from './services/updateService';
 import { UpdateScreen } from './update/updateScreen';
+import { IntroScreen } from './intro/introScreen';
 import { autoUpdater } from 'electron-updater';
 import { ShortcutService } from './services/shortcutService';
 import { audioMonitorScript } from './services/audioMonitorService';
@@ -195,6 +196,8 @@ let updateService: UpdateService | null = null;
 const UPDATE_SCREEN_WINDOW_MS = 20_000;
 const launchedAt = Date.now();
 let updateScreen: UpdateScreen | null = null;
+// Заставка запуска: стоит, пока сайт не загрузился, потом уходит взрывом
+let introScreen: IntroScreen | null = null;
 let updateScreenDismissed = false;
 // Язык всего приложения это настройка «Язык» в F1; трей строится раньше остальных служб
 const appLanguage = (): AppLanguage => (store.get('siteLanguage', 'ru') === 'en' ? 'en' : 'ru');
@@ -873,6 +876,8 @@ async function init() {
     });
 
     mainWindow.addBrowserView(contentView);
+    // Заставка только при обычном запуске: окно, спрятанное в трей, её не показывает
+    if (mainWindow.isVisible() && !process.argv.includes('--hidden')) introScreen = new IntroScreen(mainWindow);
     // Каждый вызов executeJavaScript, пока сайт грузится, Electron держит одноразовым ожиданием did-stop-loading.
     // При запуске их набирается 10-11 (блокировщик рекламы на каждый фрейм, тема, скрипты страницы), это не утечка:
     // все снимаются с окончанием загрузки. Запас до 30, чтобы предупреждение осталось сигналом настоящей утечки
@@ -1234,6 +1239,12 @@ async function init() {
 
     // Setup event handlers
     contentView.webContents.on('did-finish-load', async () => {
+        // Волна и стили ставятся сразу после загрузки: заставке хватает полсекунды запаса
+        if (introScreen) {
+            const intro = introScreen;
+            introScreen = null;
+            setTimeout(() => intro.finish(), 500);
+        }
 
         diagnostics.record('page.loaded');
         // Сайт знает пользователя не сразу после загрузки: сводка недели проверяется чуть позже
@@ -1443,6 +1454,7 @@ function initializeShortcuts() {
     shortcutService.register('waveLater', 'CommandOrControl+D', 'Not now', waveKey('later'));
     shortcutService.register('waveMore', 'CommandOrControl+M', 'More like this', waveKey('more'));
     shortcutService.register('waveShake', 'CommandOrControl+S', 'Shake up', waveKey('shake'));
+    shortcutService.register('waveDrop', 'CommandOrControl+J', 'Jump to the drop', waveKey('drop'));
 
     if (devMode) {
         shortcutService.register('devTools', 'F12', 'Open Developer Tools', () => {

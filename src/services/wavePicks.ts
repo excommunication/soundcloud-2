@@ -222,3 +222,38 @@ export function spreadBy<T>(list: T[], keyOf: (item: T) => string | number, gap:
     }
     return result;
 }
+
+// Качество кандидата по счётчикам сайта (2.7.0). Похожие SoundCloud часто отдают перезаливы и черновики, которые почти
+// никто не слушал: волна ставила их наравне с хитами, и слушать не хотелось. Порог прослушиваний мягче у свежих
+// загрузок, знакомые вкусу артисты проходят всегда, трек без счётчиков тоже
+export function lowQuality(track: WaveTrack, known: boolean, now: number = Date.now()): boolean {
+    if (known) return false;
+    const plays = typeof track.playback_count === 'number' ? track.playback_count : null;
+    if (plays === null) return false;
+    const created = Date.parse(track.created_at ?? '') || 0;
+    const days = created ? (now - created) / 86400000 : 365;
+    const floor = days < 14 ? 150 : days < 90 ? 600 : 1500;
+    if (plays < floor) return true;
+    // Накрученное: сотни тысяч прослушиваний и почти ни одного лайка
+    const likes = typeof track.likes_count === 'number' ? track.likes_count : null;
+    return likes !== null && plays >= 20000 && likes / plays < 0.0008;
+}
+// Поправка порядка за качество: известность (10 тыс. прослушиваний ноль, миллион +0.35) и вовлечённость
+// (лайки к прослушиваниям, 2% ноль, 20% +0.4). Вовлечённость весит больше: андеграунд, который лайкают, не тонет
+export function qualityScore(track: WaveTrack): number {
+    const plays = typeof track.playback_count === 'number' ? track.playback_count : null;
+    if (plays === null) return 0;
+    const clamp = (value: number): number => Math.max(-1, Math.min(1, value));
+    const known = clamp((Math.log10(1 + plays) - 4) / 2) * 0.35;
+    const likes = typeof track.likes_count === 'number' ? track.likes_count : null;
+    const engaged = likes !== null && plays >= 200 ? clamp(Math.log10(Math.max(likes, 1) / plays / 0.02)) * 0.4 : 0;
+    return known + engaged;
+}
+// Согласие зёрен (2.7.0): трек, который SoundCloud называет похожим сразу на несколько зёрен, почти всегда попадает
+// (совместная встречаемость, как в станциях стримингов). Место в списке похожих тоже сигнал: первые ближе к зерну.
+// votes: сколько зёрен назвали трек, rank: лучшее место 0..size-1
+export function consensusScore(votes: number, rank: number, size: number): number {
+    if (votes <= 0) return 0;
+    const near = size > 1 ? 1 - Math.min(rank, size - 1) / (size - 1) : 1;
+    return 0.7 * Math.log2(votes) + 0.45 * near - 0.1;
+}

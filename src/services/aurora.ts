@@ -197,6 +197,9 @@ vec3 base(){ return mix(vec3(0.012, 0.016, 0.035), u_c2 * 0.08, 0.6); }
 vec3 finish(vec3 col, vec2 uv){
   vec2 q = uv - 0.5; col *= 1.0 - dot(q, q) * 0.9;
   col *= 1.0 + 0.22 * u_energy;
+  // Клуб за стеной: на ударе бас подсвечивает низ кадра цветом палитры и чуть толкает яркость
+  col += u_c1 * u_pulse * 0.16 * smoothstep(0.75, 0.0, uv.y);
+  col *= 1.0 + 0.1 * u_pulse;
   col = mix(base(), col, u_intensity);
   col = col / (1.0 + col * 0.55);
   col += (hash(gl_FragCoord.xy + fract(u_time * 7.0) * 100.0) - 0.5) * u_grain * 0.12;
@@ -468,6 +471,107 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-row{border-radius:var(--sc2-r2)}`,
         `${w} .scw-row[aria-current="true"] .scw-row-t b,${w} .scw-lib-here{color:var(--sc2-accent)}`,
         `${w} .scw-lib-opt{border-radius:var(--sc2-r2)}`,
+    );
+    // Клуб за стеной (2.7.0): за сайтом снизу светится «щель под дверью» в цвет обложки, бьётся на басу, вверх уходят два
+    // мягких луча, которые качаются в темп. Поверх всего только края окна чуть темнеют на ударе, как будто стены дрожат
+    rows.push(
+        '#sca-club{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.4s ease}',
+        'html.sca-playing #sca-club{opacity:1}',
+        '#sca-club i{position:absolute;display:block}',
+        '#sca-club .door{left:-15%;right:-15%;bottom:-38vh;height:76vh;border-radius:50%;background:radial-gradient(50% 50% at 50% 60%,var(--sca-c1,#3a6bff) 0%,color-mix(in srgb,var(--sca-c3,#6f8bff) 50%,transparent) 35%,transparent 70%);' +
+            'filter:blur(36px);opacity:calc(.14 + var(--sca-bass,0) * .5 + var(--sca-kick,0) * .25);transform:scale(calc(1 + var(--sca-kick,0) * .12),calc(1 + var(--sca-kick,0) * .3));transform-origin:50% 100%;will-change:transform,opacity}',
+        '#sca-club .beam{bottom:-12vh;width:16vw;min-width:160px;height:135vh;transform-origin:50% 100%;filter:blur(30px);mix-blend-mode:screen;opacity:calc(.03 + var(--sca-energy,0) * .2);' +
+            'animation:sca-sweep var(--sca-sweep,10s) ease-in-out infinite alternate;will-change:transform}',
+        '#sca-club .beam.l{left:16%;--from:-26deg;--to:16deg;background:linear-gradient(to top,color-mix(in srgb,var(--sca-c3,#6f8bff) 80%,transparent),transparent 75%)}',
+        '#sca-club .beam.r{right:16%;--from:24deg;--to:-14deg;animation-delay:calc(var(--sca-sweep,10s) * -.5);background:linear-gradient(to top,color-mix(in srgb,var(--sca-c1,#3a6bff) 80%,transparent),transparent 75%)}',
+        '@keyframes sca-sweep{from{transform:rotate(var(--from))}to{transform:rotate(var(--to))}}',
+        '#sca-thump{position:fixed;inset:0;z-index:2147482000;pointer-events:none;opacity:0;transition:opacity 1s ease;' +
+            'box-shadow:inset 0 0 calc(70px + var(--sca-kick,0) * 90px) calc(var(--sca-kick,0) * 10px) rgba(0,0,0,calc(.18 + var(--sca-kick,0) * .3))}',
+        'html.sca-playing #sca-thump{opacity:1}',
+        // Обложка в карточке волны вздрагивает на ударе
+        'html.sca-playing #sc-wave .scw-cover{transform:scale(calc(1 + var(--sca-kick,0) * .018))!important;transition:transform 90ms ease-out,filter .4s ease!important}',
+        'html.scm-reduce #sca-club,html.scm-reduce #sca-thump{display:none}',
+        '@media (prefers-reduced-motion:reduce){#sca-club,#sca-thump{display:none}}',
+    );
+    // Нижний бар в духе Apple Music (2.7.0): у сайта кнопки трёх размеров и разной яркости. Теперь одна сетка: «назад» и
+    // «вперёд» 38 px, play 44 px белым кругом, перемешивание и повтор 32 px приглушённые, включённые белые с точкой снизу.
+    // Кнопки справа (лайк, подписка, док, громкость) одного размера 32 px на одном стекле
+    const bar = 'html body .playControls';
+    const transport = ['button.skipControl', 'button.playControls__play', 'button.shuffleControl', 'button.repeatControl'].map((item) => `${bar} ${item}`).join(',');
+    rows.push(
+        `${bar} .playControls__elements{align-items:center}`,
+        `${bar} .playControls__control{margin:0 2px!important}`,
+        `${transport}{display:inline-grid!important;place-items:center!important;padding:0!important;margin:0 3px!important;border:0!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;` +
+            `color:rgba(255,255,255,.9)!important;min-width:0!important;transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease,opacity .16s ease!important}`,
+        `${transport.split(',').map((item) => item + ' > div').join(',')}{display:grid;place-items:center;width:100%;height:100%}`,
+        `${bar} button.skipControl{width:38px!important;height:38px!important}`,
+        `${bar} button.skipControl svg{width:19px!important;height:19px!important}`,
+        `${bar} button.playControls__play{width:44px!important;height:44px!important;background:#fff!important;color:#0b0c10!important;box-shadow:0 8px 22px -10px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.2)!important}`,
+        `${bar} button.playControls__play svg{width:20px!important;height:20px!important}`,
+        `${bar} button.playControls__play .sc-button-label{display:none!important}`,
+        `${bar} button.shuffleControl,${bar} button.repeatControl{position:relative;width:32px!important;height:32px!important;color:rgba(255,255,255,.5)!important}`,
+        `${bar} button.shuffleControl svg,${bar} button.repeatControl svg{width:16px!important;height:16px!important}`,
+        `${bar} button.skipControl:hover,${bar} button.shuffleControl:hover,${bar} button.repeatControl:hover{background:rgba(255,255,255,.09)!important;color:#fff!important}`,
+        `${bar} button.playControls__play:hover{transform:scale(1.05)}`,
+        `${bar} button.skipControl:active,${bar} button.shuffleControl:active,${bar} button.repeatControl:active,${bar} button.playControls__play:active{transform:scale(.9)!important}`,
+        `${bar} button.skipControl.disabled{opacity:.35}`,
+        `${bar} button.shuffleControl.m-shuffling,${bar} button.repeatControl.m-one,${bar} button.repeatControl.m-all{color:#fff!important}`,
+        `${bar} button.shuffleControl.m-shuffling::after,${bar} button.repeatControl.m-one::after,${bar} button.repeatControl.m-all::after{content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--sc2-accent,#fff)}`,
+        `${bar} .playbackTimeline__timePassed,${bar} .playbackTimeline__duration{font-size:11px!important;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.55)!important}`,
+        // Правая часть бара: все кнопки одинаковые круги на стекле
+        `${bar} .playbackSoundBadge__actions{display:inline-flex!important;align-items:center;gap:6px}`,
+        `${bar} .playbackSoundBadge__actions .sc-button,${bar} .volume__button{width:32px!important;height:32px!important;min-width:0!important;padding:0!important;margin:0!important;display:inline-grid!important;place-items:center!important;` +
+            `border:0!important;border-radius:999px!important;background:rgba(255,255,255,.06)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)!important;color:rgba(255,255,255,.75)!important;` +
+            `transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease!important}`,
+        `${bar} .playbackSoundBadge__actions .sc-button svg,${bar} .volume__button svg{width:16px!important;height:16px!important}`,
+        `${bar} .playbackSoundBadge__actions .sc-button:hover,${bar} .volume__button:hover{background:rgba(255,255,255,.12)!important;color:#fff!important}`,
+        `${bar} .playbackSoundBadge__actions .sc-button:active{transform:scale(.9)}`,
+        `${bar} .playbackSoundBadge__actions .sc-button-selected{color:var(--sc2-accent,#fff)!important;background:color-mix(in srgb,var(--sca-c1,#3a6bff) 22%,transparent)!important}`,
+        `${bar} .scd-dock{margin-left:6px;padding:0;gap:6px;background:none;box-shadow:none}`,
+        `${bar} .scd-dock button{width:32px;height:32px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75)}`,
+        `${bar} .scd-dock button:hover{background:rgba(255,255,255,.12);color:#fff}`,
+        `${bar} .scd-dock svg{width:16px;height:16px}`,
+        `${bar} .playbackSoundBadge__titleLink{font-weight:700!important;color:#fff!important}`,
+        `${bar} .playbackSoundBadge__lightLink{color:rgba(255,255,255,.55)!important}`,
+        `${bar} .playbackSoundBadge__avatar{border-radius:8px!important;overflow:hidden}`,
+    );
+    // Очередь сайта как «Далее» в Apple Music: стекло, крупный заголовок, кнопки-капсулы, строки без лишнего отступа,
+    // играющий трек подсвечен цветом обложки, ручка перетаскивания видна только на наведении
+    const q = 'html body .queue';
+    rows.push(
+        `${q}{background:rgba(14,15,22,.82)!important;backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px) saturate(1.6);border:0!important;border-radius:20px!important;overflow:hidden;` +
+            `box-shadow:0 30px 80px -30px rgba(0,0,0,.95),inset 0 0 0 1px rgba(255,255,255,.08)!important}`,
+        `${q} .queue__panel{height:64px!important;padding:0 14px 0 22px!important;background:transparent!important;border:0!important}`,
+        `${q} .queue__title{padding:0!important;font-size:22px!important;line-height:28px!important;font-weight:800!important;letter-spacing:-.4px;color:#fff!important}`,
+        `${q} .queue__clear{height:30px!important;margin:0 8px 0 0!important;padding:0 14px!important;border:0!important;border-radius:999px!important;background:rgba(255,255,255,.1)!important;color:#fff!important;font-size:13px!important;font-weight:700!important;box-shadow:none!important}`,
+        `${q} .queue__clear:hover{background:rgba(255,255,255,.18)!important}`,
+        `${q} .queue__hide{width:30px!important;height:30px!important;margin:0!important;padding:0!important;display:grid!important;place-items:center!important;border:0!important;border-radius:999px!important;background:rgba(255,255,255,.1)!important;color:#fff!important;box-shadow:none!important}`,
+        `${q} .queue__hide svg{width:16px!important;height:16px!important}`,
+        `${q} .queue__hide:hover{background:rgba(255,255,255,.18)!important}`,
+        `${q} .queue__scrollable,${q} .queue__scrollableInner,${q} .queue__dragCover{background:transparent!important;top:64px!important}`,
+        `${q} .queue__itemsHeight{background-image:none!important;padding:0 8px!important}`,
+        `${q} .queue__itemWrapper{background:transparent!important}`,
+        `${q} .queueItemView{display:flex!important;align-items:center!important;position:relative;gap:12px;height:56px;box-sizing:border-box;padding:0 12px 0 8px!important;border-radius:12px;background:transparent!important;transition:background-color .14s ease,opacity .2s ease}`,
+        `${q} .queueItemView:hover{background:rgba(255,255,255,.06)!important}`,
+        `${q} .queueItemView__dragHandle{flex:none;width:14px!important;margin:0!important;color:rgba(255,255,255,.4);opacity:0;transition:opacity .14s ease;cursor:grab}`,
+        `${q} .queueItemView__dragHandle svg{width:14px;height:14px}`,
+        `${q} .queueItemView:hover .queueItemView__dragHandle{opacity:1}`,
+        `${q} .queueItemView__playButton{position:absolute!important;left:30px;width:40px;height:40px;display:grid;place-items:center;z-index:1;opacity:0;transition:opacity .14s ease}`,
+        `${q} .queueItemView__playButton .sc-button{width:26px!important;height:26px!important;border:0!important;border-radius:999px!important;background:#fff!important;color:#0b0c10!important;display:grid!important;place-items:center!important;padding:0!important}`,
+        `${q} .queueItemView:hover .queueItemView__playButton{opacity:1}`,
+        `${q} .queueItemView__artwork{flex:none;position:relative;width:40px!important;height:40px!important;margin:0!important;border-radius:8px!important;overflow:hidden;box-shadow:0 6px 14px -8px rgba(0,0,0,.9)}`,
+        `${q} .queueItemView__artwork span,${q} .queueItemView__artworkImage{border-radius:8px!important}`,
+        `${q} .queueItemView:hover .queueItemView__artwork{filter:brightness(.6)}`,
+        `${q} .queueItemView__details{flex:1;min-width:0;margin:0!important;padding:0!important}`,
+        `${q} .queueItemView__username,${q} .queueItemView__username a{font-size:12px!important;line-height:16px!important;color:rgba(255,255,255,.5)!important;font-weight:500!important}`,
+        `${q} .queueItemView__title,${q} .queueItemView__title a,${q} .queueItemView__title span{font-size:14px!important;line-height:18px!important;color:#fff!important;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`,
+        `${q} .queueItemView__context{color:rgba(255,255,255,.4)!important;font-size:11px!important}`,
+        `${q} .queueItemView__meta,${q} .queueItemView__duration{flex:none;color:rgba(255,255,255,.45)!important;font-size:12px!important;font-variant-numeric:tabular-nums}`,
+        `${q} .queueItemView__actions{display:flex;gap:4px;opacity:0;transition:opacity .14s ease}`,
+        `${q} .queueItemView:hover .queueItemView__actions{opacity:1}`,
+        `${q} .queueItemView__actions .sc-button{width:28px!important;height:28px!important;padding:0!important;border:0!important;border-radius:999px!important;background:rgba(255,255,255,.08)!important;display:grid!important;place-items:center!important}`,
+        `${q} .queueItemView.m-playing{background:color-mix(in srgb,var(--sca-c1,#3a6bff) 20%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sca-c1,#3a6bff) 35%,transparent)}`,
+        `${q} .queueItemView.m-playing .queueItemView__title a,${q} .queueItemView.m-playing .queueItemView__title span{color:var(--sc2-accent,#fff)!important}`,
     );
     if (a.hoverMotion) {
         rows.push(
@@ -817,6 +921,51 @@ export function auroraPage(config: AuroraConfig): void {
         pen.fill();
         pen.shadowBlur = 0;
     }
+    // Клуб за стеной (2.7.0): удар баса, огибающая и темп уходят в CSS (--sca-kick, --sca-bass, --sca-energy, --sca-sweep).
+    // По ним светится «щель под дверью» внизу, ходят лучи и чуть вздрагивают края окна. Пишется только заметная разница
+    const clubShown: Record<string, number> = {};
+    let bassNow = 0;
+    function clubVar(name: string, value: number, step: number): void {
+        if (Math.abs((clubShown[name] ?? -1) - value) < step) return;
+        clubShown[name] = value;
+        document.documentElement.style.setProperty(name, value.toFixed(3));
+    }
+    function clubVars(sound: { bass: number; playing: boolean }, amount: number, calm: boolean): void {
+        ensureClub();
+        const on = sound.playing && !calm && amount > 0;
+        bassNow += ((on ? sound.bass : 0) - bassNow) * 0.25;
+        clubVar('--sca-kick', on ? Math.min(1, beat.pulse * amount * 1.3) : 0, 0.03);
+        clubVar('--sca-bass', Math.min(1, bassNow * amount * 1.4), 0.03);
+        clubVar('--sca-energy', on ? Math.min(1, (beat.level * 0.7 + beat.drop * 0.6) * amount * 1.4) : 0, 0.03);
+        const sweep = beat.bpm ? (60 / beat.bpm) * 16 : 10;
+        if (Math.abs((clubShown.sweep ?? 0) - sweep) > 0.5) {
+            clubShown.sweep = sweep;
+            document.documentElement.style.setProperty('--sca-sweep', sweep.toFixed(1) + 's');
+        }
+    }
+    let club: HTMLElement | null = null;
+    let thump: HTMLElement | null = null;
+    function ensureClub(): void {
+        if (club?.isConnected && thump?.isConnected) return;
+        if (!document.body) return;
+        if (!club) {
+            club = document.createElement('div');
+            club.id = 'sca-club';
+            club.setAttribute('aria-hidden', 'true');
+            for (const name of ['door', 'beam l', 'beam r']) {
+                const layer = document.createElement('i');
+                layer.className = name;
+                club.append(layer);
+            }
+        }
+        if (!thump) {
+            thump = document.createElement('div');
+            thump.id = 'sca-thump';
+            thump.setAttribute('aria-hidden', 'true');
+        }
+        if (!club.isConnected) document.body.prepend(club);
+        if (!thump.isConnected) document.body.append(thump);
+    }
     function draw(now: number): void {
         frame = requestAnimationFrame(draw);
         if (document.hidden) return;
@@ -828,6 +977,7 @@ export function auroraPage(config: AuroraConfig): void {
             last = now;
             markPlaying(sound.playing);
             drawLine(now, sound.playing, amount);
+            clubVars(sound, amount, false);
             return;
         }
         if (!gl || !canvas || lost) return;
@@ -859,6 +1009,7 @@ export function auroraPage(config: AuroraConfig): void {
         // Это движение, а не вспышка: яркость не меняется
         const kick = calm ? 0 : beat.pulse * amount * 0.5;
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * (speedNow + kick);
+        clubVars(sound, amount, calm);
         // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
         const drop = calm ? 0 : beat.drop * amount;
         if (Math.abs(drop - cssPulse) > 0.05) {
@@ -878,36 +1029,145 @@ export function auroraPage(config: AuroraConfig): void {
         gl.uniform1f(uniforms.u_grain, a.grain / 100);
         gl.uniform2f(uniforms.u_mouse, mouse[0], mouse[1]);
         gl.uniform1f(uniforms.u_seed, seed);
-        gl.uniform1f(uniforms.u_pulse, 0);
+        gl.uniform1f(uniforms.u_pulse, kick);
         gl.uniform1f(uniforms.u_energy, calm ? 0 : (beat.level * 0.4 + beat.drop * 0.6) * amount);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         canvas.classList.add('on');
     }
-    // Лайк: разлёт сердечек в цветах палитры из кнопки, кнопка подпрыгивает, короткий звук из двух нот. Только на «поставить»,
-    // снятие лайка без салюта. Кнопки лайка сайта, бара и блока волны
-    const LIKE = '.sc-button-like, .playbackSoundBadge__like, #sc-wave .scw-like[data-act="like"]';
+    // Лайк: сердечко пружинит, из кнопки вылетают сердечки в цветах обложки, плашка трека коротко «вибрирует», как
+    // тактильный отклик; звук мягкий: щелчок-пузырь и колокольчик мажорного аккорда. Только на «поставить»
+    const LIKE = '.sc-button-like, .playbackSoundBadge__like, #sc-wave .scw-like[data-act="like"], .queueItemView__like';
+    // Плашка, которая вибрирует на лайке
+    const PLATE = '#sc-wave .scw-body, .playControls__inner, .soundList__item, .trackList__item, .compactTrackList__item, .systemPlaylistTrackList__item, .queueItemView, .listenEngagement, .sound';
     let chime: AudioContext | null = null;
-    // Лайк: две ноты вверх; дизлайк: две ноты вниз, ниже и тише
-    function playChime(notes: number[] = [880, 1318.5], type: OscillatorType = 'sine', volume = 0.05): void {
+    function audio(): AudioContext | null {
         try {
             chime ??= new AudioContext();
-            const at = chime.currentTime + 0.01;
-            notes.forEach((freq, i) => {
-                const osc = chime!.createOscillator();
-                const amp = chime!.createGain();
-                osc.type = type;
-                osc.frequency.value = freq;
-                amp.gain.setValueAtTime(0, at + i * 0.07);
-                amp.gain.linearRampToValueAtTime(volume, at + i * 0.07 + 0.008);
-                amp.gain.exponentialRampToValueAtTime(0.0001, at + i * 0.07 + 0.16);
-                osc.connect(amp);
-                amp.connect(chime!.destination);
-                osc.start(at + i * 0.07);
-                osc.stop(at + i * 0.07 + 0.18);
-            });
+            if (chime.state === 'suspended') void chime.resume();
+            return chime;
         } catch {
-            // без звука
+            return null;
         }
+    }
+    // Общая шина: мягкий срез верхов и короткое эхо, чтобы звук не звенел в ушах
+    function bus(ctx: AudioContext, volume: number): GainNode {
+        const out = ctx.createGain();
+        out.gain.value = volume;
+        const tone = ctx.createBiquadFilter();
+        tone.type = 'lowpass';
+        tone.frequency.value = 5200;
+        const echo = ctx.createDelay(0.5);
+        echo.delayTime.value = 0.11;
+        const feedback = ctx.createGain();
+        feedback.gain.value = 0.22;
+        out.connect(tone);
+        tone.connect(ctx.destination);
+        tone.connect(echo);
+        echo.connect(feedback);
+        feedback.connect(echo);
+        echo.connect(ctx.destination);
+        setTimeout(() => {
+            try {
+                out.disconnect();
+                echo.disconnect();
+                feedback.disconnect();
+                tone.disconnect();
+            } catch {
+                // уже снято
+            }
+        }, 1500);
+        return out;
+    }
+    function playLike(): void {
+        const ctx = audio();
+        if (!ctx) return;
+        const at = ctx.currentTime + 0.01;
+        const out = bus(ctx, 0.9);
+        // Пузырь: синус с быстрым спуском высоты
+        const pop = ctx.createOscillator();
+        const popGain = ctx.createGain();
+        pop.type = 'sine';
+        pop.frequency.setValueAtTime(1100, at);
+        pop.frequency.exponentialRampToValueAtTime(380, at + 0.07);
+        popGain.gain.setValueAtTime(0.0001, at);
+        popGain.gain.exponentialRampToValueAtTime(0.05, at + 0.006);
+        popGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.09);
+        pop.connect(popGain);
+        popGain.connect(out);
+        pop.start(at);
+        pop.stop(at + 0.1);
+        // Колокольчик: до-ми-соль шестой октавы с лёгкой раскладкой, у каждой ноты тихий обертон
+        [1046.5, 1318.5, 1568].forEach((freq, i) => {
+            const t = at + 0.05 + i * 0.035;
+            for (const [mult, level] of [[1, 0.028], [2.01, 0.008]] as const) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq * mult;
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(level, t + 0.012);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+                osc.connect(gain);
+                gain.connect(out);
+                osc.start(t);
+                osc.stop(t + 0.6);
+            }
+        });
+    }
+    // Дизлайк: мягкий «свайп», шум в полосе, которая уходит вниз, как будто карточку смахнули
+    function playSwipe(): void {
+        const ctx = audio();
+        if (!ctx) return;
+        const at = ctx.currentTime + 0.01;
+        const length = 0.32;
+        const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * length), ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const band = ctx.createBiquadFilter();
+        band.type = 'bandpass';
+        band.Q.value = 1.4;
+        band.frequency.setValueAtTime(2400, at);
+        band.frequency.exponentialRampToValueAtTime(380, at + length);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.09, at + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
+        noise.connect(band);
+        band.connect(gain);
+        gain.connect(bus(ctx, 0.8));
+        noise.start(at);
+        noise.stop(at + length);
+    }
+    const HEART_PATH = 'M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.5 4.6.5c1.3 0 2.5.6 3.4 1.6C8.9 1.1 10.1.5 11.4.5c2.3 0 4.1 1.8 4.1 4.1 0 2.8-2.5 5.1-6.4 8.6z';
+    const reduced = (): boolean => document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function vibrate(plate: Element | null): void {
+        (plate as HTMLElement | null)?.animate?.(
+            [
+                { transform: 'translate3d(0,0,0) scale(1)' },
+                { transform: 'translate3d(-2px,0,0) scale(1.006)' },
+                { transform: 'translate3d(2px,0,0) scale(1.006)' },
+                { transform: 'translate3d(-1.5px,0,0) scale(1.004)' },
+                { transform: 'translate3d(1px,0,0) scale(1.002)' },
+                { transform: 'translate3d(0,0,0) scale(1)' },
+            ],
+            { duration: 280, easing: 'linear' },
+        );
+    }
+    function heartNode(size: number, color: string, glow: string): HTMLElement {
+        const node = document.createElement('i');
+        node.style.cssText = `position:absolute;left:${-size / 2}px;top:${-size / 2}px;width:${size}px;height:${size}px;filter:drop-shadow(0 0 6px ${glow})`;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 16 16');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', HEART_PATH);
+        path.setAttribute('fill', color);
+        svg.append(path);
+        node.append(svg);
+        return node;
     }
     function burst(button: Element): void {
         const box = button.getBoundingClientRect();
@@ -916,60 +1176,86 @@ export function auroraPage(config: AuroraConfig): void {
         const layer = document.createElement('div');
         layer.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:0;height:0;z-index:2147483600;pointer-events:none`;
         const colors = targetColors();
-        const ring = document.createElement('i');
-        ring.style.cssText = `position:absolute;left:-14px;top:-14px;width:28px;height:28px;border-radius:50%;border:2px solid ${colors[0]}`;
-        layer.append(ring);
-        ring.animate([{ transform: 'scale(.4)', opacity: 0.9 }, { transform: 'scale(1.9)', opacity: 0 }], { duration: 420, easing: 'cubic-bezier(.2,0,0,1)' });
-        for (let i = 0; i < 9; i++) {
-            const angle = (i / 9) * Math.PI * 2 + Math.random() * 0.5;
-            const distance = 22 + Math.random() * 16;
-            const dot = document.createElement('i');
-            const size = 5 + Math.random() * 4;
-            dot.style.cssText = `position:absolute;left:${-size / 2}px;top:${-size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:${colors[i % 3] ?? colors[0]}`;
-            layer.append(dot);
-            dot.animate(
-                [{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(angle) * distance}px,${Math.sin(angle) * distance}px) scale(.3)`, opacity: 0 }],
-                { duration: 480 + Math.random() * 120, easing: 'cubic-bezier(.2,0,0,1)' },
+        // Мягкая вспышка цвета под кнопкой
+        const glow = document.createElement('i');
+        glow.style.cssText = `position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle,${colors[0]}88,transparent 70%)`;
+        layer.append(glow);
+        glow.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 0 }], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+        // Сердечки взлетают веером и покачиваются
+        for (let i = 0; i < 7; i++) {
+            const heart = heartNode(10 + Math.random() * 8, i % 3 === 0 ? '#ffffff' : colors[i % 3] ?? colors[0], colors[0] + 'aa');
+            layer.append(heart);
+            const spread = (i - 3) * 13 + (Math.random() - 0.5) * 8;
+            const rise = 46 + Math.random() * 34;
+            const tilt = (Math.random() - 0.5) * 50;
+            heart.animate(
+                [
+                    { transform: 'translate(0,0) scale(.2) rotate(0deg)', opacity: 0 },
+                    { transform: `translate(${spread * 0.4}px,${-rise * 0.35}px) scale(1.1) rotate(${tilt * 0.3}deg)`, opacity: 1, offset: 0.25 },
+                    { transform: `translate(${spread * 0.8 + 6}px,${-rise * 0.75}px) scale(1) rotate(${-tilt * 0.4}deg)`, opacity: 0.9, offset: 0.65 },
+                    { transform: `translate(${spread}px,${-rise}px) scale(.7) rotate(${tilt}deg)`, opacity: 0 },
+                ],
+                { duration: 760 + Math.random() * 260, delay: i * 25, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
             );
         }
         document.body.append(layer);
-        setTimeout(() => layer.remove(), 700);
-        (button as HTMLElement).animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.22)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.2,0,0,1)' });
-    }
-    // Дизлайк: кнопка коротко «мотает головой», вниз осыпаются серые точки
-    const DISLIKE = '.scd-dock button[data-act="dislike"], #sc-wave .scw-like[data-act="dislike"], .scw-menu [data-menu="dislike"]';
-    function shake(button: Element): void {
+        setTimeout(() => layer.remove(), 1300);
         (button as HTMLElement).animate?.(
-            [{ transform: 'translateX(0)' }, { transform: 'translateX(-4px) rotate(-6deg)' }, { transform: 'translateX(4px) rotate(6deg)' }, { transform: 'translateX(-2px)' }, { transform: 'translateX(0)' }],
-            { duration: 320, easing: 'ease-out' },
+            [{ transform: 'scale(1)' }, { transform: 'scale(.78)', offset: 0.25 }, { transform: 'scale(1.28)', offset: 0.6 }, { transform: 'scale(.96)', offset: 0.82 }, { transform: 'scale(1)' }],
+            { duration: 460, easing: 'ease-out' },
         );
-        const box = button.getBoundingClientRect();
-        const layer = document.createElement('div');
-        layer.style.cssText = `position:fixed;left:${box.left + box.width / 2}px;top:${box.top + box.height / 2}px;width:0;height:0;z-index:2147483600;pointer-events:none`;
-        for (let i = 0; i < 6; i++) {
-            const dot = document.createElement('i');
-            const size = 3 + Math.random() * 3;
-            dot.style.cssText = `position:absolute;left:${-size / 2}px;top:${-size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:rgba(245,246,248,.55)`;
-            layer.append(dot);
-            const x = (Math.random() - 0.5) * 28;
-            dot.animate([{ transform: 'translate(0,0)', opacity: 0.9 }, { transform: `translate(${x}px,${22 + Math.random() * 16}px)`, opacity: 0 }], { duration: 420 + Math.random() * 120, easing: 'cubic-bezier(.5,0,.8,.4)' });
+    }
+    // Дизлайк: кнопка коротко качает «нет», а плашка трека уезжает влево, и следующий трек въезжает справа
+    const DISLIKE = '.scd-dock button[data-act="dislike"], #sc-wave .scw-like[data-act="dislike"], .scw-menu [data-menu="dislike"]';
+    function swipe(button: Element): void {
+        (button as HTMLElement).animate?.(
+            [{ transform: 'rotate(0)' }, { transform: 'rotate(-14deg) translateY(1px)' }, { transform: 'rotate(10deg)' }, { transform: 'rotate(-4deg)' }, { transform: 'rotate(0)' }],
+            { duration: 360, easing: 'ease-out' },
+        );
+        const plates = [document.querySelector('#sc-wave .scw-body'), document.querySelector('.playControls .playbackSoundBadge')];
+        for (const plate of plates) {
+            if (!(plate instanceof HTMLElement)) continue;
+            const parts = plate.matches('#sc-wave .scw-body') ? [...plate.children].filter((node): node is HTMLElement => node instanceof HTMLElement) : [plate];
+            parts.forEach((part, i) => {
+                const out = part.animate(
+                    [
+                        { transform: 'translateX(0) rotate(0)', opacity: 1, filter: 'blur(0)' },
+                        { transform: 'translateX(-70px) rotate(-1.5deg)', opacity: 0, filter: 'blur(6px)' },
+                    ],
+                    { duration: 260, delay: i * 30, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' },
+                );
+                out.finished
+                    .then(() => {
+                        out.cancel();
+                        if (!part.isConnected) return;
+                        part.animate(
+                            [
+                                { transform: 'translateX(70px) rotate(1.5deg)', opacity: 0, filter: 'blur(6px)' },
+                                { transform: 'translateX(0) rotate(0)', opacity: 1, filter: 'blur(0)' },
+                            ],
+                            { duration: 420, delay: 140 + i * 40, easing: 'cubic-bezier(.2,.9,.25,1)', fill: 'backwards' },
+                        );
+                    })
+                    .catch(() => undefined);
+            });
         }
-        document.body.append(layer);
-        setTimeout(() => layer.remove(), 650);
     }
     const onLikeClick = (event: MouseEvent): void => {
         const disliked = event.target instanceof Element ? event.target.closest(DISLIKE) : null;
         if (disliked && disliked.getAttribute('aria-pressed') !== 'true') {
-            if (!document.documentElement.classList.contains('scm-reduce')) shake(disliked);
-            if (cfg.appearance.likeSound) playChime([392, 293.7], 'triangle', 0.04);
+            if (!reduced()) swipe(disliked);
+            if (cfg.appearance.likeSound) playSwipe();
             return;
         }
         const button = event.target instanceof Element ? event.target.closest(LIKE) : null;
         if (!button) return;
         const was = button.classList.contains('sc-button-selected') || button.getAttribute('aria-pressed') === 'true';
         if (was) return;
-        if (!document.documentElement.classList.contains('scm-reduce')) burst(button);
-        if (cfg.appearance.likeSound) playChime();
+        if (!reduced()) {
+            burst(button);
+            vibrate(button.closest(PLATE));
+        }
+        if (cfg.appearance.likeSound) playLike();
     };
     document.addEventListener('click', onLikeClick, true);
     // html.sca-playing: интерфейс раскрывается, когда играет музыка (обложки в полный рост, свечение бара)
@@ -1042,6 +1328,8 @@ export function auroraPage(config: AuroraConfig): void {
             window.removeEventListener('pointermove', onMove);
             canvas?.remove();
             line?.remove();
+            club?.remove();
+            thump?.remove();
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
             document.documentElement.classList.remove('sca-line', 'sca-playing');

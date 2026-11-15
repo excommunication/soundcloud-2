@@ -51,7 +51,7 @@ const { siteRequires } = siteModules;
 const { fillText, reasonText, localDay, countText, formatTime, shapeSamples } = waveTexts;
 const { normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, trackMatchesGenre, topGenres } = waveGenres;
 const { classifyLink, classifyTag, canonicalUrl, trackPath, artworkUrl, coversOf, playEnd, siteSource, retryDelay } = waveLinks;
-const { trackArtist, rememberRecent, isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, shuffleInPlace, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares } = wavePicks;
+const { trackArtist, rememberRecent, isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, shuffleInPlace, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, lowQuality, qualityScore, consensusScore } = wavePicks;
 const { tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, tasteGroups, moodTags, pickFinds } = waveTaste;
 const { moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore } = waveMood;
 // Разделы страницы волны в wave/: объявления уходят на страницу рядом с installWave и зовутся по голому имени
@@ -61,7 +61,7 @@ const { installRadar } = radarSectionModule;
 const { installShelf } = shelfSectionModule;
 const { installMenu } = menuSectionModule;
 const { installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf } = quietSectionModule;
-const { installScout, scoutStart } = scoutSectionModule;
+const { installScout, scoutStart, dropAt } = scoutSectionModule;
 const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
@@ -2147,6 +2147,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         else {
             // Обычная волна без жанра и пресета в первом проходе поколения начинает с того, что ты только что дослушал
             const context = contextPending && !keys.length && !mood ? await contextSeeds(p) : { seeds: [], neighbor: null };
+            // Течение (2.7.0): каждый проход первым зерном идёт свежее дослушанное, а не случайный лайк. Волна держит курс
+            // от того, что играет сейчас, и не прыгает из Deftones в трэп через трек
+            if (!contextPending && !keys.length && !mood) {
+                const latest = (await recentDone()).find((track) => !isExcluded(track) && !skipped.has(copyKey(track)) && !staleSeeds.has(track.id) && !usedSeeds.has(track.id));
+                if (latest) context.seeds.push(latest);
+            }
             contextPending = false;
             if (own !== generation) return 0;
             if (context.neighbor) neighbors.push(context.neighbor);
@@ -2177,6 +2183,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (near) near.push(track);
             else observedBy.set(from.id, [track]);
             if (!trackMatchesGenre(track, keys)) return;
+            // Перезаливы и черновики без слушателей в волну не идут (у волны от трека тоже: там их больше всего)
+            if (lowQuality(track, !!taste && tasteScore(track, taste).known)) {
+                filterStats.excluded++;
+                return;
+            }
             const seedTitle = (from.title ?? '').trim() || '…';
             const matched = tags.find((tag) => trackMatchesGenre(track, genreKeys(tag)));
             const reason: WaveReason = matched
@@ -2188,12 +2199,21 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (accept(found, { track, reason, trace }, filter, from.id) && seed && derivedSeeds.length < 100) derivedSeeds.push(track);
         };
         let failures = 0;
+        // Согласие зёрен (2.7.0): сколько зёрен назвали трек похожим и его лучшее место в их списках
+        const votes = new Map<number, { count: number; rank: number; size: number }>();
         const similarTo = (from: WaveTrack): Promise<void> =>
             call('relatedSounds', { track_id: from.id }, { limit: 50 }).then((body) => {
                 if (disposed || own !== generation) return;
-                for (const value of collection(body)) {
+                const list = collection(body);
+                for (const [rank, value] of list.entries()) {
                     const track = asTrack(value);
-                    if (track) take(track, from);
+                    if (!track) continue;
+                    const vote = votes.get(track.id);
+                    if (vote) {
+                        vote.count++;
+                        vote.rank = Math.min(vote.rank, rank);
+                    } else votes.set(track.id, { count: 1, rank, size: list.length });
+                    take(track, from);
                 }
             }).catch((error: unknown) => {
                 if (disposed || own !== generation) return;
@@ -2340,6 +2360,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (own !== generation) return 0;
         }
         if (tasks.length && failures === tasks.length && !found.length) throw new Error('Источники волны не ответили');
+        // Качество и согласие зёрен к порядку (2.7.0)
+        const roundScore = (candidate: WaveCandidate): number => {
+            const vote = votes.get(candidate.track.id);
+            return qualityScore(candidate.track) + (vote ? consensusScore(vote.count, vote.rank, vote.size) : 0);
+        };
         // Пресет: в пул идёт подходящее настроению (от 0,5), остальное ждёт в добивке по убыванию оценки
         const matched = mood ? splitByMood(found, observed, observedBy) : found;
         if (mood) lookupPlaylistMoods(found.filter((candidate) => !matched.includes(candidate)));
@@ -2348,7 +2373,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (current) {
             traceScores(matched, current);
             applyTasteReasons(matched, current);
-            pool.push(...tasteOrder(matched, current, Math.random, sessionScore));
+            pool.push(...tasteOrder(matched, current, Math.random, (candidate) => sessionScore(candidate) + roundScore(candidate)));
         } else pool.push(...shuffleInPlace(matched));
         const pagesLeft = (list: string[]): boolean => list.some((tag) => (['recent', 'search'] as const).some((source) => !cursors.get(source + ':' + genreEnglish(tag))?.done));
         const moodLeft = moodSearch.some((tag, index) => (index === 0 ? ['recent', 'search'] : ['search']).some((source) => !cursors.get(source + ':' + genreEnglish(tag))?.done));
@@ -5003,6 +5028,19 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 if (state === 'loading' || state === 'unavailable') return false;
                 shake();
                 return true;
+            case 'drop': {
+                // К дропу: перемотка к месту, где трек раскрывается, по форме волны
+                if (!sound || !track) return false;
+                const raw = waveformOf(track)?.raw ?? null;
+                const at = raw ? dropAt(raw, durationOf(sound), positionOf(sound)) : -1;
+                if (at < 0) {
+                    showToast(T.lang === 'ru' ? 'Форма волны ещё грузится' : 'Waveform is still loading');
+                    return false;
+                }
+                sound.seek(at);
+                showToast(T.lang === 'ru' ? 'К дропу' : 'Jumped to the drop');
+                return true;
+            }
         }
         return false;
     };
@@ -5271,10 +5309,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
 const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
-    artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds,
+    artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
     moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installSwap, trackAccess, installForYou,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
-    installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
+    installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
 
 /** Смена настроек тихих краёв и плавного перехода в F1: страница подхватывает без перезагрузки */

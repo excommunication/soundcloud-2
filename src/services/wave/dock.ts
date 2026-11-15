@@ -17,13 +17,14 @@ export interface DockSection {
 export function installDock(core: DockCore): DockSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { dislike: 'Не нравится', more: 'Больше такого', wave: 'Волна от трека', next: 'Следующим', last: 'В конец очереди', waveShort: 'Волна' }
-        : { dislike: 'Dislike', more: 'More like this', wave: 'Wave from this track', next: 'Play next', last: 'Add to queue', waveShort: 'Wave' };
+        ? { dislike: 'Не нравится', more: 'Больше такого', wave: 'Волна от трека', next: 'Следующим', last: 'В конец очереди', waveShort: 'Волна', drop: 'К дропу, Ctrl+J' }
+        : { dislike: 'Dislike', more: 'More like this', wave: 'Wave from this track', next: 'Play next', last: 'Add to queue', waveShort: 'Wave', drop: 'Jump to the drop, Ctrl+J' };
     const ICON: Record<string, string> = {
         dislike: '<svg viewBox="0 0 16 16"><path d="M10.6 1.5H4.4c-.6 0-1.1.4-1.3 1L1.6 7.3c-.3.9.4 1.8 1.3 1.8h3.6l-.6 3.1c-.2.8.4 1.6 1.2 1.6.4 0 .8-.2 1-.6l3-4.6c.2-.3.3-.6.3-.9V2.7c0-.7-.5-1.2-1.2-1.2zm1.9 0h1.2c.4 0 .8.4.8.8v5.6c0 .4-.4.8-.8.8h-1.2z"/></svg>',
         more: '<svg viewBox="0 0 16 16"><path d="M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25z"/></svg>',
         wave: '<svg viewBox="0 0 16 16"><path d="M1 8c1.5 0 1.5-3 3-3s1.5 6 3 6 1.5-8 3-8 1.5 5 3 5h2v1.5h-2c-1.6 0-2.2-1.6-2.8-3.5C9.6 10 9.1 12.5 7 12.5c-1.9 0-2.4-3.1-3-4.6C3.6 8.8 3 9.5 1 9.5z"/></svg>',
         next: '<svg viewBox="0 0 16 16"><path d="M2 3.5l6 4.5-6 4.5zM9 3.5h1.5v9H9zM12.5 3.5H14v9h-1.5z"/></svg>',
+        drop: '<svg viewBox="0 0 16 16"><path d="M9.4.8 3 9.2h4.1L6.4 15.2 13 6.6H8.8z"/></svg>',
         last: '<svg viewBox="0 0 16 16"><path d="M1.5 3h9v1.5h-9zM1.5 6.5h9V8h-9zM1.5 10h5.5v1.5H1.5zM11.25 8.5h1.5v2.75h2.75v1.5h-2.75v2.75h-1.5v-2.75H8.5v-1.5h2.75z"/></svg>',
     };
     const STYLE_ID = 'sc-dock-style';
@@ -63,7 +64,7 @@ export function installDock(core: DockCore): DockSection {
     const dock = document.createElement('span');
     dock.className = 'scd-dock';
     dock.setAttribute('role', 'group');
-    dock.append(button('dislike', T.dislike), button('more', T.more), button('wave', T.wave), button('next', T.next));
+    dock.append(button('dislike', T.dislike), button('drop', T.drop), button('more', T.more), button('wave', T.wave), button('next', T.next));
     const badgeLink = (): Element | null => document.querySelector('.playControls a.playbackSoundBadge__titleLink');
     const ACTS: Record<string, [string, string]> = { dislike: ['dislike', 'undislike'], more: ['more', 'unmore'] };
     dock.addEventListener('click', (event) => {
@@ -71,6 +72,15 @@ export function installDock(core: DockCore): DockSection {
         const link = badgeLink();
         if (!control || !link) return;
         const act = control.dataset.act ?? '';
+        if (act === 'drop') {
+            const key = (window as unknown as { __scWaveKey?: (action: string) => boolean }).__scWaveKey;
+            if (key?.('drop')) {
+                control.classList.remove('pop');
+                void control.offsetWidth;
+                control.classList.add('pop');
+            }
+            return;
+        }
         const pair = ACTS[act];
         const name = pair ? (control.getAttribute('aria-pressed') === 'true' ? pair[1] : pair[0]) : act === 'wave' ? 'wave-track' : 'queue-next';
         if (core.actOn(link, name)) {
