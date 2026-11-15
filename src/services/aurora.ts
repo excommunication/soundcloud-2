@@ -344,6 +344,26 @@ export function appearanceCss(appearance: Appearance): string {
             `#sc-vibe .scv-bar{backdrop-filter:${blur};-webkit-backdrop-filter:${blur}}`,
         );
     }
+    // Нижний бар: живая линия прогресса вместо полосы сайта (клики идут сайту, холст их пропускает), свечение и дыхание
+    // обложки, пока играет музыка; на паузе обложки чуть уменьшаются и тускнеют
+    rows.push(
+        '.playbackTimeline__progressWrapper{position:relative}',
+        '#sca-line{position:absolute;left:0;top:50%;width:100%;height:26px;transform:translateY(-50%);pointer-events:none;z-index:2}',
+        'html.sca-line .playbackTimeline__progressBackground,html.sca-line .playbackTimeline__progressBar,html.sca-line .playbackTimeline__progressHandle{opacity:0!important}',
+        'html:not(.sca-line) .playbackTimeline__progressBar{background:linear-gradient(90deg,var(--sca-c1,#ff5500),var(--sca-c3,#ff9a52))!important}',
+        '.playControls__inner{position:relative}',
+        '.playControls__inner::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--sca-c1,#ff5500),var(--sca-c3,#ff9a52),transparent);opacity:0;transition:opacity .8s ease}',
+        'html.sca-playing .playControls__inner::before{opacity:calc(.45 + var(--sca-pulse,0) * .55)}',
+        'html.sca-playing .playControls__inner{box-shadow:0 -24px 70px -34px var(--sca-c1,#ff5500)}',
+        '.playbackSoundBadge__avatar{transition:transform .6s cubic-bezier(.2,.8,.2,1.25),box-shadow .6s ease,filter .6s ease}',
+        'html:not(.sca-playing) .playbackSoundBadge__avatar{transform:scale(.88);filter:saturate(.8)}',
+        'html.sca-playing .playbackSoundBadge__avatar{transform:scale(calc(1 + var(--sca-pulse,0) * .07));box-shadow:0 0 18px -4px var(--sca-c1,#ff5500)}',
+        'html:not(.sca-playing) #sc-wave .scw-cover{transform:scale(.94)!important;filter:saturate(.8) brightness(.9)}',
+        '#sc-wave .scw-cover{transition:transform .6s cubic-bezier(.2,.8,.2,1.25),filter .6s ease,box-shadow .6s ease!important}',
+        'a.soundTitle__title:hover,a.playbackSoundBadge__titleLink:hover,a.sc-link-primary:hover{color:color-mix(in srgb,var(--sca-c1,#ff5500) 45%,#fff)!important}',
+        'html.scm-reduce #sca-line{display:none}',
+        '@media (prefers-reduced-motion:reduce){.playbackSoundBadge__avatar,#sc-wave .scw-cover{transition:none!important;transform:none!important}}',
+    );
     // Главная: блок «Моей волны», подборки и «Моя музыка» в одном стиле со стеклом. html body в начале
     // перебивает правила волны (#sc-wave …) без !important; цвет палитры берётся из --sca-c1..3, вспышка бита из --sca-pulse
     const w = 'html body #sc-wave';
@@ -450,6 +470,28 @@ export function auroraPage(config: AuroraConfig): void {
     let useEnvelope = false;
     const envMax = new Map<number, number>();
     let cssPulse = -1;
+    // Полосы спектра для линии прогресса: 32 логарифмические от 40 Гц до 8 кГц, 0..1
+    const spectrum = new Float32Array(32);
+    function fillSpectrum(data: Uint8Array, hz: number): void {
+        for (let b = 0; b < spectrum.length; b++) {
+            const lo = 40 * Math.pow(200, b / spectrum.length);
+            const hi = 40 * Math.pow(200, (b + 1) / spectrum.length);
+            let sum = 0;
+            let n = 0;
+            for (let i = Math.max(1, Math.floor(lo / hz)); i <= Math.min(data.length - 1, Math.ceil(hi / hz)); i++) {
+                sum += data[i];
+                n++;
+            }
+            spectrum[b] = n ? sum / n / 255 : 0;
+        }
+    }
+    function envelopeSpectrum(raw: number[], at: number, max: number): void {
+        // Без анализатора: соседние отсчёты формы волны вокруг позиции, чем дальше от центра, тем дальше по треку
+        for (let b = 0; b < spectrum.length; b++) {
+            const i = Math.max(0, Math.min(raw.length - 1, Math.round(at + (b - spectrum.length / 2) * 0.6)));
+            spectrum[b] = (raw[i] / max) * (0.75 + 0.25 * Math.sin(b * 1.7 + at));
+        }
+    }
     function readAudio(now: number): { bass: number; level: number; playing: boolean } {
         const env = host.__scEnvelope?.() ?? null;
         const playing = env ? env.playing : musicPlaying();
@@ -491,6 +533,7 @@ export function auroraPage(config: AuroraConfig): void {
                 level += freq[i];
             }
             bass = bassN ? bass / bassN / 255 : 0;
+            fillSpectrum(freq, hz);
             level = level / Math.max(1, top - 1) / 255;
             if (level > 0.01) silentSince = 0;
             else if (!silentSince) silentSince = now;
@@ -507,6 +550,7 @@ export function auroraPage(config: AuroraConfig): void {
             const at = (env.position / env.duration) * (env.raw.length - 1);
             const i = Math.max(0, Math.min(env.raw.length - 2, Math.floor(at)));
             const value = (env.raw[i] + (env.raw[i + 1] - env.raw[i]) * (at - i)) / max;
+            envelopeSpectrum(env.raw, at, max);
             return { bass: value, level: value * 0.8, playing };
         }
         return { bass: 0, level: 0.3, playing };
@@ -638,9 +682,84 @@ export function auroraPage(config: AuroraConfig): void {
         };
         image.src = url;
     }
+    // Живая линия прогресса: поверх полосы плеера сайта, бас в середине, сыгранное в цветах палитры, под бит дышит
+    let line: HTMLCanvasElement | null = null;
+    const bars = new Float32Array(160);
+    let lineAt = 0;
+    let playingShown: boolean | null = null;
+    function drawLine(now: number, playing: boolean, amount: number): void {
+        const wrap = document.querySelector<HTMLElement>('.playControls .playbackTimeline__progressWrapper');
+        const on = !!wrap && amount > 0 && !document.documentElement.classList.contains('scm-reduce');
+        document.documentElement.classList.toggle('sca-line', on);
+        if (!on || !wrap) {
+            line?.remove();
+            return;
+        }
+        if (!line) {
+            line = document.createElement('canvas');
+            line.id = 'sca-line';
+            line.setAttribute('aria-hidden', 'true');
+        }
+        if (line.parentElement !== wrap) wrap.append(line);
+        if (now - lineAt < 30) return;
+        lineAt = now;
+        const ratio = Math.min(2, window.devicePixelRatio || 1);
+        const width = wrap.clientWidth;
+        const height = 26;
+        if (!width) return;
+        if (line.width !== Math.round(width * ratio)) line.width = Math.round(width * ratio);
+        if (line.height !== Math.round(height * ratio)) line.height = Math.round(height * ratio);
+        const pen = line.getContext('2d');
+        if (!pen) return;
+        pen.setTransform(ratio, 0, 0, ratio, 0, 0);
+        pen.clearRect(0, 0, width, height);
+        const env = host.__scEnvelope?.() ?? null;
+        const progressBar = document.querySelector<HTMLElement>('.playControls .playbackTimeline__progressBar');
+        const fromSite = progressBar ? parseFloat(progressBar.style.width) / 100 : NaN;
+        const done = env && env.duration > 0 ? env.position / env.duration : Number.isFinite(fromSite) ? fromSite : 0;
+        const step = 4;
+        const n = Math.min(bars.length, Math.floor(width / step));
+        const colors = targetColors();
+        const grad = pen.createLinearGradient(0, 0, width, 0);
+        grad.addColorStop(0, colors[0]);
+        grad.addColorStop(1, colors[2] ?? colors[0]);
+        const mid = height / 2;
+        for (let i = 0; i < n; i++) {
+            const fromCenter = Math.abs(i - n / 2) / (n / 2);
+            const band = Math.min(spectrum.length - 1, Math.floor(fromCenter * spectrum.length));
+            const want = playing ? spectrum[band] * amount * (0.8 + beat.pulse * 0.6) : 0;
+            bars[i] += (want - bars[i]) * (want > bars[i] ? 0.6 : 0.18);
+            const h = 1.5 + bars[i] * (mid - 2) * 1.6;
+            const x = i * step;
+            pen.fillStyle = x / width <= done ? grad : 'rgba(255,255,255,.26)';
+            pen.beginPath();
+            pen.roundRect(x, mid - h, 2.5, h * 2, 1.25);
+            pen.fill();
+        }
+        // Точка позиции со свечением цвета палитры
+        const dot = Math.max(3, Math.min(width - 3, done * width));
+        pen.shadowColor = colors[0];
+        pen.shadowBlur = 10 + beat.pulse * 14 * amount;
+        pen.fillStyle = '#fff';
+        pen.beginPath();
+        pen.arc(dot, mid, 3.5 + beat.pulse * 1.5 * amount, 0, Math.PI * 2);
+        pen.fill();
+        pen.shadowBlur = 0;
+    }
     function draw(now: number): void {
         frame = requestAnimationFrame(draw);
-        if (!gl || !canvas || lost || document.hidden || cfg.appearance.effect === 'off') return;
+        if (document.hidden) return;
+        if (cfg.appearance.effect === 'off' || !gl || lost) {
+            // Без фона линия и класс игры всё равно живут: им нужен только анализатор
+            const amount = cfg.appearance.beat / 100;
+            const sound = amount > 0 ? readAudio(now) : { bass: 0, level: 0, playing: musicPlaying() };
+            if (amount > 0) beatStep(beat, sound.bass, sound.level, now, last ? Math.min(100, now - last) : 16);
+            last = now;
+            markPlaying(sound.playing);
+            drawLine(now, sound.playing, amount);
+            return;
+        }
+        if (!gl || !canvas || lost) return;
         const step = 1000 / fpsCap();
         if (now - last < step - 1) return;
         const dt = last ? Math.min(100, now - last) : 16;
@@ -653,6 +772,8 @@ export function auroraPage(config: AuroraConfig): void {
         if (amount > 0) beatStep(beat, sound.bass, sound.level, now, dt);
         else beat.pulse = beat.level = 0;
         const calm = a.calmOnPause && !sound.playing;
+        markPlaying(sound.playing);
+        drawLine(now, sound.playing, amount);
         // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
         const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
         const drive = 1 + amount * ((tempo - 1) + (beat.level - 0.35) * 0.9 + beat.pulse * 0.6);
@@ -683,6 +804,12 @@ export function auroraPage(config: AuroraConfig): void {
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         canvas.classList.add('on');
     }
+    // html.sca-playing: интерфейс раскрывается, когда играет музыка (обложки в полный рост, свечение бара)
+    function markPlaying(playing: boolean): void {
+        if (playing === playingShown) return;
+        playingShown = playing;
+        document.documentElement.classList.toggle('sca-playing', playing);
+    }
     const onMove = (event: PointerEvent): void => {
         if (!cfg.appearance.parallax) {
             mouseWant[0] = mouseWant[1] = 0;
@@ -709,8 +836,8 @@ export function auroraPage(config: AuroraConfig): void {
     }
 
     if (!setup()) {
-        setCssColors(cfg.colors);
-        return;
+        // Без WebGL фона нет, линия прогресса и класс игры всё равно работают
+        cfg = { ...cfg, appearance: { ...cfg.appearance, effect: 'off' } };
     }
     apply(cfg);
     frame = requestAnimationFrame(draw);
@@ -728,6 +855,8 @@ export function auroraPage(config: AuroraConfig): void {
             clearInterval(coverTimer);
             window.removeEventListener('pointermove', onMove);
             canvas?.remove();
+            line?.remove();
+            document.documentElement.classList.remove('sca-line', 'sca-playing');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);
             } catch {

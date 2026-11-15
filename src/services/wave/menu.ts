@@ -77,6 +77,10 @@ export interface MenuSection {
     closeMenu(): void;
     /** Волна от закреплённого плейлиста или артиста по ссылке; title для плашки «Собираю волну» */
     startLink(kind: 'playlist' | 'artist', url: string, title: string): void;
+    /** Действие меню над треком под узлом (нижний бар, строка списка): true, если цель нашлась и действие есть */
+    actOn(node: Element, act: string): boolean;
+    /** Какие действия меню сейчас доступны трека под узлом: по ним кнопки знают, нажаты ли они (undislike, unmore) */
+    actsOn(node: Element): string[];
     /** iframe того же сайта: в каждый документ те же слушатели, ушедшие документы забываются */
     watchFrames(): void;
     /** Снять слушатели со всех документов iframe */
@@ -90,6 +94,7 @@ export function installMenu(core: MenuCore): MenuSection {
         pinned, pin, playGenre, cardGenre,
     } = core;
     const MENU_ICON: Record<string, string> = {
+        link: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 9.4a.75.75 0 0 1 0-1.06l1.74-1.74a.75.75 0 1 1 1.06 1.06L7.66 9.4a.75.75 0 0 1-1.06 0zM4.5 11.5a1.75 1.75 0 0 1 0-2.47l1.6-1.6-1.06-1.06-1.6 1.6a3.25 3.25 0 0 0 4.6 4.6l1.6-1.6-1.06-1.06-1.6 1.6a1.75 1.75 0 0 1-2.48 0zm7-7a1.75 1.75 0 0 1 0 2.47l-1.6 1.6 1.06 1.06 1.6-1.6a3.25 3.25 0 0 0-4.6-4.6l-1.6 1.6 1.06 1.06 1.6-1.6a1.75 1.75 0 0 1 2.48 0z"/></svg>',
         wave: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 6.5h1.5v3H1zM4 4.5h1.5v7H4zM7 2h1.5v12H7zM10 5h1.5v6H10zM13 7h1.5v2H13z"/></svg>',
         artist: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a3.25 3.25 0 1 1 0 6.5 3.25 3.25 0 0 1 0-6.5zM2 14.5c0-3 2.7-5 6-5s6 2 6 5z"/></svg>',
         // Артист со списком: все его треки
@@ -290,6 +295,7 @@ export function installMenu(core: MenuCore): MenuSection {
         }
         if (target.kind === 'artist') items.push(artistMarked(laterArtists, target) ? ['unlater-artist', T.menuUnlater, 'undo'] : ['later-artist', T.later, 'later']);
         if (hasArtist) items.push(artistExcluded(target) ? ['show-artist', T.menuShowArtist, 'undo'] : ['hide-artist', T.menuHideArtist, 'hide']);
+        if (target.url) items.push(['copy-link', T.menuCopyLink, 'link']);
         return items;
     }
     function runMenu(act: string, target: MenuTarget): void {
@@ -318,6 +324,9 @@ export function installMenu(core: MenuCore): MenuSection {
             case 'later-artist':
             case 'unlater-artist': void setExcluded('later-artist', target, act === 'later-artist'); return;
             case 'versions': void core.openVersions(target); return;
+            case 'copy-link':
+                void navigator.clipboard.writeText(target.url).then(() => core.showToast(T.toastLinkCopied), () => core.showToast(target.url));
+                return;
             case 'hide-family':
             case 'show-family': void setFamily(target, act === 'hide-family'); return;
         }
@@ -476,6 +485,16 @@ export function installMenu(core: MenuCore): MenuSection {
         onDocumentKey,
         closeMenu,
         startLink: (kind, url, title) => void startSeed(kind, { kind, url, artistUrl: '' }, title),
+        actOn: (node, act) => {
+            const target = menuTarget(node);
+            if (!target) return false;
+            runMenu(act, target);
+            return true;
+        },
+        actsOn: (node) => {
+            const target = menuTarget(node);
+            return target ? menuItems(target).map((item) => item[0]) : [];
+        },
         watchFrames,
         dispose: () => {
             for (const cleanup of frameCleanups.values()) cleanup();

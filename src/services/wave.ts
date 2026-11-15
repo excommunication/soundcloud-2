@@ -32,6 +32,7 @@ import * as quietSectionModule from './wave/quiet';
 import * as scoutSectionModule from './wave/scout';
 import * as glowModule from './wave/glow';
 import * as vibeSectionModule from './wave/vibe';
+import * as dockSectionModule from './wave/dock';
 import * as waveVibeModule from './waveVibe';
 import type { VibePlan } from './waveVibe';
 import type { QuietOptions } from './wave/quiet';
@@ -61,6 +62,7 @@ const { installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf 
 const { installScout, scoutStart } = scoutSectionModule;
 const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
+const { installDock } = dockSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
 const { installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes } = waveSourcesModule;
 // Прежние импорты из wave.ts остаются рабочими
@@ -743,6 +745,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const index = card ? Number(card.dataset.card) : -1;
             return Number.isInteger(index) && index >= 0 ? shelfSection.genreOf(index) : '';
         },
+    });
+    // Док нижнего бара и быстрые действия у строк треков: раздел в wave/dock.ts, действия из меню
+    const dockSection = installDock({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        actOn: (node, act) => menuSection.actOn(node, act),
+        actsOn: (node) => menuSection.actsOn(node),
+        disposed: () => disposed,
     });
     // «Волна по описанию» и «Без русского»: строка над блоком, раздел в wave/vibe.ts
     const vibeSection = installVibe({
@@ -5160,6 +5169,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         delete host.__scRadarCollect;
         radarSection.dispose();
         vibeSection.dispose();
+        dockSection.dispose();
         document.getElementById('sc-vibe-style')?.remove();
         delete host.__scWaveNoRussian;
         delete host.__scVibeStatus;
@@ -5225,7 +5235,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
