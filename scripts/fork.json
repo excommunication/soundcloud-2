@@ -1,0 +1,19 @@
+{
+    "upstream": "https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop",
+    "upstreamSlug": "zxczxczxczxczxczxc1111/soundcloud-desktop",
+    "slug": "excommunication/soundcloud-2",
+    "package": {
+        "description": "Клиент SoundCloud для Windows: волна по описанию, переливы WebGL и стекло",
+        "author": {
+            "name": "excommunication",
+            "email": "356913196+excommunication@users.noreply.github.com"
+        },
+        "repository": "https://github.com/excommunication/soundcloud-2",
+        "build.publish.owner": "excommunication",
+        "build.publish.repo": "soundcloud-2",
+        "build.win.artifactName": "soundcloud-2-${version}-setup-${arch}.${ext}"
+    },
+    "relinkFiles": ["src/services/updateService.ts", "src/services/updateService.test.ts", "src/services/presenceService.ts", "src/settings/settings.js", "pages/open/open.js"],
+    "ours": ["README.md", "assets/readme"],
+    "theirs": ["pnpm-lock.yaml"]
+}

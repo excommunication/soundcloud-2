@@ -34,7 +34,7 @@ export const WAVE_TEXTS: Record<'ru' | 'en', WaveTexts> = {
         lang: 'ru', shelf: 'Подборки', shelfDaily: 'Разведка', shelfForgotten: 'Давно не слушал', shelfEmpty: 'Подборкам нужны твои лайки',
         shelfFailed: 'Подборки не загрузились',
         tracksCount: 'трек|трека|треков', groupAnd: '{a} и {b}',
-        whyDaily: 'Разведка: ещё не звучало у тебя', whyForgotten: 'Из твоих лайков, давно не звучал', whyGroup: 'Твой вкус: {name}',
+        whyDaily: 'Разведка: ещё не звучало у тебя', whyForgotten: 'Из твоих лайков, давно не звучал', whyGroup: 'Твой вкус: {name}', whyVibe: 'По запросу: {name}', seedVibe: 'Волна по описанию: {seed}',
         seedDaily: 'Разведка: новое для тебя по 20 секунд с самого яркого места', seedForgotten: 'Лайки, которые давно не звучали',
         seedGroup: 'Твой вкус: {seed}', seedTracks: 'Волна по набору: {seed}',
         menuPick: 'Добавить в набор', menuUnpick: 'Убрать из набора', toastPicked: 'В наборе {count}', toastUnpicked: 'Трек убран из набора',
@@ -122,7 +122,7 @@ export const WAVE_TEXTS: Record<'ru' | 'en', WaveTexts> = {
         lang: 'en', shelf: 'Mixes', shelfDaily: 'Scout', shelfForgotten: 'Not played in a while', shelfEmpty: 'Mixes need your likes',
         shelfFailed: 'Could not load mixes',
         tracksCount: 'track|tracks|tracks', groupAnd: '{a} and {b}',
-        whyDaily: 'Scout: not played by you yet', whyForgotten: 'From your likes, not played in a while', whyGroup: 'Your taste: {name}',
+        whyDaily: 'Scout: not played by you yet', whyForgotten: 'From your likes, not played in a while', whyGroup: 'Your taste: {name}', whyVibe: 'From your request: {name}', seedVibe: 'Described wave: {seed}',
         seedDaily: 'Scout: new to you, 20 seconds from the best part', seedForgotten: 'Likes you haven’t played in a while',
         seedGroup: 'Your taste: {seed}', seedTracks: 'Wave from picks: {seed}',
         menuPick: 'Add to picks', menuUnpick: 'Remove from picks', toastPicked: 'Picks: {count}', toastUnpicked: 'Removed from picks',
@@ -201,6 +201,7 @@ export function reasonText(reason: WaveReason, texts: WaveTexts): string {
         case 'daily': return texts.whyDaily;
         case 'forgotten': return texts.whyForgotten;
         case 'group': return fillText(texts.whyGroup, { name: reason.name });
+        case 'vibe': return fillText(texts.whyVibe, { name: reason.name });
         case 'version': return fillText(texts.whyVersion, { seed: reason.seed });
         case 'moodTag': return fillText(texts.whyMoodTag, { tag: reason.tag });
         case 'radar': return reason.why || texts.whyRadar;

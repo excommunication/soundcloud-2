@@ -1,0 +1,41 @@
+name: Обновления из оригинала
+# Раз в день сливает свежий main оригинала (scripts/fork.json) в наш. Своё не ломается: поля форка накладываются
+# заново, README остаётся нашим. Если оригинал правил те же места или сломал проверки, открывается issue,
+# main не трогается. После удачного слияния версия поднимается на патч и собирается релиз
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.merge.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - run: |
+          git config user.name "excommunication"
+          git config user.email "356913196+excommunication@users.noreply.github.com"
+      - id: merge
+        run: node scripts/sync-upstream.cjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+  release:
+    needs: sync
+    if: needs.sync.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.sync.outputs.tag }}
+    secrets: inherit

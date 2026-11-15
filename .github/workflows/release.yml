@@ -1,0 +1,72 @@
+name: Релиз
+# Установщик для Windows и релиз на GitHub: по тегу vX.Y.Z, вручную или из синхронизации с оригиналом.
+# Клиент обновляется сам по latest.yml из последнего релиза.
+# VMP-подпись Widevine ставится, если в Settings → Secrets → Actions заданы EVS_ACCOUNT_NAME и EVS_PASSWD;
+# без них сборка выходит без подписи, и треки лейблов с защищённым потоком могут не играть
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег релиза, например v2.0.1 (пусто — по версии в package.json)'
+        required: false
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - run: npx --yes pnpm@12.15.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.15.0 typecheck
+      - run: npx --yes pnpm@12.15.0 test
+      - name: Ключи EVS для VMP-подписи
+        id: evs
+        shell: pwsh
+        env:
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+        run: |
+          if ($env:EVS_ACCOUNT_NAME -and $env:EVS_PASSWD) {
+            python -m pip install castlabs-evs==1.3.2
+            python scripts/evs-auth.py
+            "skip=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Output "Секретов EVS нет: сборка без VMP-подписи"
+            "skip=true" >> $env:GITHUB_OUTPUT
+          }
+      - run: npx --yes pnpm@12.15.0 build-win
+        env:
+          SKIP_VMP_SIGNING: ${{ steps.evs.outputs.skip }}
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+      - name: Релиз на GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = '${{ inputs.tag }}'
+          if (-not $tag) { $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { "v$version" } }
+          $files = @(Get-ChildItem build -File | Where-Object { $_.Name -match 'setup-x64\.exe(\.blockmap)?$' -or $_.Name -eq 'latest.yml' } | ForEach-Object { $_.FullName })
+          Get-ChildItem build -File -Filter '*setup-x64.exe' | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content build/SHA256SUMS -Encoding ascii
+          $files += (Resolve-Path build/SHA256SUMS).Path
+          $notes = "SoundCloud 2 $version для Windows 10 и 11 x64.`n`nУстанови ``soundcloud-2-$version-setup-x64.exe``. Дальше клиент обновляется сам.`n`n$(git log -1 --format=%B)"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { gh release upload $tag @files --clobber }
+          else { gh release create $tag @files --title "SoundCloud 2 $version" --notes $notes --latest }

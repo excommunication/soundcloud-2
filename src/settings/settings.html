@@ -30,6 +30,7 @@
             <div class="dialog-main">
                 <nav class="nav-list" aria-label="Разделы настроек">
                     <button data-target="general" aria-current="true">Основное</button>
+                    <button data-target="appearance">Оформление</button>
                     <button data-target="soundcloud">SoundCloud</button>
                     <button data-target="home">Главная</button>
                     <button data-target="wave">Моя волна</button>
@@ -60,6 +61,61 @@
                                 <option value="off">Выключено</option>
                             </select>
                         </div>
+                    </section>
+
+                    <section class="section" id="appearance" hidden>
+                        <h2>Оформление</h2>
+                        <div class="group">Переливы за сайтом</div>
+                        <div class="fx-grid" id="fxEffects" role="radiogroup" aria-label="Эффект фона">
+                            <button type="button" class="fx-card" data-effect="liquid" role="radio"><span class="fx-prev fx-liquid"></span><b>Жидкость</b><small>Перетекающий мрамор</small></button>
+                            <button type="button" class="fx-card" data-effect="aurora" role="radio"><span class="fx-prev fx-aurora"></span><b>Сияние</b><small>Северное небо</small></button>
+                            <button type="button" class="fx-card" data-effect="mesh" role="radio"><span class="fx-prev fx-mesh"></span><b>Сетка</b><small>Мягкие пятна цвета</small></button>
+                            <button type="button" class="fx-card" data-effect="silk" role="radio"><span class="fx-prev fx-silk"></span><b>Шёлк</b><small>Складки с бликами</small></button>
+                            <button type="button" class="fx-card" data-effect="nebula" role="radio"><span class="fx-prev fx-nebula"></span><b>Туманность</b><small>Космическая пыль</small></button>
+                            <button type="button" class="fx-card" data-effect="contour" role="radio"><span class="fx-prev fx-contour"></span><b>Контуры</b><small>Живая топокарта</small></button>
+                            <button type="button" class="fx-card" data-effect="off" role="radio"><span class="fx-prev fx-off"></span><b>Без фона</b><small>Сплошной тёмный</small></button>
+                        </div>
+                        <div class="group">Палитра</div>
+                        <div class="pal-row" id="fxPalettes" role="radiogroup" aria-label="Палитра">
+                            <button type="button" class="pal" data-palette="cover" role="radio" title="Из обложки играющего трека"><span class="pal-dot pal-cover"></span>Обложка</button>
+                            <button type="button" class="pal" data-palette="aurum" role="radio"><span class="pal-dot" style="--a:#2350ff;--b:#0b1540;--c:#6f8bff"></span>Аурум</button>
+                            <button type="button" class="pal" data-palette="ocean" role="radio"><span class="pal-dot" style="--a:#1b4dff;--b:#0a1f7a;--c:#2fb8ff"></span>Океан</button>
+                            <button type="button" class="pal" data-palette="sunset" role="radio"><span class="pal-dot" style="--a:#ff5e3a;--b:#ff2d87;--c:#ffb347"></span>Закат</button>
+                            <button type="button" class="pal" data-palette="emerald" role="radio"><span class="pal-dot" style="--a:#00c48c;--b:#0a6b6b;--c:#7dffb3"></span>Изумруд</button>
+                            <button type="button" class="pal" data-palette="violet" role="radio"><span class="pal-dot" style="--a:#8a3cff;--b:#3a0ca3;--c:#ff5cf0"></span>Фиалка</button>
+                            <button type="button" class="pal" data-palette="ember" role="radio"><span class="pal-dot" style="--a:#ff5500;--b:#8a1c00;--c:#ffb000"></span>Угли</button>
+                            <button type="button" class="pal" data-palette="sakura" role="radio"><span class="pal-dot" style="--a:#ff8ab8;--b:#7a4cff;--c:#ffd1e3"></span>Сакура</button>
+                            <button type="button" class="pal" data-palette="mono" role="radio"><span class="pal-dot" style="--a:#9aa4b8;--b:#2a2f3a;--c:#e6ebf5"></span>Графит</button>
+                            <button type="button" class="pal" data-palette="custom" role="radio"><span class="pal-dot pal-custom" id="palCustomDot"></span>Свои</button>
+                        </div>
+                        <div class="row pal-custom-row" id="palCustomRow" hidden>
+                            <span class="text">Свои цвета</span>
+                            <span class="color-set">
+                                <input type="color" id="fxColor1" aria-label="Цвет 1" />
+                                <input type="color" id="fxColor2" aria-label="Цвет 2" />
+                                <input type="color" id="fxColor3" aria-label="Цвет 3" />
+                            </span>
+                        </div>
+                        <div class="group">Движение и свет</div>
+                        <div class="row range-row"><span class="text">Скорость</span><input type="range" min="0" max="100" data-fx="speed" aria-label="Скорость" /><output data-out="speed"></output></div>
+                        <div class="row range-row"><span class="text">Яркость</span><input type="range" min="0" max="100" data-fx="intensity" aria-label="Яркость" /><output data-out="intensity"></output></div>
+                        <div class="row range-row"><span class="text">Зерно</span><input type="range" min="0" max="100" data-fx="grain" aria-label="Зерно" /><output data-out="grain"></output></div>
+                        <label class="row"><span class="text"><span>Тише на паузе</span><span class="hint">Без музыки переливы замедляются и притухают</span></span><span class="toggle"><input type="checkbox" data-fx="calmOnPause" /><span class="slider"></span></span></label>
+                        <label class="row"><span class="text"><span>Тянется за курсором</span><span class="hint">Лёгкий параллакс фона</span></span><span class="toggle"><input type="checkbox" data-fx="parallax" /><span class="slider"></span></span></label>
+                        <div class="group">Интерфейс</div>
+                        <div class="row range-row"><span class="text">Плотность стекла</span><input type="range" min="0" max="100" data-fx="glass" aria-label="Плотность стекла" /><output data-out="glass"></output></div>
+                        <div class="row range-row"><span class="text">Размытие под стеклом</span><input type="range" min="0" max="40" data-fx="blur" aria-label="Размытие" /><output data-out="blur"></output></div>
+                        <div class="row range-row"><span class="text">Скругления</span><input type="range" min="0" max="24" data-fx="radius" aria-label="Скругления" /><output data-out="radius"></output></div>
+                        <label class="row"><span class="text"><span>Анимации наведения</span><span class="hint">Карточки приподнимаются, кнопки пружинят</span></span><span class="toggle"><input type="checkbox" data-fx="hoverMotion" /><span class="slider"></span></span></label>
+                        <div class="row">
+                            <span class="text"><span>Качество</span><span class="hint">«Эко» бережёт батарею и видеокарту</span></span>
+                            <select class="input dropdown" data-fx="quality" aria-label="Качество">
+                                <option value="eco">Эко</option>
+                                <option value="balanced">Баланс</option>
+                                <option value="high">Максимум</option>
+                            </select>
+                        </div>
+                        <div class="row"><span class="text hint">Изменения видны сразу за этим окном</span><button type="button" class="btn" id="fxReset">Сбросить</button></div>
                     </section>
 
                     <section class="section" id="soundcloud" hidden>
@@ -127,6 +183,27 @@
                     <section class="section" id="wave" hidden>
                         <h2>Моя волна</h2>
                         <label class="row"><span class="text">Показывать на главной</span><span class="toggle"><input type="checkbox" id="homeWave" /><span class="slider"></span></span></label>
+                        <label class="row"><span class="text"><span>Без песен на русском</span><span class="hint">Волна, подборки и поиск словами не ставят песни на русском. «Моя музыка» играет как есть</span></span><span class="toggle"><input type="checkbox" id="waveNoRussian" /><span class="slider"></span></span></label>
+                        <div class="group">Волна по описанию</div>
+                        <p class="hint pad">Над волной есть строка: пишешь, что хочешь услышать, клиент находит топ треков и включает волну от них. Без модели запрос разбирается локально, с моделью точнее и понимает «в стиле…»</p>
+                        <div class="row">
+                            <span class="text">Провайдер</span>
+                            <select class="input dropdown" id="aiProvider" aria-label="Провайдер">
+                                <option value="off">Без модели</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="groq">Groq</option>
+                                <option value="ollama">Ollama (на компьютере)</option>
+                                <option value="custom">Свой адрес</option>
+                            </select>
+                        </div>
+                        <div class="ai-fields" id="aiFields" hidden>
+                            <div class="row"><span class="text">Ключ</span><input type="password" class="input wide" id="aiKey" autocomplete="off" spellcheck="false" placeholder="Вставь ключ API" data-no-i18n /></div>
+                            <div class="row"><span class="text">Модель</span><input type="text" class="input wide" id="aiModel" autocomplete="off" spellcheck="false" data-no-i18n /></div>
+                            <div class="row"><span class="text">Адрес</span><input type="text" class="input wide" id="aiBaseUrl" autocomplete="off" spellcheck="false" data-no-i18n /></div>
+                            <div class="row"><span class="text hint" id="aiStatus" aria-live="polite" data-no-i18n></span><span class="backup-actions"><button type="button" class="btn" id="aiTest">Проверить</button><button type="button" class="btn solid" id="aiSave">Сохранить</button></span></div>
+                        </div>
                         <details class="fold">
                             <summary class="row">
                                 <span class="text">Не нравится</span>

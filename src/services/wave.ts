@@ -31,6 +31,9 @@ import * as menuSectionModule from './wave/menu';
 import * as quietSectionModule from './wave/quiet';
 import * as scoutSectionModule from './wave/scout';
 import * as glowModule from './wave/glow';
+import * as vibeSectionModule from './wave/vibe';
+import * as waveVibeModule from './waveVibe';
+import type { VibePlan } from './waveVibe';
 import type { QuietOptions } from './wave/quiet';
 import * as waveSourcesModule from './wave/sources';
 import type { ScMix } from './wave/sources';
@@ -57,6 +60,8 @@ const { installMenu } = menuSectionModule;
 const { installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf } = quietSectionModule;
 const { installScout, scoutStart } = scoutSectionModule;
 const { glowPalette } = glowModule;
+const { installVibe } = vibeSectionModule;
+const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
 const { installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes } = waveSourcesModule;
 // Прежние импорты из wave.ts остаются рабочими
 export type { WaveTrack, WaveMode, OpenTrackResult, WaveReason, WaveCandidate, WaveFilter, WaveLinkKind, WaveTexts, TasteMaps, TasteScore, TasteGroup } from './waveTypes';
@@ -65,6 +70,8 @@ export { normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, g
 export { classifyLink, classifyTag, canonicalUrl, trackPath, artworkUrl, playEnd, siteSource, retryDelay } from './waveLinks';
 export { trackArtist, rememberRecent, isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, shuffleInPlace, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares } from './wavePicks';
 export { tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, tasteGroups, moodTags, pickFinds } from './waveTaste';
+export { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } from './waveVibe';
+export type { VibePlan, VibeHit } from './waveVibe';
 export { moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore } from './waveMood';
 export type { WaveMood, MoodScores, ArtistMoods } from './waveMood';
 
@@ -137,6 +144,10 @@ export interface WaveWindow extends Window {
     __scResume?: () => void;
     /** Настройки тихих краёв трека из F1 */
     __scQuietOptions?: (value: unknown) => void;
+    /** «Без русского» из F1 или из блока волны */
+    __scWaveNoRussian?: (value: unknown) => void;
+    /** Перечитать, подключена ли модель для «Волны по описанию» */
+    __scVibeStatus?: () => void;
     __scQueue?: () => void;
     // Горячие клавиши волны из main: лайк, «Не сейчас», «Больше такого», «Встряхнуть»
     __scWaveKey?: (action: string) => boolean;
@@ -187,6 +198,13 @@ export interface WaveWindow extends Window {
         reportSite?(state: SiteState): void;
         sendTrackMeta?(meta: TrackMeta): void;
         openHistory?(): void;
+        // «Волна по описанию»: план запроса от main (модель или локальный разбор) и подключена ли модель
+        vibe?: {
+            plan(text: string, context: { genres: string[]; noRussian: boolean }): Promise<{ plan: VibePlan; error?: string } | null>;
+            status?(): Promise<boolean>;
+        };
+        // Настройки волны, которые меняются из блока: «Без русского»
+        waveOptions?: { set(key: string, value: unknown): Promise<unknown> };
     };
 }
 interface WaveConfig {
@@ -196,6 +214,8 @@ interface WaveConfig {
     resume: boolean;
     /** Тихие края трека и плавный переход: настройки F1, дальше приходят через __scQuietOptions */
     quiet: QuietOptions;
+    /** «Без русского»: песни на русском не попадают в подбор волны */
+    noRussian: boolean;
 }
 
 export function installWave(config: WaveConfig, createPlayback: typeof installPlaybackPage, createRecovery: typeof installPlaybackRecovery): void {
@@ -225,6 +245,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     let recentGenres: string[] = [];
     // Пресет настроения (В3): null это «Всё»
     let preset: WaveMood | null = null;
+    // «Без русского» (настройка F1 и переключатель над блоком): «Моя музыка» играет как есть, остальное без песен на русском
+    let noRussian = config.noRussian === true;
     try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') as { mode?: unknown; genre?: unknown; recentGenres?: unknown; preset?: unknown };
         if (saved.mode === 'fresh') mode = 'fresh';
@@ -720,6 +742,41 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             return Number.isInteger(index) && index >= 0 ? shelfSection.genreOf(index) : '';
         },
     });
+    // «Волна по описанию» и «Без русского»: строка над блоком, раздел в wave/vibe.ts
+    const vibeSection = installVibe({
+        host,
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        disposed: () => disposed,
+        seed: () => seed,
+        seedRequest: () => seedRequest,
+        nextSeedRequest: () => ++seedRequest,
+        beginSeed,
+        ensureProfile,
+        ensureExclusions,
+        isExcluded: (track) => isExcluded(track),
+        searchTracks,
+        call,
+        tracksOf: (body) => tracksOf(body),
+        artistAccounts,
+        topTracks: (id) => waveSources.topTracks(id),
+        noRussian: () => noRussian,
+        setNoRussian: (value) => {
+            applyNoRussian(value);
+            void host.soundcloudAPI?.waveOptions?.set('waveNoRussian', value)?.catch((error: unknown) => console.warn('Волна: «Без русского» не сохранено', error));
+        },
+        showToast,
+        el,
+        trackRow,
+        nowPlaying: () => (active ? player?.getCurrentSound()?.id ?? 0 : 0),
+    });
+    // «Без русского» сменился: подборка и очередь впереди чистятся так же, как после «Не нравится»
+    function applyNoRussian(value: boolean): void {
+        if (noRussian === value) return;
+        noRussian = value;
+        vibeSection.refresh();
+        if (value) purgeExcluded();
+        else render();
+    }
     // Тихие края и плавный переход: F1 меняет настройки без перезагрузки страницы
     let quietOptions: QuietOptions = quietOptionsOf(config.quiet);
     host.__scQuietOptions = (value: unknown) => {
@@ -1457,7 +1514,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     };
     const isExcluded = (track: WaveTrack): boolean =>
         disliked().has(track.id) || excludedArtists.has(trackArtist(track)) || marked(laterTracks, track.id) || marked(laterArtists, trackArtist(track)) ||
-        (excludedFamilies.size > 0 && !(excludedFamilies.get(familyKey(track))?.has(versionKey(track)) ?? true));
+        (excludedFamilies.size > 0 && !(excludedFamilies.get(familyKey(track))?.has(versionKey(track)) ?? true)) ||
+        (noRussian && seed?.kind !== 'library' && russianTrack(track));
     const liveKeys = (map: Map<number, Excluded>): number[] => [...map.keys()].filter((id) => marked(map, id));
     // «Больше такого» как зерно волны: для похожих хватает id, для жанра и причины нужны название и метки
     const moreSeeds = (): WaveTrack[] =>
@@ -2007,7 +2065,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             } else if (current.order) {
                 const reason: WaveReason = current.kind === 'daily' ? { kind: 'daily' } : current.kind === 'forgotten' ? { kind: 'forgotten' }
                     : current.kind === 'liked' ? { kind: 'likedBy', artist: '' }
-                    : current.kind === 'artist' || current.kind === 'artistAll' ? { kind: 'artistTrack', artist: current.title } : { kind: 'group', name: current.title };
+                    : current.kind === 'artist' || current.kind === 'artistAll' ? { kind: 'artistTrack', artist: current.title }
+                    : current.kind === 'vibe' ? { kind: 'vibe', name: current.title } : { kind: 'group', name: current.title };
                 // Радар играет выпуск целиком: «Уже слышал» и недавно игравшее в нём остаются, запреты проверены при запуске.
                 // Волна от артиста так же: его лучшее звучит, даже если недавно играло (П3).
                 // Свой список отсекает только отданное сайту в этой подборке, а не всё, что волна отдавала раньше
@@ -2816,6 +2875,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             case 'group': return fillText(T.seedGroup, { seed: current.title });
             case 'tracks': return fillText(T.seedTracks, { seed: current.title });
             case 'radar': return current.title;
+            case 'vibe': return short ? current.title : fillText(T.seedVibe, { seed: current.title });
             case 'library': return short ? T.library : fillText(T.seedLibrary, { seed: current.title });
         }
     }
@@ -4222,6 +4282,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // rowsAt: прокрутка списка подборки, когда секция вернулась на страницу и своя прокрутка списка потеряна
     function render(rowsAt?: number, libraryAt?: number): void {
         if (!section) return;
+        vibeSection.refresh();
         hideTip();
         const focusedNode = document.activeElement instanceof HTMLElement && section.contains(document.activeElement) ? document.activeElement : null;
         const focused = focusedNode ? focusedNode.dataset.act ?? focusedNode.dataset.mode ?? focusedNode.dataset.role ?? focusedNode.dataset.preset ?? '' : '';
@@ -4952,6 +5013,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (back && keptPageScroll !== null && Date.now() - poppedAt < 5000) restorePageScroll(keptPageScroll);
             keptPageScroll = null;
         }
+        vibeSection.mount(section);
         // Подбор до запуска только для видимого блока: скрытая в F1 волна не ходит в API
         if (state === 'idle' && !active && !preview.length && player && isVisible()) void preparePreview();
         // Подборки собираются, когда блок виден и сайт готов, и пересобираются после местной полуночи
@@ -5091,12 +5153,20 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         delete host.__scResume;
         delete host.__scRadarCollect;
         radarSection.dispose();
+        vibeSection.dispose();
+        document.getElementById('sc-vibe-style')?.remove();
+        delete host.__scWaveNoRussian;
+        delete host.__scVibeStatus;
         quietSection.dispose();
         scoutSection.dispose();
         delete host.__scQuietOptions;
         versions.close();
     };
     host.__disposeWave = dispose;
+    host.__scWaveNoRussian = (value: unknown) => {
+        if (typeof value === 'boolean') applyNoRussian(value);
+    };
+    host.__scVibeStatus = () => vibeSection.recheck();
     // Выход из приложения: main забирает недописанное вместе с текущим прослушиванием,
     // pagehide при закрытии окна приходит, когда main уже дописал журнал
     host.__scWaveTakeSignals = () => {
@@ -5137,7 +5207,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
@@ -5147,7 +5217,7 @@ export function waveQuietScript(quiet: QuietOptions): string {
     return 'window.__scQuietOptions && window.__scQuietOptions(' + JSON.stringify(quietOptionsOf(quiet)) + ')';
 }
 
-export function waveScript(resume = false, quiet: QuietOptions = { edges: true, crossfade: 5 }): string {
-    const config: WaveConfig = { texts: WAVE_TEXTS, resume, quiet };
+export function waveScript(resume = false, quiet: QuietOptions = { edges: true, crossfade: 5 }, noRussian = false): string {
+    const config: WaveConfig = { texts: WAVE_TEXTS, resume, quiet, noRussian: noRussian === true };
     return '(function(){\n' + pageHelpers.map((helper) => helper.toString()).join('\n') + '\n(' + installWave.toString() + ')(' + JSON.stringify(config) + ', installPlaybackPage, installPlaybackRecovery);\n})();';
 }

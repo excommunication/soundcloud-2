@@ -12,7 +12,7 @@ class FakeUpdater extends EventEmitter {
     quitAndInstall = vi.fn();
 }
 
-function release(tag: string, url = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/tag/' + tag): Response {
+function release(tag: string, url = 'https://github.com/excommunication/soundcloud-2/releases/tag/' + tag): Response {
     return new Response(JSON.stringify({ tag_name: tag, html_url: url }), { status: 200 });
 }
 
@@ -59,7 +59,7 @@ it('portable сообщает о новой версии один раз и да
     expect(notify.mock.calls[0][0]).toContain('0.2.0');
     const state = service.getState();
     expect(state.status).toContain('Вышла версия 0.2.0');
-    expect(state.releaseUrl).toBe('https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/tag/v0.2.0');
+    expect(state.releaseUrl).toBe('https://github.com/excommunication/soundcloud-2/releases/tag/v0.2.0');
 });
 
 it('portable молчит, если версия та же, и не берёт чужую ссылку', async () => {

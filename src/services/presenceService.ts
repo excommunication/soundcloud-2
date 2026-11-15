@@ -12,7 +12,7 @@ interface Settings {
 export const PRESENCE_INTERVAL_MS = 5000;
 // Расхождение начала трека меньше этого считается дрожанием секунд, больше значит перемотку или паузу
 const START_DRIFT_MS = 2000;
-export const GITHUB_REPOSITORY_URL = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop';
+export const GITHUB_REPOSITORY_URL = 'https://github.com/excommunication/soundcloud-2';
 export const GITHUB_ICON_URL = 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png';
 /** Ассет приложения Discord: логотип вместо обложки, когда картинки нет */
 export const LOGO_ASSET = 'soundcloud-logo';

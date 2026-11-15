@@ -1,10 +1,10 @@
 {
     "name": "soundcloud-desktop",
-    "version": "0.16.1",
-    "description": "Клиент SoundCloud для Windows",
+    "version": "2.0.0",
+    "description": "Клиент SoundCloud для Windows: волна по описанию, переливы WebGL и стекло",
     "author": {
-        "name": "zxczxczxczxczxczxc1111",
-        "email": "196401605+zxczxczxczxczxczxc1111@users.noreply.github.com"
+        "name": "excommunication",
+        "email": "356913196+excommunication@users.noreply.github.com"
     },
     "license": "MIT",
     "scripts": {
@@ -25,7 +25,7 @@
         "check:repo": "node scripts/check-repo.cjs"
     },
     "main": "./tsc/main.js",
-    "repository": "https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop",
+    "repository": "https://github.com/excommunication/soundcloud-2",
     "build": {
         "appId": "io.github.zxczxczxczxczxczxc1111.soundcloud-desktop",
         "productName": "SoundCloud",
@@ -53,8 +53,8 @@
         "afterSign": "scripts/sign-vmp.js",
         "publish": {
             "provider": "github",
-            "owner": "zxczxczxczxczxczxc1111",
-            "repo": "soundcloud-desktop"
+            "owner": "excommunication",
+            "repo": "soundcloud-2"
         },
         "mac": {
             "target": "dmg",
@@ -68,7 +68,7 @@
         "win": {
             "target": "nsis",
             "icon": "assets/icons/soundcloud-win.ico",
-            "artifactName": "soundcloud-desktop-${version}-setup-${arch}.${ext}"
+            "artifactName": "soundcloud-2-${version}-setup-${arch}.${ext}"
         },
         "linux": {
             "target": [

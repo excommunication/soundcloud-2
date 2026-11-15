@@ -38,6 +38,9 @@ import { registerWindowIpc } from './ipc/windowIpc';
 import { registerUpdateIpc } from './ipc/updateIpc';
 import { registerPageIpc, type PlaybackState } from './ipc/pageIpc';
 import { registerWaveIpc } from './ipc/waveIpc';
+import { registerVibeIpc } from './ipc/vibeIpc';
+import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
+import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
 import { registerBackupIpc } from './ipc/backupIpc';
@@ -56,6 +59,7 @@ import {
     dialog,
     powerMonitor,
     net,
+    safeStorage,
     Notification,
     screen,
     type IpcMainEvent,
@@ -557,7 +561,7 @@ function createBrowserWindow(windowState: ReturnType<typeof windowStateManager>)
             backgroundThrottling: true,
             ...(isMac ? { spellcheck: false } : {}),
         },
-        backgroundColor: '#121212',
+        backgroundColor: '#070a12',
     });
 
     window.webContents.setUserAgent(globalUserAgent);
@@ -989,6 +993,20 @@ async function init() {
         page: () => contentView.webContents,
         applySettingChange,
     });
+    // «Волна по описанию»: план запроса, настройки модели в F1 и «Без русского» из блока. Запрос к модели идёт через
+    // сеть Electron: прокси клиента действует и на него
+    registerVibeIpc(ipcMain, {
+        trustedSite: isTrustedSoundCloudSender,
+        trustedLocal: isTrustedLocalSender,
+        store,
+        secrets: safeStorage,
+        fetcher: ((url, init) => net.fetch(url, init)) as FetchLike,
+        applySettingChange,
+        notifyPage: () => {
+            if (contentView && !contentView.webContents.isDestroyed())
+                void contentView.webContents.executeJavaScript('window.__scVibeStatus && window.__scVibeStatus()').catch(console.error);
+        },
+    });
     // Пятничный радар: расписание здесь, сбор каталога на странице сайта, выпуск считает и пишет worker
     radarScheduler?.stop();
     const radarPage = async (script: string): Promise<unknown> =>
@@ -1201,7 +1219,7 @@ async function init() {
             // Плавность раньше волны: волна берёт у неё цвета обложек
             await contentView.webContents.executeJavaScript(pageMotionScript(store.get('reduceMotion', false) === true));
             await contentView.webContents.executeJavaScript(homePageScript());
-            await contentView.webContents.executeJavaScript(waveScript(playback.playedThisRun, quietOptions()));
+            await contentView.webContents.executeJavaScript(waveScript(playback.playedThisRun, quietOptions(), store.get('waveNoRussian', false) === true));
             await contentView.webContents.executeJavaScript(playerAreaScript());
             await contentView.webContents.executeJavaScript(searchLinkScript());
 
@@ -1279,6 +1297,10 @@ async function init() {
             void contentView.webContents.executeJavaScript(fullShuffleScript(data.value === true)).catch(console.error);
         } else if (key === 'reduceMotion') {
             void contentView.webContents.executeJavaScript(pageMotionScript(data.value === true)).catch(console.error);
+        } else if (key === 'appearance') {
+            applyThemeToContent();
+        } else if (key === 'waveNoRussian') {
+            void contentView.webContents.executeJavaScript('window.__scWaveNoRussian && window.__scWaveNoRussian(' + (data.value === true) + ')').catch(console.error);
         } else if (key === 'quietEdges' || key === 'crossfade' || key === 'crossfadeSeconds') {
             void contentView.webContents.executeJavaScript(waveQuietScript(quietOptions())).catch(console.error);
         }
@@ -1336,6 +1358,8 @@ function applyThemeToContent() {
         // Стандартные свойства: ::-webkit-scrollbar рисуется главным потоком и отстаёт от прокрутки.
         'html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) rgba(255,255,255,.05)}',
         hiddenBlocksCSS(),
+        // Оформление: стекло, скругления и прозрачный фон сайта под переливами
+        appearanceCss(normalizeAppearance(store.get('appearance'))),
     ].join('\n');
     // До первой загрузки сайта страницы нет: стили и скрипты всё равно пропали бы, их ставит did-finish-load
     if (contentView.webContents.getURL()) {
@@ -1343,6 +1367,8 @@ function applyThemeToContent() {
         void viewStyles.apply(contentView.webContents, css).catch(console.error);
         void contentView.webContents.executeJavaScript('for(const n of [document.documentElement,document.body]){n.classList.remove("theme-light");n.classList.add("theme-dark")}').catch(console.error);
         void contentView.webContents.executeJavaScript(pageFeaturesScript(store.get('hideArtistUpsells', true) === true)).catch(console.error);
+        // Переливы WebGL за сайтом: ставятся или обновляются без перезагрузки
+        void contentView.webContents.executeJavaScript(auroraScript(store.get('appearance'))).catch(console.error);
     }
 }
 

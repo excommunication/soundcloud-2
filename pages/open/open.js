@@ -5,7 +5,7 @@
 // Любое нажатие на странице отменяет уход: человек выбирает сам. «Открыть в клиенте» без ответа клиента ведёт на загрузку
 (() => {
     const DELAY = 5;
-    const RELEASES = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/latest';
+    const RELEASES = 'https://github.com/excommunication/soundcloud-2/releases/latest';
     const t = new URLSearchParams(location.search).get('t') || '';
     // Только путь публичного трека: иначе страница стала бы открытым редиректом под этим адресом
     const valid = /^[a-z0-9_-]{1,100}\/[a-z0-9_-]{1,255}$/i.test(t);
