@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* global require, Buffer, __dirname, setTimeout */
 // Картинки установщика: боковая 164x314 (приветствие и финиш) и шапка 150x57 (страница установки), 24-битные BMP
 // в build-resources. Рисует Electron из HTML, чтобы оформление совпадало с заставкой клиента.
 // Запуск: electron scripts/installer-art.cjs
