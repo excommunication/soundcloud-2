@@ -30,6 +30,9 @@ const INVOKE_CHANNELS = new Set([
     'backup-restore',
     'backup-folder',
     'backup-auto',
+    'ai-config:get',
+    'ai-config:set',
+    'ai-config:test',
 ]);
 
 const ON_CHANNELS = new Set(['presence-preview-update', 'discord-incognito-changed', 'update-translations', 'accounts-updated', 'update-state', 'wave-exclusions-changed', 'backup-state-changed', 'site-state-changed']);

@@ -908,7 +908,7 @@ async function initializeSettings() {
                 smallIcon.style.cursor = 'pointer';
                 smallIcon.setAttribute('role', 'link');
                 smallIcon.tabIndex = 0;
-                const openRepository = () => shell.openExternal('https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop');
+                const openRepository = () => shell.openExternal('https://github.com/excommunication/soundcloud-2');
                 smallIcon.addEventListener('click', openRepository);
                 smallIcon.addEventListener('keydown', event => { if (event.key === 'Enter') openRepository(); });
             }
@@ -1108,6 +1108,154 @@ async function initializeSettings() {
             });
         });
     });
+
+    // Оформление: эффект, палитра, ползунки и переключатели собираются в один объект appearance. Изменения видны сразу:
+    // main ставит новые стили и переливы на страницу за панелью. Ползунки шлют не чаще раза в 90 мс
+    const FX_DEFAULTS = {
+        effect: 'liquid', palette: 'cover', colors: ['#3a6bff', '#7a3cff', '#00c2ff'], speed: 35, intensity: 60, grain: 22, glass: 55, blur: 22, radius: 14,
+        quality: 'balanced', calmOnPause: true, parallax: true, hoverMotion: true,
+    };
+    let appearance = { ...FX_DEFAULTS, ...(initial.appearance || {}) };
+    let fxTimer = 0;
+    const sendAppearance = (now = false) => {
+        clearTimeout(fxTimer);
+        const send = () => ipcRenderer.send('setting-changed', { key: 'appearance', value: { ...appearance, colors: [...appearance.colors] } });
+        if (now) send();
+        else fxTimer = setTimeout(send, 90);
+    };
+    function paintAppearance() {
+        for (const card of document.querySelectorAll('#fxEffects .fx-card')) {
+            const on = card.dataset.effect === appearance.effect;
+            card.setAttribute('aria-checked', String(on));
+            card.tabIndex = on ? 0 : -1;
+        }
+        for (const chip of document.querySelectorAll('#fxPalettes .pal')) {
+            const on = chip.dataset.palette === appearance.palette;
+            chip.setAttribute('aria-checked', String(on));
+            chip.tabIndex = on ? 0 : -1;
+        }
+        document.getElementById('palCustomRow').hidden = appearance.palette !== 'custom';
+        const dot = document.getElementById('palCustomDot');
+        appearance.colors.forEach((color, i) => {
+            dot.style.setProperty('--' + 'abc'[i], color);
+            const input = document.getElementById('fxColor' + (i + 1));
+            if (input) input.value = color;
+        });
+        for (const input of document.querySelectorAll('#appearance [data-fx]')) {
+            const key = input.dataset.fx;
+            if (input.type === 'checkbox') input.checked = appearance[key] === true;
+            else input.value = String(appearance[key]);
+            if (input.type === 'range') {
+                input.style.setProperty('--fill', ((Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min))) * 100 + '%');
+                const out = document.querySelector('#appearance output[data-out="' + key + '"]');
+                if (out) out.textContent = key === 'blur' || key === 'radius' ? input.value + ' px' : input.value + '%';
+            }
+        }
+    }
+    document.getElementById('fxEffects').addEventListener('click', (event) => {
+        const card = event.target.closest('.fx-card');
+        if (!card) return;
+        appearance.effect = card.dataset.effect;
+        paintAppearance();
+        sendAppearance(true);
+    });
+    document.getElementById('fxPalettes').addEventListener('click', (event) => {
+        const chip = event.target.closest('.pal');
+        if (!chip) return;
+        appearance.palette = chip.dataset.palette;
+        paintAppearance();
+        sendAppearance(true);
+    });
+    // Стрелки в группах эффектов и палитр, как у радиокнопок
+    for (const group of [document.getElementById('fxEffects'), document.getElementById('fxPalettes')]) {
+        group.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            const items = [...group.querySelectorAll('[role="radio"]')];
+            const at = items.indexOf(document.activeElement);
+            if (at < 0) return;
+            event.preventDefault();
+            const next = items[(at + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? items.length - 1 : 1)) % items.length];
+            next.focus();
+            next.click();
+        });
+    }
+    for (const [index, id] of ['fxColor1', 'fxColor2', 'fxColor3'].entries()) {
+        document.getElementById(id).addEventListener('input', (event) => {
+            const colors = [...appearance.colors];
+            colors[index] = event.target.value.toLowerCase();
+            appearance.colors = colors;
+            paintAppearance();
+            sendAppearance();
+        });
+    }
+    for (const input of document.querySelectorAll('#appearance [data-fx]')) {
+        const key = input.dataset.fx;
+        input.addEventListener(input.type === 'range' ? 'input' : 'change', () => {
+            appearance[key] = input.type === 'checkbox' ? input.checked : input.type === 'range' ? Number(input.value) : input.value;
+            paintAppearance();
+            sendAppearance(input.type !== 'range');
+        });
+    }
+    document.getElementById('fxReset').addEventListener('click', () => {
+        appearance = { ...FX_DEFAULTS, colors: [...FX_DEFAULTS.colors] };
+        paintAppearance();
+        sendAppearance(true);
+    });
+    paintAppearance();
+
+    // Модель для «Волны по описанию»: ключ в поле не показывается, только подсказка о последних знаках
+    const aiProvider = document.getElementById('aiProvider');
+    const aiFields = document.getElementById('aiFields');
+    const aiKey = document.getElementById('aiKey');
+    const aiModel = document.getElementById('aiModel');
+    const aiBaseUrl = document.getElementById('aiBaseUrl');
+    const aiStatus = document.getElementById('aiStatus');
+    let aiView = null;
+    function paintAi() {
+        const provider = aiProvider.value;
+        aiFields.hidden = provider === 'off';
+        const defaults = aiView?.defaults?.[provider] ?? { baseUrl: '', model: '' };
+        aiModel.placeholder = defaults.model || tr('Название модели');
+        aiBaseUrl.placeholder = defaults.baseUrl || 'https://…/v1';
+        aiKey.closest('.row').hidden = provider === 'ollama';
+        aiKey.placeholder = aiView?.hasKey ? tr('Ключ сохранён') + ' ' + aiView.keyHint : tr('Вставь ключ API');
+    }
+    async function loadAi() {
+        try {
+            aiView = await ipcRenderer.invoke('ai-config:get');
+            aiProvider.value = aiView.provider;
+            aiModel.value = aiView.model;
+            aiBaseUrl.value = aiView.baseUrl;
+            aiKey.value = '';
+            aiStatus.textContent = aiView.encrypted ? '' : tr('Системное хранилище ключей недоступно: ключ хранится открыто');
+            paintAi();
+        } catch (error) {
+            console.warn('Настройки модели не прочитаны', error);
+        }
+    }
+    async function saveAi() {
+        const change = { provider: aiProvider.value, model: aiModel.value, baseUrl: aiBaseUrl.value };
+        if (aiKey.value.trim()) change.key = aiKey.value.trim();
+        const ok = await ipcRenderer.invoke('ai-config:set', change).catch(() => false);
+        aiStatus.textContent = ok ? tr('Сохранено') : tr('Проверь адрес: нужен https:// или http://');
+        if (ok) await loadAi().then(() => (aiStatus.textContent = tr('Сохранено')));
+        return ok;
+    }
+    aiProvider.addEventListener('change', () => {
+        paintAi();
+        // Без модели сохраняется сразу; у остальных сначала ключ
+        if (aiProvider.value === 'off' || aiProvider.value === 'ollama') void saveAi();
+    });
+    document.getElementById('aiSave').addEventListener('click', () => void saveAi());
+    document.getElementById('aiTest').addEventListener('click', async () => {
+        if (!(await saveAi())) return;
+        aiStatus.textContent = tr('Спрашиваю модель…');
+        const result = await ipcRenderer.invoke('ai-config:test').catch((error) => ({ ok: false, error: String(error) }));
+        aiStatus.textContent = result.ok
+            ? tr('Работает') + ': «' + result.title + '»' + (result.tracks?.length ? ', ' + result.tracks.join(', ') : '')
+            : tr('Ошибка') + ': ' + result.error;
+    });
+    void loadAi();
 
     document
         .getElementById('close-settings')

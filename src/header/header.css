@@ -27,7 +27,7 @@ body {
 
 /* Theme specific styles */
 :root {
-    --header-bg: #121212;
+    --header-bg: #070a12;
     --header-text: #ffffff;
     --header-accent: #ff5500;
     --hover-bg: rgba(255, 255, 255, 0.1);
@@ -277,4 +277,32 @@ body.platform-win32 .windows-controls {
     --scrollbar-bg: rgba(255, 255, 255, 0.05);
     --scrollbar-thumb: rgba(255, 255, 255, 0.2);
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+}
+
+/* Новый облик: глубокий тёмно-синий и переливающаяся линия снизу, как у панелей поверх переливов */
+.custom-header {
+    position: relative;
+    background: linear-gradient(180deg, #0b0f1c, #070a12);
+}
+.custom-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(111, 139, 255, 0.55), rgba(176, 107, 255, 0.45), transparent);
+    background-size: 200% 100%;
+    animation: header-shimmer 12s linear infinite;
+    pointer-events: none;
+}
+@keyframes header-shimmer {
+    to {
+        background-position: -200% 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .custom-header::after {
+        animation: none;
+    }
 }

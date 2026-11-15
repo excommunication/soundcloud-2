@@ -1,8 +1,8 @@
 import type { AppUpdater } from 'electron-updater';
 
-export const RELEASES_URL = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/latest';
-const LATEST_RELEASE_API = 'https://api.github.com/repos/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/latest';
-const RELEASE_PAGE_PREFIX = 'https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop/releases/';
+export const RELEASES_URL = 'https://github.com/excommunication/soundcloud-2/releases/latest';
+const LATEST_RELEASE_API = 'https://api.github.com/repos/excommunication/soundcloud-2/releases/latest';
+const RELEASE_PAGE_PREFIX = 'https://github.com/excommunication/soundcloud-2/releases/';
 export const FIRST_CHECK_DELAY_MS = 30_000;
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15_000;

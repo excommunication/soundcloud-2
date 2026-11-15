@@ -347,6 +347,15 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
         save: (userId: number, snapshot: object): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-shelf:save', userId, snapshot),
     },
     // «Моя музыка»: выбор источников и режим из настроек, слышанное в клиенте за 3 дня; ввод проверяет main
+    // «Волна по описанию»: план запроса считает main (модель или локальный разбор), ключ модели на страницу не попадает
+    vibe: {
+        plan: (text: string, context: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:vibe:plan', text, context),
+        status: (): Promise<unknown> => ipcRenderer.invoke('soundcloud:vibe:status'),
+    },
+    // Настройки волны из блока на главной: «Без русского»; ввод проверяет main
+    waveOptions: {
+        set: (key: string, value: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-option:set', key, value),
+    },
     waveLibrary: {
         load: (): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-library:load'),
         save: (value: object): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-library:save', value),

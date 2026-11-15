@@ -7,6 +7,7 @@ const ts = require('typescript');
 const services = path.resolve(__dirname, '..', 'tsc', 'services');
 const load = (name) => require(path.join(services, name));
 const scripts = [
+    ['aurora', () => load('aurora').auroraScript({})],
     ['audioMonitor', () => load('audioMonitorService').audioMonitorScript],
     ['fullShuffle', () => load('fullShuffle').fullShuffleScript(true)],
     ['homeBlocks', () => load('homeBlocks').homePageScript()],

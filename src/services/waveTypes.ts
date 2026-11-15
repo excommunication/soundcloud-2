@@ -47,6 +47,7 @@ export type WaveReason =
     | { kind: 'daily' }
     | { kind: 'forgotten' }
     | { kind: 'group'; name: string }
+    | { kind: 'vibe'; name: string }
     | { kind: 'version'; seed: string }
     /** Пресет настроения: трек из поиска SoundCloud по метке настроения, tag это метка */
     | { kind: 'moodTag'; tag: string }
@@ -118,7 +119,7 @@ export type WaveTexts = Record<
     | 'toastDisliked' | 'toastUndisliked' | 'toastHidden' | 'toastShown' | 'toastFailed' | 'toastNotSaved' | 'toastEmpty' | 'shake' | 'history'
     | 'whyTasteArtist' | 'whyTasteTag' | 'more' | 'later' | 'menuUnmore' | 'menuUnlater' | 'toastMore' | 'toastUnmore' | 'toastLater'
     | 'toastLaterArtist' | 'toastUnlater'
-    | 'lang' | 'shelf' | 'shelfDaily' | 'shelfForgotten' | 'shelfEmpty' | 'shelfFailed' | 'tracksCount' | 'groupAnd' | 'whyDaily' | 'whyForgotten' | 'whyGroup'
+    | 'lang' | 'shelf' | 'shelfDaily' | 'shelfForgotten' | 'shelfEmpty' | 'shelfFailed' | 'tracksCount' | 'groupAnd' | 'whyDaily' | 'whyForgotten' | 'whyGroup' | 'whyVibe' | 'seedVibe'
     | 'seedDaily' | 'seedForgotten' | 'seedGroup' | 'seedTracks' | 'menuPick' | 'menuUnpick' | 'toastPicked' | 'toastUnpicked' | 'toastPickFull'
     | 'pickStart' | 'pickClear' | 'mixPlay' | 'mixClose' | 'mixLoading' | 'mixFailed' | 'mixEmpty' | 'whyVersion'
     | 'radar' | 'radarUploads' | 'radarUploadsHint' | 'radarFans' | 'radarFansHint' | 'radarHeard' | 'radarPartial' | 'radarCoverage' | 'radarComplete' | 'radarEmptyWeek'
@@ -231,7 +232,7 @@ export interface Profile {
 // Волна от трека, артиста или плейлиста из меню по ПКМ: зёрна вместо вкуса, жанр не действует.
 // own это треки самого артиста, они идут в подборку; derived это найденное, от него волна едет дальше.
 // У подборок полки и набора из меню own это сама подборка
-export type SeedKind = WaveLinkKind | 'artistAll' | 'daily' | 'forgotten' | 'liked' | 'group' | 'tracks' | 'radar' | 'library';
+export type SeedKind = WaveLinkKind | 'artistAll' | 'daily' | 'forgotten' | 'liked' | 'group' | 'tracks' | 'radar' | 'library' | 'vibe';
 export interface Seed {
     kind: SeedKind;
     title: string;

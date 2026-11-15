@@ -7,6 +7,7 @@ import type ElectronStore from 'electron-store';
 import { join } from 'path';
 import type { GpuRuntimeState } from '../services/gpuProcessMode';
 import type { SiteState } from '../services/siteModules';
+import { normalizeAppearance } from '../services/aurora';
 
 const defaults: Record<string, string | number | boolean> = {
     minimizeToTray: false,
@@ -21,6 +22,7 @@ const defaults: Record<string, string | number | boolean> = {
     crossfade: true,
     crossfadeSeconds: 5,
     reduceMotion: false,
+    waveNoRussian: false,
     gpuCompatibilityMode: 'auto',
     siteLanguage: 'ru',
     ...homeBlockDefaults,
@@ -82,6 +84,7 @@ export class SettingsManager {
                 ...Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, this.store.get(key, fallback)])),
                 // Зону при первом запуске пишет перенос настроек; до него показывается зона системы
                 radarZone: this.store.get('radarZone', systemTimeZone()),
+                appearance: normalizeAppearance(this.store.get('appearance')),
                 gpuRuntime: this.gpuRuntime,
                 siteState: this.siteState,
             };

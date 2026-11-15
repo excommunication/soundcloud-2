@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest';
+import { APPEARANCE_DEFAULTS, AURORA_EFFECTS, appearanceCss, auroraScript, fragmentSource, isAppearance, normalizeAppearance, paletteColors, PALETTES } from './aurora';
+import { validateSettingChange } from '../settings/validateSetting';
+
+describe('оформление', () => {
+    it('normalizeAppearance отбрасывает мусор и держит границы', () => {
+        const value = normalizeAppearance({ effect: 'evil', palette: 'sunset', speed: 500, blur: 12.4, colors: ['#FFF', 'x', 1], hoverMotion: false });
+        expect(value.effect).toBe(APPEARANCE_DEFAULTS.effect);
+        expect(value.palette).toBe('sunset');
+        expect(value.speed).toBe(APPEARANCE_DEFAULTS.speed);
+        expect(value.blur).toBe(12);
+        expect(value.colors).toEqual(APPEARANCE_DEFAULTS.colors);
+        expect(value.hoverMotion).toBe(false);
+    });
+    it('isAppearance принимает только полный правильный объект; валидатор настроек тоже', () => {
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS })).toBe(true);
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS, speed: 101 })).toBe(false);
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS, extra: 1 })).toBe(false);
+        expect(isAppearance({ effect: 'mesh' })).toBe(false);
+        expect(validateSettingChange({ key: 'appearance', value: { ...APPEARANCE_DEFAULTS, effect: 'silk' } })).toBe(true);
+        expect(validateSettingChange({ key: 'appearance', value: 'liquid' })).toBe(false);
+    });
+    it('палитры', () => {
+        expect(paletteColors({ ...APPEARANCE_DEFAULTS, palette: 'ember' })).toEqual(PALETTES.ember);
+        expect(paletteColors({ ...APPEARANCE_DEFAULTS, palette: 'custom', colors: ['#000000', '#111111', '#222222'] })).toEqual(['#000000', '#111111', '#222222']);
+    });
+    it('CSS: без эффекта фон сайта не прозрачный, с эффектом стекло и холст', () => {
+        const off = appearanceCss({ ...APPEARANCE_DEFAULTS, effect: 'off' });
+        expect(off).not.toContain('--background-base:transparent');
+        const on = appearanceCss({ ...APPEARANCE_DEFAULTS, glass: 100, blur: 30 });
+        expect(on).toContain('--background-base:transparent');
+        expect(on).toContain('blur(30px)');
+        expect(on).toContain('#sca-bg');
+        expect(appearanceCss({ ...APPEARANCE_DEFAULTS, hoverMotion: false })).not.toContain('translateY(-3px)');
+    });
+    it('у каждого эффекта есть шейдер с main, скрипт несёт все эффекты', () => {
+        for (const effect of AURORA_EFFECTS.filter((item) => item !== 'off')) {
+            const source = fragmentSource(effect);
+            expect(source).toContain('vec3 effect(');
+            expect(source).toContain('void main()');
+        }
+        const script = auroraScript({ effect: 'nebula' });
+        expect(script).toContain('function glowPalette');
+        expect(script).toContain('"effect":"nebula"');
+        expect(() => new Function(script)).not.toThrow();
+    });
+});
