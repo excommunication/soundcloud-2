@@ -213,6 +213,8 @@ export interface WaveWindow extends Window {
         };
         // Настройки волны, которые меняются из блока: «Без русского»
         waveOptions?: { set(key: string, value: unknown): Promise<unknown> };
+        // Текст играющего трека (LRCLIB, запасной Genius): ищет main
+        lyrics?(query: { title: string; uploader: string; durationMs: number }): Promise<unknown>;
     };
 }
 interface WaveConfig {
@@ -3195,7 +3197,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         }
         if (sound) publishMeta(sound);
         // Пауза кнопкой сайта или медиаклавишей: иначе кнопка блока остаётся в старом состоянии
-        if (section && (active && p.isPlaying()) !== shownPlaying) render();
+        if (section && p.isPlaying() !== shownPlaying) render();
         if (!active) return;
         // Сразу после запуска текущего элемента может ещё не быть, поэтому три секунды форы
         if (!ownsQueue()) {
@@ -3706,6 +3708,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
 
     // ===== Блок на главной =====
     const ICON: Record<string, string> = {
+        lyrics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zM4 9.5h11v2H4zM4 14h8v2H4zM17.5 12.2V18a2.5 2.5 0 1 1-1.5-2.3V10h4v2.2z"/></svg>',
         play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
         pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>',
         chev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
@@ -4347,6 +4350,87 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         return [el('div', 'scw-up-h', active ? T.next : T.upFirst), tiles];
     }
     // rowsAt: прокрутка списка подборки, когда секция вернулась на страницу и своя прокрутка списка потеряна
+    // ===== Трек не из волны и текст песни (2.7.1) =====
+    const LYRICS_T = T.lang === 'ru'
+        ? { show: 'Текст', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', source: 'Текст: {source}', synced: 'в такт' }
+        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', source: 'Lyrics: {source}', synced: 'synced' };
+    interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string }> | null }
+    const lyricsFor = new Map<number, CardLyrics | null>();
+    const lyricsAsked = new Set<number>();
+    let lyricsOpen = false;
+    let lyricsLine = -1;
+    function outsideTrack(): WaveTrack | null {
+        const sound = player?.getCurrentSound();
+        if (!sound?.id || !sound.attributes) return null;
+        return { ...sound.attributes, id: sound.id };
+    }
+    function nextUpTitle(): string {
+        if (!player) return '';
+        try {
+            const items = player.getQueue().slice();
+            const next = items[player.getQueueState().currentIndex + 1]?.sound?.attributes;
+            if (!next) return '';
+            const title = (next.title ?? '').trim();
+            const who = (next.user?.username ?? '').trim();
+            return title ? (who && !title.includes(who) ? who + ' · ' + title : title) : '';
+        } catch {
+            return '';
+        }
+    }
+    function ensureLyrics(track: WaveTrack): void {
+        const api = host.soundcloudAPI?.lyrics;
+        if (!api || lyricsAsked.has(track.id)) return;
+        lyricsAsked.add(track.id);
+        if (lyricsAsked.size > 300) lyricsAsked.delete(lyricsAsked.values().next().value as number);
+        const duration = track.full_duration || track.duration || 0;
+        void api({ title: track.title ?? '', uploader: track.user?.username ?? '', durationMs: duration }).then((value) => {
+            const data = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+            const plain = typeof data?.plain === 'string' ? data.plain : '';
+            const synced = Array.isArray(data?.synced)
+                ? (data.synced as unknown[]).filter((line): line is { at: number; text: string } => !!line && typeof line === 'object' && typeof (line as { at?: unknown }).at === 'number' && typeof (line as { text?: unknown }).text === 'string')
+                : null;
+            lyricsFor.set(track.id, plain ? { source: data?.source === 'genius' ? 'Genius' : 'LRCLIB', plain, synced: synced && synced.length ? synced : null } : null);
+            if (lyricsFor.size > 200) lyricsFor.delete(lyricsFor.keys().next().value as number);
+            const shown = currentCandidate()?.track.id ?? outsideTrack()?.id;
+            if (plain && shown === track.id && !disposed) render();
+        }, (error: unknown) => console.warn('Волна: текст песни не загружен', error));
+    }
+    function renderLyrics(lyrics: CardLyrics): HTMLElement {
+        const box = el('div', 'scw-lyrics');
+        const rows = el('div', 'scw-lyrics-rows');
+        if (lyrics.synced) {
+            box.dataset.synced = 'true';
+            for (const line of lyrics.synced) {
+                const row = el('button', 'scw-lyric', line.text || '♪');
+                row.type = 'button';
+                row.dataset.act = 'lyric-seek';
+                row.dataset.at = String(line.at);
+                rows.append(row);
+            }
+        } else {
+            for (const line of lyrics.plain.split('\n')) rows.append(el('div', 'scw-lyric plain', line || '\u00a0'));
+        }
+        lyricsLine = -1;
+        box.append(rows, el('div', 'scw-lyrics-src', fillText(LYRICS_T.source, { source: lyrics.source }) + (lyrics.synced ? ' · ' + LYRICS_T.synced : '')));
+        return box;
+    }
+    // Подсветка строки в такт: последняя строка, которая уже началась; список плавно держит её посередине
+    function syncLyrics(): void {
+        const box = section?.querySelector<HTMLElement>('.scw-lyrics[data-synced] .scw-lyrics-rows');
+        if (!box || !player) return;
+        const at = positionOf(player.getCurrentSound()) + 250;
+        const rows = [...box.querySelectorAll<HTMLElement>('.scw-lyric')];
+        let index = -1;
+        for (let i = 0; i < rows.length; i++) if (Number(rows[i].dataset.at) <= at) index = i;
+        if (index === lyricsLine) return;
+        lyricsLine = index;
+        rows.forEach((row, i) => {
+            row.classList.toggle('now', i === index);
+            row.classList.toggle('past', i < index);
+        });
+        const now = rows[index];
+        if (now) box.scrollTo({ top: now.offsetTop - box.clientHeight / 2 + now.offsetHeight / 2, behavior: calm() ? 'auto' : 'smooth' });
+    }
     function render(rowsAt?: number, libraryAt?: number): void {
         if (!section) return;
         vibeSection.refresh();
@@ -4370,16 +4454,31 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const body = el('div', 'scw-body');
         const info = el('div', 'scw-info');
         const top = el('div', 'scw-top');
-        const playing = active && !!player?.isPlaying();
-        shownPlaying = playing;
-        const play = button('scw-play', 'play', playing ? T.pause : T.play, playing ? 'pause' : 'play');
-        play.disabled = state === 'unavailable' || (state === 'loading' && !active);
+        const sitePlaying = !!player?.isPlaying();
+        shownPlaying = sitePlaying;
         const current = currentCandidate();
+        // Трек не из волны (2.7.1): карточка всё равно показывает, что играет и что дальше, и предлагает волну от него
+        const outside = current ? null : outsideTrack();
+        const playing = (active || !!outside) && sitePlaying;
+        const play = button('scw-play', outside ? 'site-toggle' : 'play', playing ? T.pause : T.play, playing ? 'pause' : 'play');
+        play.disabled = !outside && (state === 'unavailable' || (state === 'loading' && !active));
+        const cardTrack = current?.track ?? outside;
+        if (cardTrack) ensureLyrics(cardTrack);
+        const lyrics = cardTrack ? lyricsFor.get(cardTrack.id) ?? null : null;
+        const lyricsButton = (): HTMLButtonElement | null => {
+            if (!lyrics) return null;
+            const node = button('scw-like', 'lyrics', LYRICS_T.show, 'lyrics');
+            node.title = LYRICS_T.show;
+            node.setAttribute('aria-pressed', String(lyricsOpen));
+            return node;
+        };
         // Блок пересобирается целиком: при смене трека прошлые обложка и цвет переносятся в новый, и смена идёт переходом
         const swap = !!current && !!shownTrack && current.track.id !== shownTrack && !calm();
         const lines = el('div', swap ? 'scw-swap' : '');
         if (current) {
             lines.append(titleLink('div', 'scw-track', current.track), artistLink('div', 'scw-artist', current.track));
+        } else if (outside) {
+            lines.append(titleLink('div', 'scw-track', outside), artistLink('div', 'scw-artist', outside));
         } else {
             const text = state === 'loading' ? T.loading : state === 'empty' ? emptyLine() : state === 'error' ? T.error : state === 'unavailable' ? T.unavailable : idleLine();
             const line = el('div', 'scw-track wrap', text);
@@ -4400,13 +4499,20 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), later, dislike, more, like, el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
+        } else if (outside) {
+            const next = nextUpTitle();
+            meta.append(el('div', 'scw-why', next ? fillText(LYRICS_T.outsideNext, { next }) : LYRICS_T.outside));
+            const lyricsNode = lyricsButton();
+            if (lyricsNode) meta.append(lyricsNode);
+            meta.append(textButton('wave-current', LYRICS_T.waveFrom));
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
             if (mode === 'fresh') meta.append(textButton('to-similar', T.toSimilar));
         } else if (state === 'error' || state === 'unavailable') meta.append(textButton('retry', T.retry));
         const scout = current ? scoutSection.panel(current.track.id) : null;
         info.append(top, canvas, meta, ...(scout ? [scout] : []));
+        if (lyrics && lyricsOpen) info.append(renderLyrics(lyrics));
         const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' : ''));
         if (current) {
             if (swap && shownCover && loadedArt.has(shownCover)) {
@@ -4415,6 +4521,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 cover.append(under);
             }
             art(cover, current.track, 't500x500');
+        } else if (outside) {
+            art(cover, outside, 't500x500');
         } else if (state === 'idle' && preview.some((item) => artworkUrl(item.track, 't300x300'))) {
             cover.classList.add('collage');
             for (let i = 0; i < 4; i++) {
@@ -4434,13 +4542,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         glow.style.setProperty('--scw-glow-t', (-glowTime / 1000).toFixed(2) + 's');
         glow.append(el('i', ''), el('i', ''), el('i', ''));
         const glowFrom = glowShown;
-        const glowWant = { lit: !!current, idle: !playing };
+        const glowWant = { lit: !!cardTrack, idle: !playing };
         glowShown = glowWant;
         body.classList.toggle('lit', glowFrom.lit);
         glow.classList.toggle('off', !glowFrom.lit);
         glow.classList.toggle('idle', glowFrom.idle);
         body.append(glow, info, cover);
-        if (current) applyPalette(glowPaletteOf(current.track));
+        if (cardTrack) applyPalette(glowPaletteOf(cardTrack));
         const quick = renderQuick();
         section.append(body, ...renderTiles(), ...(quick ? [quick] : []), ...librarySection.render(), ...shelfSection.render());
         // Состояние сменилось: слой уже посчитан в прошлом, класс нового даёт переход, а не рывок
@@ -4875,6 +4983,30 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                     if (!profile) void ensureProfile().then(() => { if (popOpen) render(); }, (error: unknown) => console.warn('Волна: жанры из лайков не загружены', error));
                 }
                 return;
+            case 'site-toggle':
+                if (player) {
+                    if (player.isPlaying()) player.pauseCurrent({ userInitiated: true });
+                    else player.playCurrent({ userInitiated: true });
+                    setTimeout(render, 150);
+                }
+                return;
+            case 'wave-current': {
+                const link = section?.querySelector('.scw-body .scw-track a');
+                if (link) menuSection.actOn(link, 'wave-track');
+                return;
+            }
+            case 'lyrics':
+                lyricsOpen = !lyricsOpen;
+                render();
+                return;
+            case 'lyric-seek': {
+                const sound = player?.getCurrentSound();
+                const at = Number(control.dataset.at);
+                if (sound && Number.isFinite(at)) sound.seek(Math.max(0, at - 150));
+                lyricsLine = -1;
+                setTimeout(syncLyrics, 60);
+                return;
+            }
             case 'play':
                 if (active && player) {
                     if (player.isPlaying()) player.pauseCurrent({ userInitiated: true });
@@ -5147,6 +5279,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }, 1000);
             paintTimer = setInterval(() => {
                 if (currentCandidate() && player?.isPlaying()) paint();
+                if (lyricsOpen) syncLyrics();
             }, 250);
             glowTimer = setInterval(glowTick, 250);
             state = 'loading';

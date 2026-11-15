@@ -441,6 +441,18 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-like:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 18px;background:var(--sc2-surface-2);font-weight:700}`,
+        `${w} .scw-btn[data-act="wave-current"]{background:#fff;color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.7)}`,
+        `${w} .scw-btn[data-act="wave-current"]:hover{transform:translateY(-1px)}`,
+        // Текст песни (2.7.1): строки крупно, текущая белая, прошедшие тише, остальные приглушены; клик по строке перематывает
+        `${w} .scw-lyrics{position:relative;margin-top:14px;border-radius:var(--sc2-r3);background:rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-lyrics-rows{max-height:230px;overflow:auto;padding:16px 18px;scrollbar-width:none;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent)}`,
+        `${w} .scw-lyrics-rows::-webkit-scrollbar{display:none}`,
+        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:3px 0;font-size:19px;line-height:1.3;font-weight:800;letter-spacing:-.2px;color:rgba(255,255,255,.34);cursor:pointer;transition:color .35s ease,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease;transform-origin:left center;filter:blur(.3px)}`,
+        `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:15px;font-weight:600;color:rgba(255,255,255,.78);filter:none}`,
+        `${w} .scw-lyric.past{color:rgba(255,255,255,.5)}`,
+        `${w} .scw-lyric.now{color:#fff;transform:scale(1.03);filter:none;text-shadow:0 0 24px color-mix(in srgb,var(--sca-c1,#fff) 50%,transparent)}`,
+        `${w} .scw-lyric:hover{color:rgba(255,255,255,.85)}`,
+        `${w} .scw-lyrics-src{padding:0 18px 10px;font-size:11px;color:var(--sc2-text-3)}`,
         `${w} .scw-up-h{font-size:13px;font-weight:700;color:var(--sc2-text-2);margin:26px 0 10px}`,
         // «Далее»: карточки-обложки в полный рост, название под ними, подъём и увеличение обложки на наведении
         `${w} .scw-tiles:not(.scw-shelf){gap:16px}`,
@@ -491,6 +503,29 @@ export function appearanceCss(appearance: Appearance): string {
         // Обложка в карточке волны вздрагивает на ударе
         'html.sca-playing #sc-wave .scw-cover{transform:scale(calc(1 + var(--sca-kick,0) * .018))!important;transition:transform 90ms ease-out,filter .4s ease!important}',
         'html.scm-reduce #sca-club,html.scm-reduce #sca-thump{display:none}',
+        // Стекло карточки волны: наклон, бегущий блик и светлый край у курсора
+        'html body #sc-wave .scw-body{transform:perspective(1400px) rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg));transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease!important}',
+        'html body #sc-wave .scw-body.sc2-glass-on{transition:transform .12s linear,box-shadow .4s ease!important;box-shadow:0 34px 70px -28px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.14)!important}',
+        'html body #sc-wave .scw-body::after{content:"";position:absolute;inset:0;z-index:4;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .4s ease;' +
+            'background:radial-gradient(520px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.13),rgba(255,255,255,.03) 35%,transparent 60%),' +
+            'linear-gradient(115deg,transparent 30%,rgba(255,255,255,.06) 45%,transparent 60%) calc(var(--gx,50%) * 1.4 - 20%) 0/200% 100% no-repeat;mix-blend-mode:screen}',
+        'html body #sc-wave .scw-body.sc2-glass-on::after{opacity:1}',
+        'html body #sc-wave .scw-body.sc2-glass-on{outline:1px solid transparent;background-image:radial-gradient(300px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.07),transparent 70%)!important}',
+        // Уровни эффектов (2.7.1): «мягкие» без затемнения краёв и толчка обложки, «выкл» без клуба вовсе
+        'html.sca-fx-soft #sca-thump,html.sca-fx-off #sca-thump,html.sca-fx-off #sca-club{display:none}',
+        'html.sca-fx-soft #sca-club .beam{opacity:calc(.02 + var(--sca-energy,0) * .12)}',
+        'html.sca-fx-soft.sca-playing #sc-wave .scw-cover,html.sca-fx-off.sca-playing #sc-wave .scw-cover{transform:none!important}',
+        '.playControls button.sca-fx{all:unset;box-sizing:border-box;flex:none;width:32px;height:32px;margin:0 0 0 10px;border-radius:999px;display:inline-grid;place-items:center;cursor:pointer;' +
+            'background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75);transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease}',
+        '.playControls button.sca-fx svg{width:16px;height:16px}',
+        '.playControls button.sca-fx:hover{background:rgba(255,255,255,.12);color:#fff}',
+        '.playControls button.sca-fx:active{transform:scale(.9)}',
+        '.playControls button.sca-fx:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}',
+        '.playControls button.sca-fx[data-level="full"]{color:#fff;background:color-mix(in srgb,var(--sca-c1,#3a6bff) 28%,transparent)}',
+        '.playControls button.sca-fx[data-level="off"]{color:rgba(255,255,255,.35)}',
+        '.sca-fx-tip{position:fixed;z-index:2147483600;transform:translate(-50%,-100%) translateY(4px);padding:7px 12px;border-radius:999px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;white-space:nowrap;pointer-events:none;' +
+            'background:rgba(14,15,22,.88);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1);opacity:0;transition:opacity .16s ease,transform .2s cubic-bezier(.2,.8,.2,1)}',
+        '.sca-fx-tip.on{opacity:1;transform:translate(-50%,-100%)}',
         '@media (prefers-reduced-motion:reduce){#sca-club,#sca-thump{display:none}}',
     );
     // Нижний бар в духе Apple Music (2.7.0): у сайта кнопки трёх размеров и разной яркости. Теперь одна сетка: «назад» и
@@ -503,7 +538,13 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} .playControls__control{margin:0 2px!important}`,
         `${transport}{display:inline-grid!important;place-items:center!important;padding:0!important;margin:0 3px!important;border:0!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;` +
             `color:rgba(255,255,255,.9)!important;min-width:0!important;transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease,opacity .16s ease!important}`,
-        `${transport.split(',').map((item) => item + ' > div').join(',')}{display:grid;place-items:center;width:100%;height:100%}`,
+        // Иконка строго по центру круга (2.7.1): у сайта кнопки с заменой текста картинкой (sc-ir), отступ текста и
+        // вложенные div уводили треугольник play в левый верхний угол. Каждый слой на весь круг, подпись скрыта
+        `${transport}{position:relative!important;overflow:hidden!important;text-indent:0!important;font-size:0!important;line-height:0!important}`,
+        `${transport.split(',').map((item) => item + ' div').join(',')}{position:absolute!important;inset:0!important;display:grid!important;place-items:center!important;width:auto!important;height:auto!important;margin:0!important;padding:0!important;background:none!important;text-indent:0!important}`,
+        `${transport.split(',').map((item) => item + ' svg').join(',')}{position:static!important;display:block!important;margin:0!important;flex:none}`,
+        `${transport.split(',').map((item) => item + ' .sc-button-label').join(',')}{display:none!important}`,
+        `${bar} button.playControls__play::before,${bar} button.playControls__play::after{display:none!important}`,
         `${bar} button.skipControl{width:38px!important;height:38px!important}`,
         `${bar} button.skipControl svg{width:19px!important;height:19px!important}`,
         `${bar} button.playControls__play{width:44px!important;height:44px!important;background:#fff!important;color:#0b0c10!important;box-shadow:0 8px 22px -10px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.2)!important}`,
@@ -932,17 +973,88 @@ export function auroraPage(config: AuroraConfig): void {
     }
     function clubVars(sound: { bass: number; playing: boolean }, amount: number, calm: boolean): void {
         ensureClub();
-        const on = sound.playing && !calm && amount > 0;
+        ensureFxButton();
+        const scale = FX_SCALE[fx];
+        const on = sound.playing && !calm && amount > 0 && scale > 0;
         bassNow += ((on ? sound.bass : 0) - bassNow) * 0.25;
-        clubVar('--sca-kick', on ? Math.min(1, beat.pulse * amount * 1.3) : 0, 0.03);
-        clubVar('--sca-bass', Math.min(1, bassNow * amount * 1.4), 0.03);
-        clubVar('--sca-energy', on ? Math.min(1, (beat.level * 0.7 + beat.drop * 0.6) * amount * 1.4) : 0, 0.03);
+        clubVar('--sca-kick', on ? Math.min(1, beat.pulse * amount * 1.3 * fxFlash()) : 0, 0.03);
+        clubVar('--sca-bass', Math.min(1, bassNow * amount * 1.4 * scale), 0.03);
+        clubVar('--sca-energy', on ? Math.min(1, (beat.level * 0.7 + beat.drop * 0.6) * amount * 1.4 * scale) : 0, 0.03);
         const sweep = beat.bpm ? (60 / beat.bpm) * 16 : 10;
         if (Math.abs((clubShown.sweep ?? 0) - sweep) > 0.5) {
             clubShown.sweep = sweep;
             document.documentElement.style.setProperty('--sca-sweep', sweep.toFixed(1) + 's');
         }
     }
+    // Сила эффектов (2.7.1), кнопка справа в баре: «Полные», «Мягкие» (без вспышек и толчков, лучи и свет тише) и
+    // «Выкл» (клуба, вспышек и анимаций лайка нет). Выбор помнит страница
+    type FxLevel = 'full' | 'soft' | 'off';
+    const FX_SCALE: Record<FxLevel, number> = { full: 1, soft: 0.45, off: 0 };
+    const FX_ORDER: FxLevel[] = ['full', 'soft', 'off'];
+    const ruFx = /^ru/i.test(document.documentElement.lang || navigator.language || '');
+    const FX_LABEL: Record<FxLevel, string> = ruFx
+        ? { full: 'Эффекты: полные', soft: 'Эффекты: мягкие, без вспышек', off: 'Эффекты выключены' }
+        : { full: 'Effects: full', soft: 'Effects: soft, no flashes', off: 'Effects off' };
+    let fx: FxLevel = 'full';
+    try {
+        const saved = localStorage.getItem('sc2-fx');
+        if (saved === 'soft' || saved === 'off') fx = saved;
+    } catch {
+        // хранилище недоступно: полные эффекты
+    }
+    // Вспышки и толчки на ударе только в полном режиме
+    const fxFlash = (): number => (fx === 'full' ? 1 : 0);
+    const FX_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6.5 1 7.6 4.4 11 5.5 7.6 6.6 6.5 10 5.4 6.6 2 5.5 5.4 4.4zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM3.5 11l.5 1.2 1.2.5-1.2.5-.5 1.3-.5-1.3-1.2-.5 1.2-.5z"/></svg>';
+    let fxButton: HTMLButtonElement | null = null;
+    let fxTip: HTMLElement | null = null;
+    let fxTipTimer: ReturnType<typeof setTimeout> | undefined;
+    function applyFx(): void {
+        const root = document.documentElement;
+        root.classList.toggle('sca-fx-soft', fx === 'soft');
+        root.classList.toggle('sca-fx-off', fx === 'off');
+        if (fxButton) {
+            fxButton.dataset.level = fx;
+            fxButton.title = FX_LABEL[fx];
+            fxButton.setAttribute('aria-label', FX_LABEL[fx]);
+        }
+    }
+    function ensureFxButton(): void {
+        if (fxButton?.isConnected) return;
+        const host = document.querySelector('.playControls .playControls__elements');
+        if (!host) return;
+        if (!fxButton) {
+            fxButton = document.createElement('button');
+            fxButton.type = 'button';
+            fxButton.className = 'sca-fx';
+            fxButton.innerHTML = FX_ICON;
+            fxButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                fx = FX_ORDER[(FX_ORDER.indexOf(fx) + 1) % FX_ORDER.length];
+                try {
+                    localStorage.setItem('sc2-fx', fx);
+                } catch {
+                    // не сохранилось: до перезагрузки страницы
+                }
+                applyFx();
+                showFxTip();
+            });
+        }
+        host.append(fxButton);
+        applyFx();
+    }
+    function showFxTip(): void {
+        if (!fxButton) return;
+        fxTip ??= Object.assign(document.createElement('div'), { className: 'sca-fx-tip' });
+        fxTip.textContent = FX_LABEL[fx];
+        if (!fxTip.isConnected) document.body.append(fxTip);
+        const box = fxButton.getBoundingClientRect();
+        fxTip.style.left = Math.min(window.innerWidth - 12, box.left + box.width / 2) + 'px';
+        fxTip.style.top = box.top - 10 + 'px';
+        fxTip.classList.add('on');
+        clearTimeout(fxTipTimer);
+        fxTipTimer = setTimeout(() => fxTip?.classList.remove('on'), 1600);
+    }
+    applyFx();
     let club: HTMLElement | null = null;
     let thump: HTMLElement | null = null;
     function ensureClub(): void {
@@ -1002,12 +1114,13 @@ export function auroraPage(config: AuroraConfig): void {
         // это много). Быстрее и плотнее стало, фон ускоряется за ~0,6 с; дроп добавляет сверху; назад за ~1,5 с
         const rel = Math.min(1.8, Math.max(0.4, beat.short / (beat.long + 0.02)));
         const density = Math.min(1, beat.beats.filter((at) => now - at < 4000).length / 12);
-        const drive = 1 + amount * ((tempo - 1) * 0.5 + (rel - 1) * 0.9 + (density - 0.35) * 0.9 + beat.drop * 0.8);
-        const speedWant = calm ? 0.18 : Math.min(2.4, Math.max(0.5, drive));
-        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 600 : 1500));
+        // 2.7.1: под бит вода растекается заметно быстрее: коэффициенты в полтора раза больше, потолок 3.6, разгон за 0,35 с
+        const drive = 1 + amount * ((tempo - 1) * 0.8 + (rel - 1) * 1.4 + (density - 0.3) * 1.5 + beat.drop * 1.3 + beat.level * 0.6);
+        const speedWant = calm ? 0.18 : Math.min(3.6, Math.max(0.6, drive));
+        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 350 : 1200));
         // Каждый удар даёт короткий толчок скорости (затухает за ~0,2 с): фон попадает в ритм, а не только ускоряется в среднем.
         // Это движение, а не вспышка: яркость не меняется
-        const kick = calm ? 0 : beat.pulse * amount * 0.5;
+        const kick = calm ? 0 : beat.pulse * amount * 0.9;
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * (speedNow + kick);
         clubVars(sound, amount, calm);
         // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
@@ -1029,7 +1142,7 @@ export function auroraPage(config: AuroraConfig): void {
         gl.uniform1f(uniforms.u_grain, a.grain / 100);
         gl.uniform2f(uniforms.u_mouse, mouse[0], mouse[1]);
         gl.uniform1f(uniforms.u_seed, seed);
-        gl.uniform1f(uniforms.u_pulse, kick);
+        gl.uniform1f(uniforms.u_pulse, kick * 0.55 * fxFlash());
         gl.uniform1f(uniforms.u_energy, calm ? 0 : (beat.level * 0.4 + beat.drop * 0.6) * amount);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         canvas.classList.add('on');
@@ -1141,7 +1254,7 @@ export function auroraPage(config: AuroraConfig): void {
         noise.stop(at + length);
     }
     const HEART_PATH = 'M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.5 4.6.5c1.3 0 2.5.6 3.4 1.6C8.9 1.1 10.1.5 11.4.5c2.3 0 4.1 1.8 4.1 4.1 0 2.8-2.5 5.1-6.4 8.6z';
-    const reduced = (): boolean => document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = (): boolean => fx === 'off' || document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
     function vibrate(plate: Element | null): void {
         (plate as HTMLElement | null)?.animate?.(
             [
@@ -1268,11 +1381,39 @@ export function auroraPage(config: AuroraConfig): void {
     const SPOT = '.scw-card, .scw-tile, .scw-body, .scv-card, .sidebarModule, .scw-lib, .scw-mix';
     let spotFrame = 0;
     let spotEvent: PointerEvent | null = null;
+    // Стекло карточки волны (2.7.1): карточка чуть наклоняется за курсором, по ней бежит блик, светлеет край ближе к мыши.
+    // Без мыши и в режиме «Выкл» карточка ровная
+    let tilted: HTMLElement | null = null;
+    function glassTilt(event: PointerEvent | null): void {
+        const card = event?.target instanceof Element ? event.target.closest<HTMLElement>('#sc-wave .scw-body') : null;
+        if (tilted && tilted !== card) {
+            tilted.style.removeProperty('--tx');
+            tilted.style.removeProperty('--ty');
+            tilted.classList.remove('sc2-glass-on');
+            tilted = null;
+        }
+        if (!card || !event || reducedGlass()) return;
+        const box = card.getBoundingClientRect();
+        const x = (event.clientX - box.left) / Math.max(1, box.width);
+        const y = (event.clientY - box.top) / Math.max(1, box.height);
+        card.style.setProperty('--tx', ((x - 0.5) * 5).toFixed(2) + 'deg');
+        card.style.setProperty('--ty', ((0.5 - y) * 4).toFixed(2) + 'deg');
+        card.style.setProperty('--gx', (x * 100).toFixed(1) + '%');
+        card.style.setProperty('--gy', (y * 100).toFixed(1) + '%');
+        card.classList.add('sc2-glass-on');
+        tilted = card;
+    }
+    const reducedGlass = (): boolean => fx === 'off' || document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const onSpotLeave = (event: PointerEvent): void => {
+        if (!event.relatedTarget) glassTilt(null);
+    };
+    document.addEventListener('pointerout', onSpotLeave, { passive: true });
     const onSpot = (event: PointerEvent): void => {
         spotEvent = event;
         if (spotFrame) return;
         spotFrame = requestAnimationFrame(() => {
             spotFrame = 0;
+            glassTilt(spotEvent);
             const target = spotEvent?.target instanceof Element ? spotEvent.target.closest<HTMLElement>(SPOT) : null;
             if (!target || !spotEvent) return;
             if (!target.classList.contains('sc2-spot')) target.classList.add('sc2-spot');
@@ -1330,8 +1471,11 @@ export function auroraPage(config: AuroraConfig): void {
             line?.remove();
             club?.remove();
             thump?.remove();
+            fxButton?.remove();
+            fxTip?.remove();
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
+            document.removeEventListener('pointerout', onSpotLeave);
             document.documentElement.classList.remove('sca-line', 'sca-playing');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);

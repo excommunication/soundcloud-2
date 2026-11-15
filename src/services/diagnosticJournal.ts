@@ -19,7 +19,7 @@ const errorTypes = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError'
 const sourceFiles = new Set([
     'main', 'presenceService', 'proxyService', 'adblockService', 'webhookService', 'settingsManager', 'notificationManager', 'rendererRecovery', 'playbackController', 'viewStyles', 'gpu', 'utility', 'process',
     'contentPolicy', 'updateScreen', 'updateService', 'awayTracker', 'hiddenPageWatchdog', 'revealWindow', 'shortcutService', 'thumbarService', 'iconicThumbnail',
-    'waveJournal', 'waveExclusions', 'waveSignals', 'historyIndex', 'historyManager',
+    'waveJournal', 'waveExclusions', 'waveSignals', 'historyIndex', 'historyManager', 'introScreen', 'waveIpc', 'pageIpc', 'windowIpc', 'settingsIpc', 'trayPopup', 'libraryService',
 ]);
 // Предупреждение самого Node (устаревший модуль, утечка слушателей) печатается через console.error с этим началом
 const NODE_WARNING = /^\([a-z]+:\d+\) /;
