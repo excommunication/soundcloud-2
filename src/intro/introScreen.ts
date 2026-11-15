@@ -31,7 +31,8 @@ export class IntroScreen {
                 spellcheck: false,
             },
         });
-        view.setBackgroundColor('#00000000');
+        // Непрозрачный фон с первого кадра: прозрачный вид до загрузки страницы показывал белые шапку и сайт под собой
+        view.setBackgroundColor('#070a12');
         const file = join(__dirname, 'intro.html');
         trustLocalFile(view.webContents, file);
         view.webContents.on('did-finish-load', () => {
@@ -75,6 +76,8 @@ export class IntroScreen {
         const view = this.view;
         if (!view || view.webContents.isDestroyed()) return this.close();
         this.raise();
+        // Взрыв открывает клиент: с этого момента вид прозрачный, тёмный фон рисует сама страница
+        view.setBackgroundColor('#00000000');
         void view.webContents.executeJavaScript('window.introGo && window.introGo()').catch(() => undefined);
         setTimeout(() => this.close(), INTRO_OUT_MS);
     }

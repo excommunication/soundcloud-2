@@ -65,11 +65,13 @@
                 { duration: 800 + Math.random() * 400, easing: 'cubic-bezier(.15,.75,.35,1)', fill: 'forwards' },
             );
         }
-        // Круг взрыва открывает клиент
+        // Круг взрыва открывает клиент: маленькая дыра в маске растёт масштабом слоя вокруг точки взрыва
         veil.style.setProperty('--x', x + 'px');
         veil.style.setProperty('--y', y + 'px');
-        const far = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 120;
-        veil.animate([{ '--r': '0px' }, { '--r': far + 'px' }], { duration: 900, easing: 'cubic-bezier(.6,0,.25,1)', fill: 'forwards' });
+        veil.style.transformOrigin = x + 'px ' + y + 'px';
+        veil.classList.add('open');
+        const far = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 60;
+        veil.animate([{ transform: 'scale(1)' }, { transform: 'scale(' + Math.min(160, far / 22).toFixed(2) + ')' }], { duration: 950, easing: 'cubic-bezier(.55,0,.2,1)', fill: 'forwards' });
     }
 
     window.introGo = () => {

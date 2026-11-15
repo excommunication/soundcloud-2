@@ -45,7 +45,14 @@ jobs:
           if ($env:EVS_ACCOUNT_NAME -and $env:EVS_PASSWD) {
             python -m pip install castlabs-evs==1.3.2
             python scripts/evs-auth.py
-            "skip=false" >> $env:GITHUB_OUTPUT
+            if ($LASTEXITCODE -eq 0) {
+              "skip=false" >> $env:GITHUB_OUTPUT
+            } else {
+              # Вход в EVS не прошёл (имя аккаунта, пароль или неподтверждённая почта): релиз выходит без подписи, а не падает
+              Write-Output "::warning::Вход в Castlabs EVS не прошёл: проверь секреты EVS_ACCOUNT_NAME и EVS_PASSWD. Сборка без VMP-подписи"
+              "skip=true" >> $env:GITHUB_OUTPUT
+            }
+            $global:LASTEXITCODE = 0
           } else {
             Write-Output "Секретов EVS нет: сборка без VMP-подписи"
             "skip=true" >> $env:GITHUB_OUTPUT
