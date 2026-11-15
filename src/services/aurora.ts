@@ -129,18 +129,30 @@ export interface BeatState {
     long: number;
     /** 0..1, плавно: 1 во время дропа */
     drop: number;
+    /** Среднее и разброс всплесков баса за ~1,5 с: из них порог удара */
+    mean: number;
+    dev: number;
+    /** Шаг ровного ритма в мс для дорисовки пропущенных ударов; 0, если ритм не ровный */
+    period: number;
+    /** Сколько ударов подряд дорисовано по темпу */
+    ghosts: number;
 }
 export function beatInit(): BeatState {
-    return { fast: 0, slow: 0, level: 0, pulse: 0, last: -1e9, beats: [], bpm: 0, short: 0, long: 0, drop: 0 };
+    return { fast: 0, slow: 0, level: 0, pulse: 0, last: -1e9, beats: [], bpm: 0, short: 0, long: 0, drop: 0, mean: 0, dev: 0, period: 0, ghosts: 0 };
 }
-/** Шаг детектора: bass и level 0..1 в момент now (мс), dt с прошлого шага. Удар это всплеск быстрой огибающей баса над
- *  медленной не чаще раза в 280 мс. Темп по медиане промежутков последних ударов, сведённый в 80..170 ударов в минуту.
- *  Возвращает true на ударе */
+/** Шаг детектора (пересобран в 2.8.0): bass и level 0..1 в момент now (мс), dt с прошлого шага.
+ *  Удар это всплеск баса над его же огибающей за последние ~0,1 с, а порог подстраивается под трек: среднее всплесков
+ *  за полторы секунды плюс их разброс. Так удар ловится в тихом и в плотном месте одинаково, а ровный гул бас-линии
+ *  не даёт ложных. Когда темп известен, пауза после удара больше половины такта: шестнадцатые и хэты между ударами
+ *  не считаются. Пропущенный удар (бочка утонула в миксе) дорисовывается по темпу слабой вспышкой, не больше двух подряд.
+ *  Темп по медиане промежутков последних ударов, сведённый в 80..170 ударов в минуту. Возвращает true на настоящем ударе */
 export function beatStep(state: BeatState, bass: number, level: number, now: number, dt: number): boolean {
     const ema = (value: number, target: number, tau: number): number => value + (target - value) * (1 - Math.exp(-dt / tau));
     // Первый отсчёт после тишины ставит обе огибающие сразу: иначе разгон медленной даёт ложные удары
     if (state.fast === 0 && state.slow === 0) state.fast = state.slow = bass;
-    state.fast = ema(state.fast, bass, 45);
+    // Всплеск считается против огибающей до этого отсчёта: сам удар её ещё не поднял
+    const rise = Math.max(0, bass - state.fast);
+    state.fast = ema(state.fast, bass, 110);
     state.slow = ema(state.slow, bass, 900);
     state.level = ema(state.level, level, 600);
     state.short = ema(state.short, level, 400);
@@ -148,23 +160,40 @@ export function beatStep(state: BeatState, bass: number, level: number, now: num
     // Дроп: громкость за последние полсекунды на треть выше средней за 8 с. Входит за ~1 с, выходит за ~2,5 с
     const dropping = state.short > state.long * 1.35 + 0.02 && state.short > 0.2 ? 1 : 0;
     state.drop = ema(state.drop, dropping, dropping > state.drop ? 900 : 2500);
-    state.pulse *= Math.exp(-dt / 180);
+    state.pulse *= Math.exp(-dt / 170);
+    const threshold = state.mean + 2.2 * state.dev + 0.035;
+    state.mean = ema(state.mean, rise, 1500);
+    state.dev = ema(state.dev, Math.abs(rise - state.mean), 1500);
+    const refractory = state.period ? Math.max(190, state.period * 0.55) : 230;
     let hit = false;
-    if (state.fast > state.slow * 1.22 + 0.04 && now - state.last > 280) {
+    if (rise > threshold && now - state.last > refractory) {
         hit = true;
         state.last = now;
-        state.pulse = Math.min(1, 0.55 + (state.fast - state.slow) * 3);
+        state.ghosts = 0;
+        state.pulse = Math.min(1, 0.55 + rise * 2.2);
         state.beats.push(now);
         if (state.beats.length > 16) state.beats.shift();
+    } else if (state.period && state.ghosts < 2 && now - state.last > state.period * 1.12 && state.short > 0.08) {
+        // Удар по темпу не пришёл: слабая вспышка в его место, фаза сохраняется
+        state.last += state.period;
+        state.ghosts++;
+        state.pulse = Math.max(state.pulse, 0.4);
     }
     const recent = state.beats.filter((at) => now - at < 8000);
     if (recent.length >= 5) {
         const gaps = recent.slice(1).map((at, i) => at - recent[i]).sort((a, b) => a - b);
-        let bpm = 60000 / gaps[gaps.length >> 1];
+        const gap = gaps[gaps.length >> 1];
+        let bpm = 60000 / gap;
         while (bpm < 80) bpm *= 2;
         while (bpm > 170) bpm /= 2;
         state.bpm = state.bpm ? state.bpm + (bpm - state.bpm) * 0.15 : bpm;
-    } else if (now - state.last > 4000) state.bpm = 0;
+        // Шаг дорисовки только для ровного ритма: половина промежутков рядом с медианой
+        const steady = gaps.filter((item) => Math.abs(item - gap) < gap * 0.12).length >= gaps.length / 2;
+        state.period = steady && gap >= 300 && gap <= 800 ? gap : 0;
+    } else if (now - state.last > 4000) {
+        state.bpm = 0;
+        state.period = 0;
+    }
     return hit;
 }
 
@@ -441,8 +470,11 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-like:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 18px;background:var(--sc2-surface-2);font-weight:700}`,
-        `${w} .scw-btn[data-act="wave-current"]{background:#fff;color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.7)}`,
-        `${w} .scw-btn[data-act="wave-current"]:hover{transform:translateY(-1px)}`,
+        `${w} .scw-outside{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}`,
+        `${w} .scw-btn.scw-primary{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.7)}`,
+        `${w} .scw-btn.scw-primary svg{width:16px;height:16px;fill:var(--sc2-ink)}`,
+        `${w} .scw-btn.scw-primary:hover,${w} .scw-btn[data-act="wave-current"]:hover{transform:translateY(-1px)}`,
+        `${w} .scw-lyrics-note{margin-top:14px;font-size:13px;color:var(--sc2-text-3)}`,
         // Текст песни (2.7.1): строки крупно, текущая белая, прошедшие тише, остальные приглушены; клик по строке перематывает
         `${w} .scw-lyrics{position:relative;margin-top:14px;border-radius:var(--sc2-r3);background:rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
         `${w} .scw-lyrics-rows{max-height:230px;overflow:auto;padding:16px 18px;scrollbar-width:none;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent)}`,
@@ -568,7 +600,12 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} .playbackSoundBadge__actions .sc-button:hover,${bar} .volume__button:hover{background:rgba(255,255,255,.12)!important;color:#fff!important}`,
         `${bar} .playbackSoundBadge__actions .sc-button:active{transform:scale(.9)}`,
         `${bar} .playbackSoundBadge__actions .sc-button-selected{color:var(--sc2-accent,#fff)!important;background:color-mix(in srgb,var(--sca-c1,#3a6bff) 22%,transparent)!important}`,
-        `${bar} .scd-dock{margin-left:6px;padding:0;gap:6px;background:none;box-shadow:none}`,
+        // Бейдж трека и док в одну строку (2.8.0): у сайта бейдж фиксированной ширины 328 px, и док из пяти кнопок
+        // переносился под бар, за край окна. Теперь бейдж сжимается, название обрезается, док всегда виден
+        `${bar} .playControls__soundBadge{display:flex!important;align-items:center;flex:0 1 540px;width:auto!important;min-width:260px;gap:8px}`,
+        `${bar} .playControls__soundBadge .playbackSoundBadge{flex:1 1 0;width:auto!important;min-width:0}`,
+        `${bar} .playControls__timeline{flex:1 1 0!important;min-width:160px}`,
+        `${bar} .scd-dock{flex:none;margin-left:0;padding:0;gap:6px;background:none;box-shadow:none}`,
         `${bar} .scd-dock button{width:32px;height:32px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75)}`,
         `${bar} .scd-dock button:hover{background:rgba(255,255,255,.12);color:#fff}`,
         `${bar} .scd-dock svg{width:16px;height:16px}`,
@@ -613,6 +650,41 @@ export function appearanceCss(appearance: Appearance): string {
         `${q} .queueItemView__actions .sc-button{width:28px!important;height:28px!important;padding:0!important;border:0!important;border-radius:999px!important;background:rgba(255,255,255,.08)!important;display:grid!important;place-items:center!important}`,
         `${q} .queueItemView.m-playing{background:color-mix(in srgb,var(--sca-c1,#3a6bff) 20%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sca-c1,#3a6bff) 35%,transparent)}`,
         `${q} .queueItemView.m-playing .queueItemView__title a,${q} .queueItemView.m-playing .queueItemView__title span{color:var(--sc2-accent,#fff)!important}`,
+    );
+    // Полировка 2.8.0 по ревью дизайна. Стекло читается как стекло, а не как тонированная плёнка, когда у панели есть
+    // блик по верхней кромке (приём Liquid Glass): он добавлен всем стеклянным поверхностям. Движение пружинит: кривая
+    // --sc2-spring с лёгким перелётом для подъёма карточек, нажатий и появления плашек. Цифры времени не прыгают по ширине
+    const edge = 'inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px rgba(255,255,255,.07)';
+    rows.push(
+        ':root{--sc2-spring:linear(0,.009,.035 2.1%,.141 4.4%,.723 12.9%,.938 16.7%,1.017,1.077,1.121,1.149 24.3%,1.159,1.163,1.161,1.154 29.9%,1.129 32.8%,1.051 39.6%,1.017 43.1%,.991,.977 51%,.974 53.8%,.975 57.1%,.997 69.8%,1.003 76.9%,1.004 83.8%,1);--sc2-edge:' + edge + '}',
+        `${w} .scw-body{box-shadow:var(--sc2-shadow),${edge}}`,
+        `${w} .scw-tile,${w} .scw-mix,${w} .scw-lib,${w} .scw-seg,${w} .scw-chip,${w} .scw-genre,${w} .scw-icon,${w} .scw-pop{box-shadow:${edge}}`,
+        `.sidebarModule{box-shadow:${edge}!important}`,
+        `.scw-menu,.scw-toast{box-shadow:var(--sc2-shadow),${edge}!important}`,
+        `html body .queue{box-shadow:0 30px 80px -30px rgba(0,0,0,.95),${edge}!important}`,
+        `.header,.header__inner{box-shadow:inset 0 -1px 0 rgba(255,255,255,.06)!important}`,
+        // Пружина: подъём плиток, нажатие кнопок волны, появление меню и плашек
+        `${w} .scw-tile{transition:transform .5s var(--sc2-spring),box-shadow var(--sc2-mid)}`,
+        `${w} .scw-tile:hover{box-shadow:0 22px 40px -22px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(255,255,255,.14)}`,
+        `${w} .scw-like,${w} .scw-chip,${w} .scw-icon,${w} .scw-btn,${w} .scw-play{transition:background var(--sc2-fast),color var(--sc2-fast),transform .45s var(--sc2-spring)}`,
+        `${w} .scw-like:active,${w} .scw-chip:active,${w} .scw-icon:active,${w} .scw-btn:active{transform:scale(.92)}`,
+        `.scw-menu{transform-origin:top left;animation:sc2-pop .34s var(--sc2-spring)}`,
+        `.scw-toast{animation:sc2-toast .5s var(--sc2-spring)}`,
+        '@keyframes sc2-pop{from{opacity:0;transform:scale(.92)}}',
+        '@keyframes sc2-toast{from{opacity:0;transform:translateY(14px) scale(.96)}}',
+        // Смена трека в карточке: название и автор въезжают снизу
+        `${w} .scw-swap>*{animation:sc2-rise .5s var(--sc2-spring) both}`,
+        `${w} .scw-swap>*:nth-child(2){animation-delay:.05s}`,
+        '@keyframes sc2-rise{from{opacity:0;transform:translateY(10px)}}',
+        // Типографика: заголовки не оставляют одно слово на строке, время и счётчики ровной ширины
+        `${w} .scw-track,${w} .scw-title,${w} .scw-shelf-h{text-wrap:balance}`,
+        `${w} .scw-time,.playbackTimeline__timePassed,.playbackTimeline__duration{font-variant-numeric:tabular-nums}`,
+        // Один вид фокуса с клавиатуры везде
+        `${w} :focus-visible,.scd-dock button:focus-visible,html body .queue :focus-visible{outline:2px solid var(--sc2-accent,#fff)!important;outline-offset:2px;border-radius:inherit}`,
+        // Окно входа и диалоги сайта: одна рамка вместо двух вложенных
+        '.modal .dialog,.modal__modal .dialog{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important}',
+        'html.scm-reduce .scw-menu,html.scm-reduce .scw-toast,html.scm-reduce #sc-wave .scw-swap>*{animation:none!important}',
+        '@media (prefers-reduced-motion:reduce){.scw-menu,.scw-toast,#sc-wave .scw-swap>*{animation:none!important}}',
     );
     if (a.hoverMotion) {
         rows.push(
@@ -701,7 +773,8 @@ export function auroraPage(config: AuroraConfig): void {
             spectrum[b] = (raw[i] / max) * (0.75 + 0.25 * Math.sin(b * 1.7 + at));
         }
     }
-    function readAudio(now: number): { bass: number; level: number; playing: boolean } {
+    // kick: бас в энергии (куб уровня), а не в децибелах анализатора: в них бочка поднимает полосу на считаные проценты
+    function readAudio(now: number): { bass: number; kick: number; level: number; playing: boolean } {
         const env = host.__scEnvelope?.() ?? null;
         const playing = env ? env.playing : musicPlaying();
         if (now - tapCheck > 1000) {
@@ -715,8 +788,9 @@ export function auroraPage(config: AuroraConfig): void {
                 }
                 if (!analyser || analyser.context !== tap.context) {
                     analyser = tap.context.createAnalyser();
-                    analyser.fftSize = 1024;
-                    analyser.smoothingTimeConstant = 0.45;
+                    analyser.fftSize = 2048;
+                    // Слабое сглаживание: сильное размазывало удар на несколько кадров, и вспышка опаздывала
+                    analyser.smoothingTimeConstant = 0.15;
                     freq = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
                 }
                 tap.gain.connect(analyser);
@@ -725,29 +799,32 @@ export function auroraPage(config: AuroraConfig): void {
                 silentSince = 0;
             }
         }
-        if (!playing) return { bass: 0, level: 0, playing };
+        if (!playing) return { bass: 0, kick: 0, level: 0, playing };
         if (analyser && freq && !useEnvelope) {
             analyser.getByteFrequencyData(freq);
             const hz = analyser.context.sampleRate / analyser.fftSize;
             let bass = 0;
+            let kick = 0;
             let bassN = 0;
             let level = 0;
             const top = Math.min(freq.length, Math.round(4000 / hz));
             for (let i = 1; i < top; i++) {
                 const f = i * hz;
-                if (f >= 40 && f <= 160) {
+                if (f >= 35 && f <= 160) {
                     bass += freq[i];
+                    kick += Math.pow(freq[i] / 255, 3);
                     bassN++;
                 }
                 level += freq[i];
             }
             bass = bassN ? bass / bassN / 255 : 0;
+            kick = bassN ? kick / bassN : 0;
             fillSpectrum(freq, hz);
             level = level / Math.max(1, top - 1) / 255;
             if (level > 0.01) silentSince = 0;
             else if (!silentSince) silentSince = now;
             else if (now - silentSince > 1500) useEnvelope = true;
-            if (!useEnvelope) return { bass, level, playing };
+            if (!useEnvelope) return { bass, kick, level, playing };
         }
         if (env?.raw?.length && env.duration > 0) {
             let max = envMax.get(env.id);
@@ -760,9 +837,9 @@ export function auroraPage(config: AuroraConfig): void {
             const i = Math.max(0, Math.min(env.raw.length - 2, Math.floor(at)));
             const value = (env.raw[i] + (env.raw[i + 1] - env.raw[i]) * (at - i)) / max;
             envelopeSpectrum(env.raw, at, max);
-            return { bass: value, level: value * 0.8, playing };
+            return { bass: value, kick: value * value, level: value * 0.8, playing };
         }
-        return { bass: 0, level: 0.3, playing };
+        return { bass: 0, kick: 0, level: 0.3, playing };
     }
     let coverUrl = '';
     const mouse = [0, 0];
@@ -1078,18 +1155,25 @@ export function auroraPage(config: AuroraConfig): void {
         if (!club.isConnected) document.body.prepend(club);
         if (!thump.isConnected) document.body.append(thump);
     }
+    let lastAudio = 0;
     function draw(now: number): void {
         frame = requestAnimationFrame(draw);
         if (document.hidden) return;
+        // Звук и детектор бита идут каждый кадр, а не с частотой фона (2.8.0): на «Балансе» фон рисуется 30 раз в секунду,
+        // и удар опаздывал до 33 мс и дрожал. Вспышки интерфейса тоже пишутся сразу
+        const a = cfg.appearance;
+        const amount = a.beat / 100;
+        const audioDt = lastAudio ? Math.min(100, now - lastAudio) : 16;
+        lastAudio = now;
+        const sound = amount > 0 ? readAudio(now) : { bass: 0, kick: 0, level: 0, playing: musicPlaying() };
+        if (amount > 0) beatStep(beat, sound.kick, sound.level, now, audioDt);
+        else beat.pulse = beat.level = 0;
+        const calm = a.calmOnPause && !sound.playing;
+        markPlaying(sound.playing);
+        clubVars(sound, amount, calm);
         if (cfg.appearance.effect === 'off' || !gl || lost) {
             // Без фона линия и класс игры всё равно живут: им нужен только анализатор
-            const amount = cfg.appearance.beat / 100;
-            const sound = amount > 0 ? readAudio(now) : { bass: 0, level: 0, playing: musicPlaying() };
-            if (amount > 0) beatStep(beat, sound.bass, sound.level, now, last ? Math.min(100, now - last) : 16);
-            last = now;
-            markPlaying(sound.playing);
             drawLine(now, sound.playing, amount);
-            clubVars(sound, amount, false);
             return;
         }
         if (!gl || !canvas || lost) return;
@@ -1099,13 +1183,6 @@ export function auroraPage(config: AuroraConfig): void {
         last = now;
         if (!useEffect(cfg.appearance.effect)) return;
         resize();
-        const a = cfg.appearance;
-        const amount = a.beat / 100;
-        const sound = amount > 0 ? readAudio(now) : { bass: 0, level: 0, playing: musicPlaying() };
-        if (amount > 0) beatStep(beat, sound.bass, sound.level, now, dt);
-        else beat.pulse = beat.level = 0;
-        const calm = a.calmOnPause && !sound.playing;
-        markPlaying(sound.playing);
         drawLine(now, sound.playing, amount);
         // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
         const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
@@ -1122,7 +1199,6 @@ export function auroraPage(config: AuroraConfig): void {
         // Это движение, а не вспышка: яркость не меняется
         const kick = calm ? 0 : beat.pulse * amount * 0.9;
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * (speedNow + kick);
-        clubVars(sound, amount, calm);
         // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
         const drop = calm ? 0 : beat.drop * amount;
         if (Math.abs(drop - cssPulse) > 0.05) {

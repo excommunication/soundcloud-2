@@ -1,6 +1,6 @@
 {
     "name": "soundcloud-desktop",
-    "version": "2.7.2",
+    "version": "2.8.0",
     "description": "Клиент SoundCloud для Windows: волна по описанию, переливы WebGL и стекло",
     "author": {
         "name": "excommunication",
@@ -90,7 +90,13 @@
             }
         },
         "nsis": {
-            "include": "build-resources/installer.nsh"
+            "include": "build-resources/installer.nsh",
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": false,
+            "runAfterFinish": true,
+            "installerSidebar": "build-resources/installerSidebar.bmp",
+            "installerHeader": "build-resources/installerHeader.bmp"
         }
     },
     "devDependencies": {

@@ -67,6 +67,34 @@ describe('бит', () => {
         expect(state.bpm).toBeGreaterThan(110);
         expect(state.bpm).toBeLessThan(130);
     });
+    it('бочка поверх гулкой бас-линии: слабые толчки между ударами не считаются, темп 128', () => {
+        const state = beatInit();
+        const period = 60000 / 128;
+        const hits: number[] = [];
+        for (let t = 0; t < 12000; t += 16) {
+            const phase = t % period;
+            const kick = phase < 120 ? 0.5 * Math.exp(-phase / 60) : 0;
+            const off = Math.abs(phase - period / 2) < 30 ? 0.06 : 0;
+            const line = 0.3 + 0.05 * Math.sin(t / 700);
+            if (beatStep(state, line + kick + off, 0.5, t, 16)) hits.push(t);
+        }
+        // Удары только рядом с началом такта
+        expect(hits.length).toBeGreaterThanOrEqual(22);
+        expect(hits.every((t) => t % period < 60 || period - (t % period) < 20)).toBe(true);
+        expect(state.bpm).toBeGreaterThan(122);
+        expect(state.bpm).toBeLessThan(134);
+    });
+    it('пропущенный удар дорисовывается по темпу слабой вспышкой', () => {
+        const state = beatInit();
+        const period = 500;
+        let pulseAtGap = 0;
+        for (let t = 0; t < 9000; t += 16) {
+            const muted = t >= 6000 && t < 6500;
+            beatStep(state, !muted && t % period < 90 ? 0.9 : 0.15, 0.5, t, 16);
+            if (t >= 6040 && t < 6200) pulseAtGap = Math.max(pulseAtGap, state.pulse);
+        }
+        expect(pulseAtGap).toBeGreaterThan(0.25);
+    });
     it('ровный звук без ударов не даёт вспышек', () => {
         const { hits, state } = run(120, 8, () => false);
         expect(hits).toBeLessThanOrEqual(1);
