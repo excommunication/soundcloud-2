@@ -41,7 +41,7 @@ export function installDock(core: DockCore): DockSection {
             '.scd-dock button.pop{animation:scd-pop .22s var(--sc2-ease,ease)}',
             '.scd-quick{position:fixed;z-index:2147480000;display:flex;gap:2px;padding:3px;border-radius:999px;background:var(--sc2-panel,rgba(13,15,22,.8));backdrop-filter:var(--sc2-blur,blur(16px));-webkit-backdrop-filter:var(--sc2-blur,blur(16px));box-shadow:var(--sc2-shadow,0 10px 30px -10px rgba(0,0,0,.8)),inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity var(--sc2-fast,.12s) ease,transform var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
             '.scd-quick.on{opacity:1;transform:none;pointer-events:auto}',
-            '.scd-quick button{width:auto;padding:0 10px 0 8px;gap:6px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap}',
+            '.scd-quick button{width:30px;height:30px}',
             '@keyframes scd-pop{50%{transform:scale(1.15)}}',
             'html.scm-reduce .scd-dock,html.scm-reduce .scd-quick,html.scm-reduce .scd-dock button{animation:none!important;transition:none!important}',
             '@media (prefers-reduced-motion:reduce){.scd-dock,.scd-quick,.scd-dock button{animation:none!important;transition:none!important}}',
@@ -101,25 +101,38 @@ export function installDock(core: DockCore): DockSection {
     }
 
     // Быстрые действия у строк треков: одна полоска на страницу, встаёт у правого края строки под курсором
-    const ITEMS = '.soundList__item, .searchItem__trackItem, .trackItem, .compactTrackList__item, .systemPlaylistTrackList__item, .historicalPlays__item, .soundBadge';
+    // Строки основного списка; боковые колонки (лайки, история справа) без полоски: там она закрывала трек
+    const ITEMS = '.soundList__item, .searchItem__trackItem, .trackItem, .compactTrackList__item, .systemPlaylistTrackList__item';
+    const SIDE = '.l-sidebar-right, .l-sidebar-left, .sidebarModule, .playControls, #sc-vibe';
     const quick = document.createElement('div');
     quick.className = 'scd-quick';
     quick.setAttribute('role', 'toolbar');
-    quick.append(button('next', T.next, T.next), button('last', T.last, ru ? 'В очередь' : 'Queue'), button('wave', T.wave, T.waveShort));
+    quick.append(button('next', T.next), button('last', T.last), button('wave', T.wave));
     document.body.append(quick);
     let row: Element | null = null;
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let showTimer: ReturnType<typeof setTimeout> | undefined;
+    // Крупная строка ленты: поверх обложки снизу, ничего из текста и формы волны не закрыто. Компактная: у правого края
     const place = (): void => {
         if (!row || !row.isConnected) return hide();
         const box = row.getBoundingClientRect();
         if (box.bottom < 0 || box.top > window.innerHeight) return hide();
-        const width = quick.offsetWidth || 240;
-        quick.style.left = Math.max(8, Math.min(window.innerWidth - width - 8, box.right - width - 12)) + 'px';
-        quick.style.top = Math.max(8, box.top + 8) + 'px';
+        const width = quick.offsetWidth || 100;
+        const height = quick.offsetHeight || 34;
+        const cover = box.height >= 100 ? row.querySelector('.sound__coverArt, .sc-artwork') : null;
+        const art = cover?.getBoundingClientRect();
+        if (art && art.width >= 90) {
+            quick.style.left = art.left + (art.width - width) / 2 + 'px';
+            quick.style.top = art.bottom - height - 8 + 'px';
+        } else {
+            quick.style.left = Math.max(8, Math.min(window.innerWidth - width - 8, box.right - width - 8)) + 'px';
+            quick.style.top = box.top + (box.height - height) / 2 + 'px';
+        }
         quick.classList.add('on');
     };
     function hide(): void {
         row = null;
+        if (showTimer) clearTimeout(showTimer);
         quick.classList.remove('on');
     }
     const onOver = (event: MouseEvent): void => {
@@ -129,7 +142,7 @@ export function installDock(core: DockCore): DockSection {
             return;
         }
         const item = target.closest(ITEMS);
-        if (item && item.closest('.playControls')) return;
+        if (item && item.closest(SIDE)) return hide();
         if (item === row) {
             if (hideTimer) clearTimeout(hideTimer);
             return;
@@ -141,8 +154,10 @@ export function installDock(core: DockCore): DockSection {
         }
         // Только строки трека: у плейлиста и пользователя «Следующим» нет
         if (!core.actsOn(item).includes('queue-next')) return hide();
+        hide();
         row = item;
-        place();
+        // Задержка: полоска не мелькает, пока мышь просто проезжает по списку
+        showTimer = setTimeout(place, 280);
     };
     quick.addEventListener('click', (event) => {
         const control = (event.target as Element | null)?.closest<HTMLButtonElement>('button[data-act]');

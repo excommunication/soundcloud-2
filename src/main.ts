@@ -411,9 +411,11 @@ function setupTray() {
     tray = new Tray(trayIcon);
     tray.setToolTip(appTitle);
     trayMenu = buildTrayMenu();
+    // Своё окошко только без режима совместимости NVIDIA: в нём отдельные окна рядом с главным падают, поэтому клиент
+    // всё строит видами внутри одного окна. В этом режиме и при сбое окна системное меню с треком и управлением
     if (process.platform === 'win32') {
         trayPopup?.dispose();
-        trayPopup = new TrayPopup({
+        trayPopup = gpuInProcess ? null : new TrayPopup({
             track: () => playback.info,
             incognito: () => store.get('discordIncognito', false) === true,
             language: () => appLanguage(),
@@ -426,7 +428,10 @@ function setupTray() {
             quit: () => app.quit(),
         });
         tray.on('right-click', () => {
-            if (tray) trayPopup?.toggle(tray.getBounds());
+            if (!tray) return;
+            if (trayPopup?.toggle(tray.getBounds())) return;
+            trayMenu = buildTrayMenu();
+            tray.popUpContextMenu(trayMenu);
         });
     } else tray.setContextMenu(trayMenu);
 
@@ -453,10 +458,32 @@ function applyAppLanguage(): void {
 // Меню трея пересобирается при смене языка, сам значок остаётся
 function buildTrayMenu(): Menu {
     const t = (key: TranslationKeys): string => translationService.translate(key);
+    const en = appLanguage() === 'en';
+    const track = playback.info;
+    const command = (name: 'toggle' | 'next' | 'previous' | 'like') => () => void playbackController?.execute(name).catch(console.error);
+    // Сверху играющий трек и управление: меню перестраивается на каждый показ, поэтому подписи свежие
+    const now: Electron.MenuItemConstructorOptions[] = track.title
+        ? [
+            { label: (track.author ? track.author + ' — ' : '') + track.title, enabled: false },
+            { label: track.isPlaying ? (en ? 'Pause' : 'Пауза') : en ? 'Play' : 'Играть', click: command('toggle') },
+            { label: en ? 'Next' : 'Следующий', click: command('next') },
+            { label: en ? 'Previous' : 'Предыдущий', click: command('previous') },
+            { label: track.isLiked ? (en ? 'Unlike' : 'Убрать лайк') : en ? 'Like' : 'Лайк', click: command('like') },
+            { type: 'separator' },
+        ]
+        : [];
     return Menu.buildFromTemplate([
+        ...now,
         {
-            label: 'SoundCloud',
+            label: en ? 'Open SoundCloud 2' : 'Открыть SoundCloud 2',
             click: () => showMainWindow(),
+        },
+        {
+            label: en ? 'Appearance' : 'Оформление',
+            click: () => {
+                showMainWindow();
+                settingsManager?.toggle('appearance');
+            },
         },
         {
             label: t('traySettings'),
