@@ -352,6 +352,8 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
         plan: (text: string, context: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:vibe:plan', text, context),
         status: (): Promise<unknown> => ipcRenderer.invoke('soundcloud:vibe:status'),
     },
+    // Текст играющего трека: ищет main (LRCLIB, запасной Genius), ввод проверяет он же
+    lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
     // Настройки волны из блока на главной: «Без русского»; ввод проверяет main
     waveOptions: {
         set: (key: string, value: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-option:set', key, value),

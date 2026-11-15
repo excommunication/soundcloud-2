@@ -35,6 +35,7 @@ export class IntroScreen {
         const file = join(__dirname, 'intro.html');
         trustLocalFile(view.webContents, file);
         view.webContents.on('did-finish-load', () => {
+            if (this.view !== view) return;
             this.loaded = true;
             if (this.pendingGo) this.play();
         });
@@ -50,12 +51,12 @@ export class IntroScreen {
     }
     /** Заставка снова сверху: виды, добавленные после неё, иначе легли бы поверх */
     public raise(): void {
-        if (!this.view || this.window.isDestroyed()) return;
+        if (!this.view || this.window.isDestroyed() || this.view.webContents.isDestroyed()) return;
         this.window.contentView.addChildView(this.view);
         this.layout();
     }
     public layout(): void {
-        if (!this.view || this.window.isDestroyed()) return;
+        if (!this.view || this.window.isDestroyed() || this.view.webContents.isDestroyed()) return;
         const { width, height } = this.window.getContentBounds();
         this.view.setBounds({ x: 0, y: 0, width, height });
     }

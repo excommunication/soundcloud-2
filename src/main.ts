@@ -81,6 +81,7 @@ import { WebhookService } from './services/webhookService';
 import { UpdateService, type UpdateMode, type UpdateStatus } from './services/updateService';
 import { UpdateScreen } from './update/updateScreen';
 import { IntroScreen } from './intro/introScreen';
+import { findLyrics, type Lyrics } from './services/lyricsService';
 import { autoUpdater } from 'electron-updater';
 import { ShortcutService } from './services/shortcutService';
 import { audioMonitorScript } from './services/audioMonitorService';
@@ -287,8 +288,20 @@ app.on('child-process-gone', (_event, details) => {
     });
 });
 process.on('uncaughtExceptionMonitor', (error) => {
-    diagnostics.record('runtime.error', { errorType: error.name });
+    // Файл и строка из стека (2.7.1): без них ошибку при запуске было не найти
+    const frame = (error?.stack ?? '').match(/[\\/]([a-zA-Z]+)\.js:(\d+):\d+/);
+    diagnostics.record('runtime.error', { errorType: error.name, component: frame?.[1], line: frame ? Number(frame[2]) : undefined });
     diagnostics.flush();
+});
+// Обращение к уже закрытому окну или виду (событие пришло после закрытия) не роняет клиент окном ошибки: оно ничего не
+// ломает, а пользователь видел «A JavaScript error occurred» и открывал клиент со второго раза. Остальное как у Electron
+process.on('uncaughtException', (error) => {
+    if (/Object has been destroyed/.test(String(error?.message))) {
+        console.warn('Событие пришло к закрытому окну:', error);
+        return;
+    }
+    console.error(error);
+    dialog.showErrorBox('A JavaScript error occurred in the main process', 'Uncaught Exception:\n' + (error?.stack ?? String(error)));
 });
 let diagnosticTimer: ReturnType<typeof setInterval> | undefined;
 // Пользователь не у компьютера (экран заблокирован, простой дольше 10 минут): журнал сигналов помечает такие прослушивания
@@ -1045,6 +1058,30 @@ async function init() {
         settingsView: () => settingsManager?.getView()?.webContents,
         page: () => contentView.webContents,
         applySettingChange,
+    });
+    // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
+    // длительность; ответы помнятся до перезапуска
+    const lyricsCache = new Map<string, Lyrics | null>();
+    const lyricsAgent = 'SoundCloud2 (https://github.com/excommunication/soundcloud-2)';
+    ipcMain.removeHandler('soundcloud:lyrics');
+    ipcMain.handle('soundcloud:lyrics', async (event, input: unknown) => {
+        if (!isTrustedSoundCloudSender(event) || !input || typeof input !== 'object') return null;
+        const value = input as Record<string, unknown>;
+        const title = typeof value.title === 'string' ? value.title.slice(0, 300) : '';
+        const uploader = typeof value.uploader === 'string' ? value.uploader.slice(0, 120) : '';
+        const durationMs = typeof value.durationMs === 'number' && Number.isFinite(value.durationMs) ? Math.max(0, Math.min(value.durationMs, 3600000)) : 0;
+        if (!title) return null;
+        const key = title + '|' + uploader + '|' + Math.round(durationMs / 1000);
+        if (lyricsCache.has(key)) return lyricsCache.get(key) ?? null;
+        const request = async (url: string): Promise<Response> => {
+            const response = await net.fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': lyricsAgent } });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response;
+        };
+        const found = await findLyrics({ getJson: async (url) => (await request(url)).json(), getText: async (url) => (await request(url)).text() }, { title, uploader, durationMs }).catch(() => null);
+        lyricsCache.set(key, found);
+        if (lyricsCache.size > 300) lyricsCache.delete(lyricsCache.keys().next().value as string);
+        return found;
     });
     // «Волна по описанию»: план запроса, настройки модели в F1 и «Без русского» из блока. Запрос к модели идёт через
     // сеть Electron: прокси клиента действует и на него
