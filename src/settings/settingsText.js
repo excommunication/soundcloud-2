@@ -1,5 +1,6 @@
 // Английские подписи панели настроек. Ключ это русская строка из settings.html или settings.js
 window.SETTINGS_EN = {
+    'Вайс': 'Vice',
     'Звук лайка': 'Like sound',
     'Короткий тихий звук, когда ставишь лайк': 'A short soft sound when you like a track',
     'Скорость по темпу трека, разгон на дропах': 'Speed follows the tempo and picks up on drops',

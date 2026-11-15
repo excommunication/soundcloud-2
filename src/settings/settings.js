@@ -1112,7 +1112,7 @@ async function initializeSettings() {
     // Оформление: эффект, палитра, ползунки и переключатели собираются в один объект appearance. Изменения видны сразу:
     // main ставит новые стили и переливы на страницу за панелью. Ползунки шлют не чаще раза в 90 мс
     const FX_DEFAULTS = {
-        effect: 'liquid', palette: 'cover', colors: ['#3a6bff', '#7a3cff', '#00c2ff'], speed: 35, intensity: 60, grain: 22, glass: 55, blur: 22, radius: 14,
+        effect: 'liquid', palette: 'vice', colors: ['#3a6bff', '#7a3cff', '#00c2ff'], speed: 35, intensity: 60, grain: 22, glass: 55, blur: 22, radius: 14,
         quality: 'balanced', calmOnPause: true, parallax: true, hoverMotion: true, beat: 65, likeSound: true,
     };
     let appearance = { ...FX_DEFAULTS, ...(initial.appearance || {}) };

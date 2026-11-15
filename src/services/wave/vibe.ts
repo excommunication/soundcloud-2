@@ -129,16 +129,16 @@ export function installVibe(core: VibeCore): VibeSection {
         style.textContent = [
             '#sc-vibe{position:relative;margin:4px 0 28px 16px;font-size:14px;line-height:20px;color:var(--sc2-text,#f5f6f8)}',
             '#sc-vibe button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}',
-            '.scv-bar{display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 16px;border-radius:var(--sc2-r4,22px);background:var(--sc2-panel,rgba(14,16,24,.55));',
+            '.scv-bar{display:flex;align-items:center;gap:10px;height:56px;padding:0 7px 0 18px;border-radius:var(--sc2-r4,22px);background:var(--sc2-panel,rgba(14,16,24,.55));',
             'backdrop-filter:var(--sc2-blur,blur(20px));-webkit-backdrop-filter:var(--sc2-blur,blur(20px));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.09));transition:box-shadow var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
-            '.scv-bar:focus-within{box-shadow:inset 0 0 0 1px var(--sc2-accent,#9aa8ff),0 0 0 4px color-mix(in srgb,var(--sc2-accent,#9aa8ff) 18%,transparent)}',
-            '.scv-spark{width:18px;height:18px;flex:none;fill:var(--sc2-accent,#9aa8ff)}',
+            '.scv-bar:focus-within{box-shadow:inset 0 0 0 1.5px rgba(255,111,174,.7),0 0 0 5px rgba(255,79,163,.16),0 18px 40px -20px rgba(255,79,163,.6)}',
+            '.scv-spark{width:20px;height:20px;flex:none;fill:#ff6fae;filter:drop-shadow(0 0 8px rgba(255,79,163,.7))}',
             '#sc-vibe.busy .scv-spark{animation:scv-spin 1.2s linear infinite}',
             '@keyframes scv-spin{to{transform:rotate(360deg)}}',
             '.scv-input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:15px}',
             '.scv-input::placeholder{color:var(--sc2-text-3,rgba(245,246,248,.44))}',
             '#sc-vibe .scv-badge{flex:none;height:22px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;display:grid;place-items:center;background:var(--sc2-surface-2,rgba(255,255,255,.075));color:var(--sc2-text-2,rgba(245,246,248,.66))}',
-            '#sc-vibe .scv-go{flex:none;height:40px;padding:0 16px;border-radius:999px;display:flex;align-items:center;gap:6px;background:#fff;color:#0b0c10;font-weight:600;transition:transform var(--sc2-fast,.12s) var(--sc2-ease,ease),opacity var(--sc2-fast,.12s)}',
+            '#sc-vibe .scv-go{flex:none;height:42px;padding:0 20px;border-radius:999px;display:flex;align-items:center;gap:8px;background:#fff;color:#0b0c10;font-weight:800}',
             '#sc-vibe .scv-go:active{transform:scale(.96)}',
             '#sc-vibe .scv-go:disabled{opacity:.5;cursor:default}',
             '.scv-go svg{width:16px;height:16px}',
@@ -151,7 +151,7 @@ export function installVibe(core: VibeCore): VibeSection {
             '.scv-toggle i{position:relative;width:26px;height:16px;border-radius:999px;background:var(--sc2-surface-3,rgba(255,255,255,.12));transition:background var(--sc2-mid,.2s)}',
             '.scv-toggle i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform var(--sc2-mid,.2s) var(--sc2-ease,ease)}',
             '#sc-vibe .scv-toggle[aria-pressed="true"]{color:var(--sc2-text,#f5f6f8)}',
-            '.scv-toggle[aria-pressed="true"] i{background:var(--sc2-accent,#9aa8ff)}',
+            '.scv-toggle[aria-pressed="true"] i{background:var(--sc2-vice,#ff4fa3)}',
             '.scv-toggle[aria-pressed="true"] i::after{transform:translateX(10px)}',
             '.scv-status{display:flex;gap:16px;margin-top:12px;color:var(--sc2-text-3,rgba(245,246,248,.44));font-size:12px}',
             '.scv-status[hidden]{display:none}',
@@ -161,11 +161,11 @@ export function installVibe(core: VibeCore): VibeSection {
             '.scv-status span.on::before{opacity:1;background:var(--sc2-accent,#9aa8ff);animation:scv-blink 1s ease-in-out infinite}',
             '.scv-status span.done{color:var(--sc2-text-2,rgba(245,246,248,.66))}',
             '@keyframes scv-blink{50%{opacity:.35}}',
-            '.scv-card{margin-top:10px;padding:10px 10px 10px 16px;border-radius:var(--sc2-r3,16px);background:var(--sc2-surface-1,rgba(255,255,255,.045));animation:scv-in var(--sc2-mid,.2s) var(--sc2-ease,ease) both}',
+            '.scv-card{margin-top:12px;padding:12px 12px 12px 18px;border-radius:var(--sc2-r3,16px);background:var(--sc2-panel,rgba(14,12,26,.6));backdrop-filter:var(--sc2-blur,blur(20px));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.1));animation:scv-in var(--sc2-mid,.2s) var(--sc2-ease,ease) both}',
             '.scv-head{display:flex;align-items:center;gap:10px}',
-            '.scv-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--sc2-accent,#9aa8ff);box-shadow:0 0 0 4px color-mix(in srgb,var(--sc2-accent,#9aa8ff) 22%,transparent)}',
+            '.scv-dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--sc2-vice,#ff4fa3);box-shadow:0 0 14px rgba(255,79,163,.9)}',
             '.scv-titles{min-width:0;flex:1}',
-            '.scv-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+            '.scv-title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
             '.scv-sub{color:var(--sc2-text-3,rgba(245,246,248,.44));font-size:12px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
             '.scv-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;margin-top:10px;max-height:340px;overflow-y:auto;scrollbar-width:thin}',
             '@media (max-width:900px){.scv-rows{grid-template-columns:minmax(0,1fr)}}',
@@ -209,7 +209,7 @@ export function installVibe(core: VibeCore): VibeSection {
         chip.title = T.noRuHint;
         chip.append(el('i', ''), document.createTextNode(ru ? 'Без RU' : 'No RU'));
         chip.addEventListener('click', () => core.setNoRussian(!core.noRussian()));
-        const go = el('button', 'scv-go');
+        const go = el('button', 'scv-go sc2-cta');
         go.type = 'submit';
         go.title = T.webHint;
         go.append(T.go);

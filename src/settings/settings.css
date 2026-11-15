@@ -824,11 +824,12 @@ textarea.input {
     --bg-primary: rgba(14, 16, 23, 0.96);
     --bg-secondary: rgba(255, 255, 255, 0.045);
     --border: rgba(255, 255, 255, 0.09);
-    --sc2-accent: #9aa8ff;
+    --sc2-accent: #ff6fae;
+    --sc2-vice: linear-gradient(100deg, #7b5cff 0%, #ff4fa3 38%, #ff7a59 70%, #ffc35c 100%);
     --sc2-surface-1: rgba(255, 255, 255, 0.045);
     --sc2-surface-2: rgba(255, 255, 255, 0.075);
     --sc2-ease: cubic-bezier(.2, 0, 0, 1);
-    --focus: #9aa8ff;
+    --focus: #ff6fae;
 }
 .backdrop { background: rgba(4, 5, 10, 0.55); }
 .dialog {
@@ -839,17 +840,17 @@ textarea.input {
 body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
 @keyframes settings-pop { from { opacity: 0; transform: translateY(6px); } }
 .nav-list button { border-radius: 999px; padding: 9px 14px; transition: background-color 120ms, color 120ms; }
-.nav-list button[aria-current='true'] { background: rgba(255, 255, 255, 0.09); box-shadow: none; }
+.nav-list button[aria-current='true'] { background: rgba(255, 255, 255, 0.09); box-shadow: inset 3px 0 0 #ff4fa3; font-weight: 700; }
 .row { border-radius: 12px; }
 .section.active { animation: section-in 160ms var(--sc2-ease); }
 @keyframes section-in { from { opacity: 0; } }
 .btn { border-radius: 999px; padding: 8px 14px; transition: background-color 120ms, border-color 120ms, transform 120ms var(--sc2-ease); }
 .btn:active { transform: scale(.97); }
-.btn.solid { background: #fff; color: #0b0c10; }
+.btn.solid { background: var(--sc2-vice); color: #1b0a1f; font-weight: 700; box-shadow: 0 8px 22px -10px rgba(255, 79, 163, .9); }
 .btn.solid:hover { opacity: .9; }
 .slider { background: rgba(255, 255, 255, 0.1); border-color: transparent; transition: background .2s; }
 .slider::before { transition: transform .2s var(--sc2-ease), background .2s; }
-.toggle input:checked + .slider { background: var(--sc2-accent); border-color: transparent; }
+.toggle input:checked + .slider { background: var(--sc2-vice); border-color: transparent; }
 .toggle input:checked + .slider::before { background: #fff; }
 .input.wide { flex: 1; max-width: 360px; min-width: 0; }
 .ai-fields { margin-top: 2px; }
@@ -861,7 +862,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
     transition: background .12s, box-shadow .12s;
 }
 .fx-card:hover { background: var(--sc2-surface-2); }
-.fx-card[aria-checked='true'] { box-shadow: inset 0 0 0 2px #fff; }
+.fx-card[aria-checked='true'] { box-shadow: inset 0 0 0 2px #ff6fae, 0 12px 30px -14px rgba(255, 79, 163, .9); }
 .fx-card b { font-size: 13px; font-weight: 600; padding: 4px 4px 0; }
 .fx-card small { font-size: 11px; color: var(--text-secondary); padding: 0 4px; }
 .fx-prev { display: block; height: 60px; border-radius: 11px; background-size: 200% 200%; animation: fx-drift 9s ease-in-out infinite alternate; }
@@ -882,7 +883,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
     transition: background .12s, color .12s, box-shadow .12s;
 }
 .pal:hover { background: var(--sc2-surface-2); color: var(--text-primary); }
-.pal[aria-checked='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1.5px #fff; }
+.pal[aria-checked='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1.5px #ff6fae; }
 .pal-dot { width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(var(--a), var(--b), var(--c), var(--a)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
 .pal-cover { background: conic-gradient(#ff5500, #ffb000, #4f7bff, #9a5cff, #ff5500); }
 .color-set { display: inline-flex; gap: 8px; }
@@ -894,7 +895,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
 .range-row output { width: 52px; text-align: right; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 input[type='range'] {
     -webkit-appearance: none; appearance: none; width: 220px; height: 4px; border-radius: 999px; cursor: pointer;
-    background: linear-gradient(var(--sc2-accent), var(--sc2-accent)) 0 / var(--fill, 50%) 100% no-repeat, rgba(255, 255, 255, 0.1);
+    background: var(--sc2-vice) 0 / var(--fill, 50%) 100% no-repeat, rgba(255, 255, 255, 0.1);
 }
 input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); transition: transform .12s; }
 input[type='range']:active::-webkit-slider-thumb { transform: scale(1.15); }
