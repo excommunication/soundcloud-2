@@ -200,6 +200,8 @@ let updateScreen: UpdateScreen | null = null;
 // Заставка запуска: стоит, пока сайт не загрузился, потом уходит взрывом
 let introScreen: IntroScreen | null = null;
 let updateScreenDismissed = false;
+// Обновление проверили кнопкой в настройках: экран загрузки открывается в любой момент, а не только в первые секунды
+let updateScreenRequested = false;
 // Язык всего приложения это настройка «Язык» в F1; трей строится раньше остальных служб
 const appLanguage = (): AppLanguage => (store.get('siteLanguage', 'ru') === 'en' ? 'en' : 'ru');
 const translationService = new TranslationService(appLanguage);
@@ -744,7 +746,7 @@ function handleUpdateStatus(status: UpdateStatus): void {
     if (status.key !== 'downloading' && status.key !== 'progress' && status.key !== 'downloaded') return;
     if (!updateScreen) {
         // Позже первых секунд или под играющую музыку экран не открывается: версия поставится при выходе
-        if (updateScreenDismissed || Date.now() - launchedAt > UPDATE_SCREEN_WINDOW_MS || playback.info.isPlaying) return;
+        if (!updateScreenRequested && (updateScreenDismissed || Date.now() - launchedAt > UPDATE_SCREEN_WINDOW_MS || playback.info.isPlaying)) return;
         if (!mainWindow || mainWindow.isDestroyed()) return;
         updateScreen = new UpdateScreen(mainWindow, HEADER_HEIGHT);
     }
@@ -991,10 +993,23 @@ async function init() {
     });
     registerUpdateIpc(ipcMain, {
         trustedLocal: isTrustedLocalSender,
-        updates: () => updateService,
+        updates: () => {
+            const service = updateService;
+            if (!service) return null;
+            return {
+                installNow: () => service.installNow(),
+                getState: () => service.getState(),
+                check: async () => {
+                    updateScreenRequested = true;
+                    updateScreenDismissed = false;
+                    await service.check();
+                },
+            };
+        },
         screenOwns: (sender) => updateScreen?.owns(sender) === true,
         later: () => {
             updateScreenDismissed = true;
+            updateScreenRequested = false;
             closeUpdateScreen();
         },
         openExternal: (url) => shell.openExternal(url),

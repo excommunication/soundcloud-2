@@ -4,8 +4,11 @@
     const title = document.getElementById('title');
     const status = document.getElementById('status');
     const fill = document.getElementById('fill');
-    const bar = fill.parentElement;
+    const arc = document.getElementById('arc');
+    const ring = document.getElementById('ring');
     const later = document.getElementById('later');
+    // Длина окружности кольца, r = 54
+    const LENGTH = 339.3;
     later.addEventListener('click', () => api.later());
     api.onState((state) => {
         if (!state || typeof state !== 'object') return;
@@ -13,9 +16,11 @@
         status.textContent = String(state.status || '');
         const percent = Math.max(0, Math.min(100, Number(state.percent) || 0));
         fill.style.width = percent + '%';
-        bar.setAttribute('aria-valuenow', String(Math.round(percent)));
+        arc.style.strokeDashoffset = String(LENGTH * (1 - percent / 100));
+        ring.setAttribute('aria-valuenow', String(Math.round(percent)));
         later.textContent = String(state.later || '');
         // Когда установщик уже запущен, отказаться нельзя: клиент закрывается
         later.hidden = state.installing === true;
+        document.body.classList.toggle('installing', state.installing === true);
     });
 })();

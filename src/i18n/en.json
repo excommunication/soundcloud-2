@@ -77,6 +77,6 @@
     "headerSettings": "Settings, F1",
     "updateScreenTitle": "Updating to version {v}",
     "updateScreenDownloading": "Downloading: {p}%",
-    "updateScreenInstalling": "Installing and restarting",
+    "updateScreenInstalling": "Installing. The app will reopen in a few seconds",
     "updateScreenLater": "Later"
 }

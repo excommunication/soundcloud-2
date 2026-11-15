@@ -77,6 +77,6 @@
     "headerSettings": "Настройки, F1",
     "updateScreenTitle": "Обновление до версии {v}",
     "updateScreenDownloading": "Загружаю: {p}%",
-    "updateScreenInstalling": "Устанавливаю и перезапускаю",
+    "updateScreenInstalling": "Устанавливаю. Клиент откроется сам через несколько секунд",
     "updateScreenLater": "Позже"
 }

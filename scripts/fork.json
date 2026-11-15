@@ -11,7 +11,13 @@
         "repository": "https://github.com/excommunication/soundcloud-2",
         "build.publish.owner": "excommunication",
         "build.publish.repo": "soundcloud-2",
-        "build.win.artifactName": "soundcloud-2-${version}-setup-${arch}.${ext}"
+        "build.win.artifactName": "soundcloud-2-${version}-setup-${arch}.${ext}",
+        "build.nsis.oneClick": false,
+        "build.nsis.perMachine": false,
+        "build.nsis.allowToChangeInstallationDirectory": false,
+        "build.nsis.runAfterFinish": true,
+        "build.nsis.installerSidebar": "build-resources/installerSidebar.bmp",
+        "build.nsis.installerHeader": "build-resources/installerHeader.bmp"
     },
     "relinkFiles": ["src/services/updateService.ts", "src/services/updateService.test.ts", "src/services/presenceService.ts", "src/settings/settings.js", "pages/open/open.js"],
     "ours": ["README.md", "assets/readme"],
