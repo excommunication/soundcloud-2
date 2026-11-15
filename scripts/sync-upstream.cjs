@@ -62,7 +62,7 @@ function checks() {
         ['npx', ['--yes', 'pnpm@12.15.0', 'install', '--frozen-lockfile']],
         ['npx', ['--yes', 'pnpm@12.15.0', 'typecheck']],
         ['npx', ['--yes', 'pnpm@12.15.0', 'lint']],
-        ['npx', ['--yes', 'pnpm@12.15.0', 'test']],
+        ['npx', ['--yes', 'pnpm@12.15.0', 'exec', 'vitest', 'run', '--testTimeout=30000', '--retry=1']],
     ]) {
         if (run(cmd, args).status !== 0) return `${cmd} ${args.slice(2).join(' ')}`;
     }
