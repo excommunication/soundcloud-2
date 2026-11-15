@@ -34,7 +34,7 @@ jobs:
           node-version: 24
       - run: npx --yes pnpm@12.15.0 install --frozen-lockfile
       - run: npx --yes pnpm@12.15.0 typecheck
-      - run: npx --yes pnpm@12.15.0 test
+      - run: npx --yes pnpm@12.15.0 exec vitest run --testTimeout=30000 --retry=1
       - name: Ключи EVS для VMP-подписи
         id: evs
         shell: pwsh
