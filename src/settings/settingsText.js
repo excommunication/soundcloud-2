@@ -1,7 +1,13 @@
 // Английские подписи панели настроек. Ключ это русская строка из settings.html или settings.js
 window.SETTINGS_EN = {
+    'Звук лайка': 'Like sound',
+    'Короткий тихий звук, когда ставишь лайк': 'A short soft sound when you like a track',
+    'Скорость по темпу трека, разгон на дропах': 'Speed follows the tempo and picks up on drops',
+    'Настроить волну': 'Tune the wave',
+    'Над волной есть строка: пишешь, что хочешь услышать, и волна подстраивается. Актуальные треки клиент берёт из открытых плейлистов и чартов, модель помогает понять сложный запрос': 'Above the wave there is a prompt: describe what you want and the wave adapts. Current tracks come from open playlists and charts, a model helps with complex requests',
+    'Искать актуальное в интернете': 'Look for current tracks online',
+    'Открытые плейлисты и чарты Deezer, без аккаунта и ключа': 'Open Deezer playlists and charts, no account or key',
     'Под бит': 'To the beat',
-    'Скорость по темпу трека, вспышки на ударах': 'Speed follows the tempo, flashes on the beats',
     'Провайдер': 'Provider',
     'Оформление': 'Appearance',
     'Переливы за сайтом': 'Living background',

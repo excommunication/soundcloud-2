@@ -163,6 +163,8 @@ document.getElementById('history-btn')?.addEventListener('click', () => {
 document.getElementById('queue-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-queue'));
 // Настройки открываются и закрываются так же, как по F1
 document.getElementById('settings-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-settings'));
+// Оформление: та же панель, сразу на разделе фона и палитры
+document.getElementById('appearance-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-settings', 'appearance'));
 ipcRenderer.on('history-recap', (_, ready) => {
     recapReady = ready === true;
     document.getElementById('history-btn')?.classList.toggle('has-news', recapReady);

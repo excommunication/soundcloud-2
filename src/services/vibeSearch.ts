@@ -4,6 +4,7 @@
 // Ключ хранится зашифрованным (safeStorage), на страницу уходит только план
 import { genreEnglish, normalizeTag } from './waveGenres';
 import type { VibePlan } from './waveVibe';
+import { findWebTracks, type GetJson } from './webMusic';
 
 export type AiProvider = 'off' | 'openai' | 'openrouter' | 'groq' | 'anthropic' | 'ollama' | 'custom';
 export const AI_PROVIDERS: readonly AiProvider[] = ['off', 'openai', 'openrouter', 'groq', 'anthropic', 'ollama', 'custom'];
@@ -175,6 +176,7 @@ export function planLocal(input: string, context: VibeContext = { genres: [], no
         popularity,
         fresh,
         source: 'local',
+        sources: [],
     };
 }
 
@@ -183,7 +185,7 @@ Return ONLY a JSON object with these fields:
 "title": short label of the vibe in the listener's language (max 6 words),
 "queries": 3-8 short English search queries for SoundCloud (genre + mood + scene),
 "tags": up to 6 SoundCloud genre/tag names in English (e.g. "phonk", "dream pop", "lofi"),
-"tracks": 8-15 real, well-known songs that best fit, as "Artist - Title" (prefer tracks likely uploaded on SoundCloud),
+"tracks": 10-20 real songs that are popular right now or genre staples that best fit, as "Artist - Title" (prefer tracks likely uploaded on SoundCloud),
 "artists": up to 6 fitting artists,
 "words": up to 10 lowercase English keywords that describe the vibe,
 "avoid": words that must not appear (e.g. "slowed", "nightcore", "remix") if the listener excluded them,
@@ -214,6 +216,7 @@ export function sanitizePlan(raw: unknown, local: VibePlan): VibePlan {
         popularity,
         fresh: typeof value.fresh === 'boolean' ? value.fresh : local.fresh,
         source: 'ai',
+        sources: [],
     };
 }
 
@@ -299,9 +302,23 @@ export async function askModel(config: AiConfig, user: string, fetcher: FetchLik
     }
 }
 
-/** План запроса: модель, если настроена, иначе или при сбое локальный разбор. error объясняет, почему модель не помогла */
-export async function planVibe(text: string, context: VibeContext, config: AiConfig | null, fetcher: FetchLike): Promise<{ plan: VibePlan; error?: string }> {
+/** План запроса: модель, если настроена, иначе или при сбое локальный разбор. error объясняет, почему модель не помогла.
+ *  С web треки ищутся ещё и в интернете (Deezer) параллельно с моделью и встают в план после треков модели */
+export async function planVibe(text: string, context: VibeContext, config: AiConfig | null, fetcher: FetchLike, web?: GetJson): Promise<{ plan: VibePlan; error?: string }> {
     const local = planLocal(text, context);
+    const webAsk = web
+        ? findWebTracks([text, local.queries[0] ?? '', local.tags.slice(0, 2).join(' ')], web, { noRussian: local.lang === 'noRu', raw: text }).catch(() => ({ tracks: [], sources: [] }))
+        : Promise.resolve({ tracks: [], sources: [] });
+    const [result, found] = await Promise.all([planModel(text, context, config, fetcher, local), webAsk]);
+    if (found.tracks.length) {
+        const seen = new Set(result.plan.tracks.map((item) => item.toLowerCase()));
+        result.plan.tracks = [...result.plan.tracks, ...found.tracks.filter((item) => !seen.has(item.toLowerCase()))].slice(0, 45);
+        result.plan.sources = found.sources;
+    }
+    return result;
+}
+
+async function planModel(text: string, context: VibeContext, config: AiConfig | null, fetcher: FetchLike, local: VibePlan): Promise<{ plan: VibePlan; error?: string }> {
     if (!config || config.provider === 'off') return { plan: local };
     const hints = [
         'Request: ' + clean(text).slice(0, 300),

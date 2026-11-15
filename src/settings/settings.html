@@ -99,7 +99,7 @@
                         <div class="group">Движение и свет</div>
                         <div class="row range-row"><span class="text">Скорость</span><input type="range" min="0" max="100" data-fx="speed" aria-label="Скорость" /><output data-out="speed"></output></div>
                         <div class="row range-row"><span class="text">Яркость</span><input type="range" min="0" max="100" data-fx="intensity" aria-label="Яркость" /><output data-out="intensity"></output></div>
-                        <div class="row range-row"><span class="text"><span>Под бит</span><span class="hint">Скорость по темпу трека, вспышки на ударах</span></span><input type="range" min="0" max="100" data-fx="beat" aria-label="Под бит" /><output data-out="beat"></output></div>
+                        <div class="row range-row"><span class="text"><span>Под бит</span><span class="hint">Скорость по темпу трека, разгон на дропах</span></span><input type="range" min="0" max="100" data-fx="beat" aria-label="Под бит" /><output data-out="beat"></output></div>
                         <div class="row range-row"><span class="text">Зерно</span><input type="range" min="0" max="100" data-fx="grain" aria-label="Зерно" /><output data-out="grain"></output></div>
                         <label class="row"><span class="text"><span>Тише на паузе</span><span class="hint">Без музыки переливы замедляются и притухают</span></span><span class="toggle"><input type="checkbox" data-fx="calmOnPause" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text"><span>Тянется за курсором</span><span class="hint">Лёгкий параллакс фона</span></span><span class="toggle"><input type="checkbox" data-fx="parallax" /><span class="slider"></span></span></label>
@@ -107,6 +107,7 @@
                         <div class="row range-row"><span class="text">Плотность стекла</span><input type="range" min="0" max="100" data-fx="glass" aria-label="Плотность стекла" /><output data-out="glass"></output></div>
                         <div class="row range-row"><span class="text">Размытие под стеклом</span><input type="range" min="0" max="40" data-fx="blur" aria-label="Размытие" /><output data-out="blur"></output></div>
                         <div class="row range-row"><span class="text">Скругления</span><input type="range" min="0" max="24" data-fx="radius" aria-label="Скругления" /><output data-out="radius"></output></div>
+                        <label class="row"><span class="text"><span>Звук лайка</span><span class="hint">Короткий тихий звук, когда ставишь лайк</span></span><span class="toggle"><input type="checkbox" data-fx="likeSound" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text"><span>Анимации наведения</span><span class="hint">Карточки приподнимаются, кнопки пружинят</span></span><span class="toggle"><input type="checkbox" data-fx="hoverMotion" /><span class="slider"></span></span></label>
                         <div class="row">
                             <span class="text"><span>Качество</span><span class="hint">«Эко» бережёт батарею и видеокарту</span></span>
@@ -185,8 +186,9 @@
                         <h2>Моя волна</h2>
                         <label class="row"><span class="text">Показывать на главной</span><span class="toggle"><input type="checkbox" id="homeWave" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text"><span>Без песен на русском</span><span class="hint">Волна, подборки и поиск словами не ставят песни на русском. «Моя музыка» играет как есть</span></span><span class="toggle"><input type="checkbox" id="waveNoRussian" /><span class="slider"></span></span></label>
-                        <div class="group">Волна по описанию</div>
-                        <p class="hint pad">Над волной есть строка: пишешь, что хочешь услышать, клиент находит топ треков и включает волну от них. Без модели запрос разбирается локально, с моделью точнее и понимает «в стиле…»</p>
+                        <div class="group">Настроить волну</div>
+                        <p class="hint pad">Над волной есть строка: пишешь, что хочешь услышать, и волна подстраивается. Актуальные треки клиент берёт из открытых плейлистов и чартов, модель помогает понять сложный запрос</p>
+                        <label class="row"><span class="text"><span>Искать актуальное в интернете</span><span class="hint">Открытые плейлисты и чарты Deezer, без аккаунта и ключа</span></span><span class="toggle"><input type="checkbox" id="vibeWeb" /><span class="slider"></span></span></label>
                         <div class="row">
                             <span class="text">Провайдер</span>
                             <select class="input dropdown" id="aiProvider" aria-label="Провайдер">

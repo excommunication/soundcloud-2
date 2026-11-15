@@ -36,8 +36,10 @@ export interface Appearance {
     parallax: boolean;
     /** Подъём карточек и плавные наведения */
     hoverMotion: boolean;
-    /** Под бит 0..100: скорость по темпу трека, вспышки на ударах; 0 выключает */
+    /** Под бит 0..100: скорость по темпу трека и разгон на дропах; 0 выключает */
     beat: number;
+    /** Короткий звук на лайк */
+    likeSound: boolean;
 }
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -55,6 +57,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
     parallax: true,
     hoverMotion: true,
     beat: 65,
+    likeSound: true,
 };
 
 /** Готовые палитры: три цвета, первый главный */
@@ -81,7 +84,7 @@ export function normalizeAppearance(input: unknown): Appearance {
         return isNumberIn(item, min, max) ? Math.round(item) : (APPEARANCE_DEFAULTS[key] as number);
     };
     const colors = Array.isArray(value.colors) && value.colors.length === 3 && value.colors.every(isHex) ? (value.colors.map((c: string) => c.toLowerCase()) as [string, string, string]) : APPEARANCE_DEFAULTS.colors;
-    const bool = (key: 'calmOnPause' | 'parallax' | 'hoverMotion'): boolean => (typeof value[key] === 'boolean' ? (value[key] as boolean) : APPEARANCE_DEFAULTS[key]);
+    const bool = (key: 'calmOnPause' | 'parallax' | 'hoverMotion' | 'likeSound'): boolean => (typeof value[key] === 'boolean' ? (value[key] as boolean) : APPEARANCE_DEFAULTS[key]);
     return {
         effect: pick(AURORA_EFFECTS, value.effect, APPEARANCE_DEFAULTS.effect),
         palette: pick(AURORA_PALETTES, value.palette, APPEARANCE_DEFAULTS.palette),
@@ -97,6 +100,7 @@ export function normalizeAppearance(input: unknown): Appearance {
         parallax: bool('parallax'),
         hoverMotion: bool('hoverMotion'),
         beat: num('beat', 0, 100),
+        likeSound: bool('likeSound'),
     };
 }
 
@@ -120,9 +124,14 @@ export interface BeatState {
     last: number;
     beats: number[];
     bpm: number;
+    /** Громкость за 0,4 с и за 8 с: дроп это когда первая заметно выше второй */
+    short: number;
+    long: number;
+    /** 0..1, плавно: 1 во время дропа */
+    drop: number;
 }
 export function beatInit(): BeatState {
-    return { fast: 0, slow: 0, level: 0, pulse: 0, last: -1e9, beats: [], bpm: 0 };
+    return { fast: 0, slow: 0, level: 0, pulse: 0, last: -1e9, beats: [], bpm: 0, short: 0, long: 0, drop: 0 };
 }
 /** Шаг детектора: bass и level 0..1 в момент now (мс), dt с прошлого шага. Удар это всплеск быстрой огибающей баса над
  *  медленной не чаще раза в 280 мс. Темп по медиане промежутков последних ударов, сведённый в 80..170 ударов в минуту.
@@ -133,7 +142,12 @@ export function beatStep(state: BeatState, bass: number, level: number, now: num
     if (state.fast === 0 && state.slow === 0) state.fast = state.slow = bass;
     state.fast = ema(state.fast, bass, 45);
     state.slow = ema(state.slow, bass, 900);
-    state.level = ema(state.level, level, 220);
+    state.level = ema(state.level, level, 600);
+    state.short = ema(state.short, level, 400);
+    state.long = ema(state.long, level, 8000);
+    // Дроп: громкость за последние полсекунды на треть выше средней за 8 с. Входит за ~1 с, выходит за ~2,5 с
+    const dropping = state.short > state.long * 1.35 + 0.02 && state.short > 0.2 ? 1 : 0;
+    state.drop = ema(state.drop, dropping, dropping > state.drop ? 900 : 2500);
     state.pulse *= Math.exp(-dt / 180);
     let hit = false;
     if (state.fast > state.slow * 1.22 + 0.04 && now - state.last > 280) {
@@ -182,7 +196,7 @@ float fbm(vec2 p){ float v = 0.0; float a = 0.5; mat2 r = mat2(0.8, -0.6, 0.6, 0
 vec3 base(){ return mix(vec3(0.012, 0.016, 0.035), u_c2 * 0.08, 0.6); }
 vec3 finish(vec3 col, vec2 uv){
   vec2 q = uv - 0.5; col *= 1.0 - dot(q, q) * 0.9;
-  col *= 1.0 + 0.5 * u_pulse + 0.3 * u_energy;
+  col *= 1.0 + 0.22 * u_energy;
   col = mix(base(), col, u_intensity);
   col = col / (1.0 + col * 0.55);
   col += (hash(gl_FragCoord.xy + fract(u_time * 7.0) * 100.0) - 0.5) * u_grain * 0.12;
@@ -296,7 +310,7 @@ export function fragmentSource(effect: Exclude<AuroraEffect, 'off'>): string {
         `
 void main(){
   vec2 uv = gl_FragCoord.xy / u_res;
-  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y) * (1.0 - 0.04 * u_pulse) + u_mouse * 0.04 + u_seed;
+  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y) + u_mouse * 0.04 + u_seed;
   gl_FragColor = vec4(finish(effect(uv, p), uv), 1.0);
 }`
     );
@@ -319,7 +333,7 @@ export function appearanceCss(appearance: Appearance): string {
         `.headerSearch__input,.sc-input,input.sc-input,textarea.sc-input{border-radius:${r}px!important}`,
         `.dropdownMenu,.moreActions,.dialog,.modal__modal,.dropbar{border-radius:${r}px!important;overflow:hidden}`,
         'html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}',
-        '::selection{background:color-mix(in srgb,var(--sca-c1,#3a6bff) 55%,transparent)}',
+        '::selection{background:color-mix(in srgb,var(--sca-c1,#3a6bff) 45%,transparent)}',
     ];
     if (on) {
         rows.push(
@@ -340,8 +354,6 @@ export function appearanceCss(appearance: Appearance): string {
             // Строки списков: лёгкая подложка на наведении
             `.soundList__item:hover,.trackList__item:hover,.compactTrackList__item:hover,.systemPlaylistTrackList__item:hover{background:rgba(255,255,255,.04)!important;border-radius:${Math.max(4, r - 4)}px}`,
             // Блок волны и строка по описанию: стекло вокруг
-            `#sc-wave .scw-body{background:rgba(10,12,22,${(0.15 + (a.glass / 100) * 0.35).toFixed(3)});backdrop-filter:${blur};-webkit-backdrop-filter:${blur};border-radius:${r + 6}px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}`,
-            `#sc-vibe .scv-bar{backdrop-filter:${blur};-webkit-backdrop-filter:${blur}}`,
         );
     }
     // Нижний бар: живая линия прогресса вместо полосы сайта (клики идут сайту, холст их пропускает), свечение и дыхание
@@ -353,66 +365,90 @@ export function appearanceCss(appearance: Appearance): string {
         'html:not(.sca-line) .playbackTimeline__progressBar{background:linear-gradient(90deg,var(--sca-c1,#ff5500),var(--sca-c3,#ff9a52))!important}',
         '.playControls__inner{position:relative}',
         '.playControls__inner::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--sca-c1,#ff5500),var(--sca-c3,#ff9a52),transparent);opacity:0;transition:opacity .8s ease}',
-        'html.sca-playing .playControls__inner::before{opacity:calc(.45 + var(--sca-pulse,0) * .55)}',
+        'html.sca-playing .playControls__inner::before{opacity:calc(.5 + var(--sca-drop,0) * .5);transition:opacity 1.2s ease}',
         'html.sca-playing .playControls__inner{box-shadow:0 -24px 70px -34px var(--sca-c1,#ff5500)}',
-        '.playbackSoundBadge__avatar{transition:transform .6s cubic-bezier(.2,.8,.2,1.25),box-shadow .6s ease,filter .6s ease}',
-        'html:not(.sca-playing) .playbackSoundBadge__avatar{transform:scale(.88);filter:saturate(.8)}',
-        'html.sca-playing .playbackSoundBadge__avatar{transform:scale(calc(1 + var(--sca-pulse,0) * .07));box-shadow:0 0 18px -4px var(--sca-c1,#ff5500)}',
-        'html:not(.sca-playing) #sc-wave .scw-cover{transform:scale(.94)!important;filter:saturate(.8) brightness(.9)}',
-        '#sc-wave .scw-cover{transition:transform .6s cubic-bezier(.2,.8,.2,1.25),filter .6s ease,box-shadow .6s ease!important}',
+        '.playbackSoundBadge__avatar{transition:transform .4s cubic-bezier(.2,0,0,1),box-shadow .4s ease,filter .4s ease}',
+        'html:not(.sca-playing) .playbackSoundBadge__avatar{transform:scale(.92);filter:saturate(.85)}',
+        'html.sca-playing .playbackSoundBadge__avatar{transform:none;box-shadow:0 0 18px -6px var(--sca-c1,#ff5500)}',
+        'html:not(.sca-playing) #sc-wave .scw-cover{transform:scale(.96)!important;filter:saturate(.85)}',
+        '#sc-wave .scw-cover{transition:transform .4s cubic-bezier(.2,0,0,1),filter .4s ease!important}',
         'a.soundTitle__title:hover,a.playbackSoundBadge__titleLink:hover,a.sc-link-primary:hover{color:color-mix(in srgb,var(--sca-c1,#ff5500) 45%,#fff)!important}',
         'html.scm-reduce #sca-line{display:none}',
         '@media (prefers-reduced-motion:reduce){.playbackSoundBadge__avatar,#sc-wave .scw-cover{transition:none!important;transform:none!important}}',
     );
-    // Главная: блок «Моей волны», подборки и «Моя музыка» в одном стиле со стеклом. html body в начале
-    // перебивает правила волны (#sc-wave …) без !important; цвет палитры берётся из --sca-c1..3, вспышка бита из --sca-pulse
-    const w = 'html body #sc-wave';
-    const card = `rgba(12,14,24,${(0.3 + (a.glass / 100) * 0.4).toFixed(3)})`;
+    // Дизайн-система SoundCloud 2: одни токены на все свои элементы (строка «Настроить волну», блок волны, док, меню,
+    // тосты) и на то, что переодевается у сайта. Главная кнопка белая, второстепенные полупрозрачные «таблетки», один
+    // акцент из обложки (--sc2-accent, осветлённый для читаемости), без градиентов на кнопках и тексте, движения 120-200 мс
+    const panelAlpha = (0.42 + (a.glass / 100) * 0.4).toFixed(3);
     rows.push(
-        `${w}{--scw-surface:rgba(255,255,255,.07);--scw-film:rgba(255,255,255,.05);--scw-film-strong:rgba(255,255,255,.1);--scw-tile:rgba(255,255,255,.06);--scw-muted:rgba(255,255,255,.6);--scw-faint:rgba(255,255,255,.42)}`,
-        `${w} .scw-title{font-size:30px;line-height:36px;font-weight:800;letter-spacing:-.6px;background:linear-gradient(100deg,#fff 30%,color-mix(in srgb,var(--sca-c1,#8ab4ff) 70%,#fff));-webkit-background-clip:text;background-clip:text;color:transparent}`,
-        `${w} .scw-seg{padding:3px;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}`,
-        `${w} .scw-seg button{border-radius:999px;transition:background .25s,color .25s,box-shadow .25s}`,
-        `${w} .scw-seg button[aria-checked="true"]{box-shadow:0 4px 14px -4px rgba(0,0,0,.6)}`,
-        `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:background .2s,transform .2s}`,
-        `${w} .scw-icon:hover,${w} .scw-genre:hover{background:rgba(255,255,255,.11)}`,
-        `${w} .scw-pop{border-radius:${r + 2}px;background:rgba(18,20,32,.92);backdrop-filter:blur(20px);box-shadow:0 20px 60px -10px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.08)}`,
-        `${w} .scw-body{margin:0;padding:22px;gap:28px;border-radius:${r + 14}px;background:linear-gradient(135deg,color-mix(in srgb,var(--sca-c1,#3a6bff) 16%,${card}),${card} 55%,color-mix(in srgb,var(--sca-c2,#7a3cff) 12%,${card}));backdrop-filter:blur(${a.blur}px) saturate(1.4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 30px 80px -40px color-mix(in srgb,var(--sca-c1,#3a6bff) 70%,transparent)}`,
-        `${w} .scw-body.lit{background:linear-gradient(135deg,color-mix(in srgb,var(--sca-c1,#3a6bff) 22%,${card}),${card} 55%,color-mix(in srgb,var(--sca-c2,#7a3cff) 16%,${card}))}`,
-        `${w} .scw-cover{width:220px;height:220px;border-radius:${r + 6}px;overflow:hidden;box-shadow:0 24px 50px -18px rgba(0,0,0,.8),0 0 70px -20px var(--sca-c1,#3a6bff);transform:scale(calc(1 + var(--sca-pulse,0) * .025));transition:transform .12s ease-out}`,
-        `${w} .scw-cover.collage{gap:2px}`,
-        `${w} .scw-play{width:68px;height:68px;box-shadow:0 0 0 calc(var(--sca-pulse,0) * 10px) color-mix(in srgb,var(--sca-c1,#3a6bff) 35%,transparent),0 12px 32px -8px color-mix(in srgb,var(--sca-c1,#3a6bff) 80%,transparent);transition:box-shadow .12s ease-out,transform .2s cubic-bezier(.2,.8,.2,1.4),filter .15s}`,
-        `${w} .scw-play:not(:disabled):hover{transform:scale(1.06);filter:none}`,
-        `${w} .scw-track{font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.3px}`,
-        `${w} .scw-like{border-radius:999px;transition:background .2s,transform .2s cubic-bezier(.2,.8,.2,1.4)}`,
-        `${w} .scw-like:active{transform:scale(.88)}`,
-        `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sca-c1,#ff5500)}`,
-        `${w} .scw-btn{border-radius:999px;padding:0 16px}`,
-        `${w} .scw-up-h{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:700;color:rgba(255,255,255,.45)}`,
-        `${w} .scw-tile{padding:8px;margin:0;border-radius:${r}px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);transition:background .2s,transform .3s cubic-bezier(.2,.8,.2,1)}`,
-        `${w} .scw-tile:hover{background:rgba(255,255,255,.08)}`,
-        `${w} .scw-tile>.scw-art,${w} .scw-row .scw-art{border-radius:${Math.max(6, r - 4)}px;overflow:hidden}`,
-        `${w} .scw-chip{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:background .2s,color .2s,transform .2s}`,
-        `${w} .scw-chip:hover{background:rgba(255,255,255,.11)}`,
-        `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:linear-gradient(120deg,var(--sca-c1,#4f7bff),var(--sca-c3,#9a5cff));color:#fff;box-shadow:0 6px 20px -8px var(--sca-c1,#4f7bff)}`,
-        `${w} .scw-pin{border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}`,
-        `${w} .scw-shelf-h{font-size:24px;line-height:30px;font-weight:800;letter-spacing:-.4px}`,
-        `${w} .scw-card .scw-art{border-radius:${r + 2}px;overflow:hidden;box-shadow:0 14px 34px -18px rgba(0,0,0,.9)}`,
-        `${w} .scw-card .scw-art::after{background:var(--sca-c1,#ff5500)}`,
-        `${w} .scw-card .scw-card-play:hover{background:var(--sca-c1,#ff7133)}`,
-        `${w} .scw-mix,${w} .scw-lib{border-radius:${r + 8}px;padding:18px 18px 10px;background:${card};backdrop-filter:blur(${a.blur}px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}`,
-        `${w} .scw-row{border-radius:${Math.max(6, r - 4)}px}`,
-        `${w} .scw-row[aria-current="true"] .scw-row-t b,${w} .scw-lib-here{color:color-mix(in srgb,var(--sca-c1,#ff5500) 60%,#fff)}`,
-        `${w} .scw-lib-opt{border-radius:10px}`,
+        `:root{--sc2-surface-1:rgba(255,255,255,.045);--sc2-surface-2:rgba(255,255,255,.075);--sc2-surface-3:rgba(255,255,255,.12);--sc2-line:rgba(255,255,255,.09);` +
+            `--sc2-text:#f5f6f8;--sc2-text-2:rgba(245,246,248,.66);--sc2-text-3:rgba(245,246,248,.44);` +
+            `--sc2-accent:color-mix(in srgb,var(--sca-c1,#7c8cff) 62%,#fff);--sc2-panel:rgba(13,15,22,${panelAlpha});--sc2-blur:blur(${a.blur}px) saturate(1.4);` +
+            `--sc2-r1:${Math.max(4, Math.round(r * 0.55))}px;--sc2-r2:${Math.max(6, Math.round(r * 0.85))}px;--sc2-r3:${r}px;--sc2-r4:${Math.round(r * 1.5)}px;` +
+            `--sc2-fast:120ms;--sc2-mid:200ms;--sc2-ease:cubic-bezier(.2,0,0,1);--sc2-shadow:0 16px 48px -20px rgba(0,0,0,.8)}`,
+        // Меню по правому клику, подсказки и тосты волны
+        `.scw-menu{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);border:0!important;border-radius:var(--sc2-r3)!important;padding:6px!important;box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)!important;min-width:240px}`,
+        `.scw-menu .scw-mi{height:34px!important;padding:0 10px!important;border-radius:var(--sc2-r1)!important;border:0!important;background:none!important;color:var(--sc2-text-2)!important;font-weight:500!important;transition:background var(--sc2-fast),color var(--sc2-fast)}`,
+        `.scw-menu .scw-mi:hover,.scw-menu .scw-mi:focus-visible{background:var(--sc2-surface-2)!important;color:var(--sc2-text)!important;outline:none!important}`,
+        `.scw-menu .scw-mi svg{opacity:.8}`,
+        `.scw-toast{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);border-radius:999px!important;padding:10px 18px!important;box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)!important;color:var(--sc2-text)!important}`,
+        `.scw-toast .scw-undo{color:var(--sc2-accent)!important}`,
+        `.scw-tip{background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);border-radius:var(--sc2-r1)!important;box-shadow:inset 0 0 0 1px var(--sc2-line)!important}`,
+        // Кнопки и поля сайта: таблетки, как у своих элементов
+        `.sc-button-small,.sc-button-medium{border-radius:999px!important}`,
+        `.sc-button-selected{color:var(--sc2-accent)!important;border-color:color-mix(in srgb,var(--sc2-accent) 45%,transparent)!important}`,
+        `.playbackSoundBadge__like.sc-button-selected,.sc-button-like.sc-button-selected{color:var(--sc2-accent)!important}`,
+    );
+    // Блок «Моей волны»: стеклянная панель без градиентов, цвет обложки только в мягком свете за ней (свои пятна волны)
+    // и в акценте. html body в начале перебивает правила волны (#sc-wave …) без !important
+    const w = 'html body #sc-wave';
+    rows.push(
+        `${w}{--scw-surface:var(--sc2-surface-2);--scw-film:var(--sc2-surface-1);--scw-film-strong:var(--sc2-surface-2);--scw-tile:var(--sc2-surface-2);--scw-muted:var(--sc2-text-2);--scw-faint:var(--sc2-text-3);--scw-btn:#fff;--scw-btn-ink:#0b0c10}`,
+        `${w} .scw-title{font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.4px;color:var(--sc2-text)}`,
+        `${w} .scw-hint{color:var(--sc2-text-3)}`,
+        `${w} .scw-seg{padding:3px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-seg button{border-radius:999px;transition:background var(--sc2-mid) var(--sc2-ease),color var(--sc2-mid)}`,
+        `${w} .scw-genre,${w} .scw-icon{border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line);transition:background var(--sc2-fast)}`,
+        `${w} .scw-icon:hover,${w} .scw-genre:hover{background:var(--sc2-surface-2);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-genre.set{background:#fff;color:#0b0c10}`,
+        `${w} .scw-pop{border-radius:var(--sc2-r3);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-body{margin:0;padding:20px;gap:24px;border-radius:var(--sc2-r4);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-body.lit{background:var(--sc2-panel)}`,
+        `${w} .scw-cover{width:208px;height:208px;border-radius:var(--sc2-r3);overflow:hidden;box-shadow:0 20px 44px -20px rgba(0,0,0,.85)}`,
+        `${w} .scw-play{width:60px;height:60px;transition:transform var(--sc2-fast) var(--sc2-ease)}`,
+        `${w} .scw-play:not(:disabled):hover{transform:scale(1.04);filter:none}`,
+        `${w} .scw-play:not(:disabled):active{transform:scale(.95)}`,
+        `${w} .scw-track{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.2px}`,
+        `${w} .scw-artist,${w} .scw-why{color:var(--sc2-text-2)}`,
+        `${w} .scw-like{border-radius:999px;transition:background var(--sc2-fast)}`,
+        `${w} .scw-like:hover{background:var(--sc2-surface-2)}`,
+        `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
+        `${w} .scw-btn{border-radius:999px;padding:0 16px;background:var(--sc2-surface-2)}`,
+        `${w} .scw-up-h{font-size:12px;font-weight:600;color:var(--sc2-text-3);letter-spacing:.02em}`,
+        `${w} .scw-tile{padding:8px;margin:0;border-radius:var(--sc2-r3);background:transparent;transition:background var(--sc2-fast)}`,
+        `${w} .scw-tile:hover{background:var(--sc2-surface-1)}`,
+        `${w} .scw-tile>.scw-art,${w} .scw-row .scw-art{border-radius:var(--sc2-r1);overflow:hidden}`,
+        `${w} .scw-chip{height:30px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line);color:var(--sc2-text-2);font-weight:500;transition:background var(--sc2-fast),color var(--sc2-fast)}`,
+        `${w} .scw-chip:hover{background:var(--sc2-surface-2);color:var(--sc2-text)}`,
+        `${w} .scw-moods .scw-chip[aria-checked="true"],${w} .scw-chip[aria-pressed="true"]{background:#fff;color:#0b0c10;box-shadow:none}`,
+        `${w} .scw-pin{height:30px;border-radius:999px;background:var(--sc2-surface-1);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-shelf-h{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.3px}`,
+        `${w} .scw-card .scw-art{border-radius:var(--sc2-r3);overflow:hidden}`,
+        `${w} .scw-card .scw-art::after{background:var(--sc2-accent)}`,
+        `${w} .scw-card .scw-card-play:hover{background:#fff;transform:translateY(0) scale(1.05)}`,
+        `${w} .scw-mix,${w} .scw-lib{border-radius:var(--sc2-r4);padding:16px 16px 8px;background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-row{border-radius:var(--sc2-r2)}`,
+        `${w} .scw-row[aria-current="true"] .scw-row-t b,${w} .scw-lib-here{color:var(--sc2-accent)}`,
+        `${w} .scw-lib-opt{border-radius:var(--sc2-r2)}`,
     );
     if (a.hoverMotion) {
         rows.push(
-            '.badgeList__item,.sound__coverArt,.playableTile,.scw-card,.scw-tile{transition:transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease}',
-            '.badgeList__item:hover,.playableTile:hover,.scw-card:hover,.scw-tile:hover{transform:translateY(-3px)}',
+            '.badgeList__item,.sound__coverArt,.playableTile,.scw-card{transition:transform .2s cubic-bezier(.2,0,0,1),filter .2s ease}',
+            '.badgeList__item:hover,.playableTile:hover,.scw-card:hover{transform:translateY(-2px)}',
             '.badgeList__item:hover .sc-artwork,.playableTile:hover .sc-artwork{filter:brightness(1.08) saturate(1.1)}',
-            '.sc-button,.playControls__control,.sc-button-play{transition:transform .2s cubic-bezier(.2,.8,.2,1.4),background-color .2s ease}',
+            '.sc-button,.playControls__control,.sc-button-play{transition:transform .12s cubic-bezier(.2,0,0,1),background-color .12s ease}',
             '.sc-button:active,.playControls__control:active{transform:scale(.94)}',
-            '.playControls__play:hover{transform:scale(1.08)}',
+            '.playControls__play:hover{transform:scale(1.04)}',
             'html.scm-reduce .badgeList__item,html.scm-reduce .playableTile,html.scm-reduce .scw-card,html.scm-reduce .scw-tile,html.scm-reduce .sc-button{transition:none!important;transform:none!important}',
             '@media (prefers-reduced-motion:reduce){.badgeList__item,.playableTile,.scw-card,.scw-tile,.sc-button{transition:none!important;transform:none!important}}',
         );
@@ -727,9 +763,9 @@ export function auroraPage(config: AuroraConfig): void {
         for (let i = 0; i < n; i++) {
             const fromCenter = Math.abs(i - n / 2) / (n / 2);
             const band = Math.min(spectrum.length - 1, Math.floor(fromCenter * spectrum.length));
-            const want = playing ? spectrum[band] * amount * (0.8 + beat.pulse * 0.6) : 0;
-            bars[i] += (want - bars[i]) * (want > bars[i] ? 0.6 : 0.18);
-            const h = 1.5 + bars[i] * (mid - 2) * 1.6;
+            const want = playing ? spectrum[band] * amount * 0.85 : 0;
+            bars[i] += (want - bars[i]) * (want > bars[i] ? 0.3 : 0.1);
+            const h = 1.5 + bars[i] * (mid - 2) * 1.25;
             const x = i * step;
             pen.fillStyle = x / width <= done ? grad : 'rgba(255,255,255,.26)';
             pen.beginPath();
@@ -739,10 +775,10 @@ export function auroraPage(config: AuroraConfig): void {
         // Точка позиции со свечением цвета палитры
         const dot = Math.max(3, Math.min(width - 3, done * width));
         pen.shadowColor = colors[0];
-        pen.shadowBlur = 10 + beat.pulse * 14 * amount;
+        pen.shadowBlur = 8;
         pen.fillStyle = '#fff';
         pen.beginPath();
-        pen.arc(dot, mid, 3.5 + beat.pulse * 1.5 * amount, 0, Math.PI * 2);
+        pen.arc(dot, mid, 3.5, 0, Math.PI * 2);
         pen.fill();
         pen.shadowBlur = 0;
     }
@@ -776,15 +812,16 @@ export function auroraPage(config: AuroraConfig): void {
         drawLine(now, sound.playing, amount);
         // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
         const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
-        const drive = 1 + amount * ((tempo - 1) + (beat.level - 0.35) * 0.9 + beat.pulse * 0.6);
-        const speedWant = calm ? 0.18 : Math.max(0.4, drive);
-        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 120 : 600));
+        // Темп и громкость двигают скорость мягко, дроп разгоняет фон почти вдвое; никаких вспышек на ударах
+        const drive = 1 + amount * ((tempo - 1) * 0.6 + (beat.level - 0.35) * 0.5 + beat.drop * 0.9);
+        const speedWant = calm ? 0.18 : Math.max(0.5, drive);
+        speedNow += (speedWant - speedNow) * Math.min(1, dt / (speedWant > speedNow ? 900 : 1600));
         time += (dt / 1000) * (0.15 + (a.speed / 100) * 2.2) * speedNow;
-        const pulse = calm ? 0 : beat.pulse * amount;
-        // Вспышка видна и интерфейсу: --sca-pulse светит кнопке волны и строке поиска
-        if (Math.abs(pulse - cssPulse) > 0.06) {
-            cssPulse = pulse;
-            document.documentElement.style.setProperty('--sca-pulse', pulse.toFixed(2));
+        // Дроп виден и интерфейсу (--sca-drop): свечение бара чуть сильнее. Меняется плавно, без миганий
+        const drop = calm ? 0 : beat.drop * amount;
+        if (Math.abs(drop - cssPulse) > 0.05) {
+            cssPulse = drop;
+            document.documentElement.style.setProperty('--sca-drop', drop.toFixed(2));
         }
         const k = Math.min(1, dt / 400);
         colorsNow = colorsNow.map((c, i) => c.map((v, j) => v + (colorsWant[i][j] - v) * k) as [number, number, number]);
@@ -799,11 +836,72 @@ export function auroraPage(config: AuroraConfig): void {
         gl.uniform1f(uniforms.u_grain, a.grain / 100);
         gl.uniform2f(uniforms.u_mouse, mouse[0], mouse[1]);
         gl.uniform1f(uniforms.u_seed, seed);
-        gl.uniform1f(uniforms.u_pulse, pulse);
-        gl.uniform1f(uniforms.u_energy, calm ? 0 : beat.level * amount);
+        gl.uniform1f(uniforms.u_pulse, 0);
+        gl.uniform1f(uniforms.u_energy, calm ? 0 : (beat.level * 0.4 + beat.drop * 0.6) * amount);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         canvas.classList.add('on');
     }
+    // Лайк: разлёт сердечек в цветах палитры из кнопки, кнопка подпрыгивает, короткий звук из двух нот. Только на «поставить»,
+    // снятие лайка без салюта. Кнопки лайка сайта, бара и блока волны
+    const LIKE = '.sc-button-like, .playbackSoundBadge__like, #sc-wave .scw-like[data-act="like"]';
+    let chime: AudioContext | null = null;
+    function playChime(): void {
+        try {
+            chime ??= new AudioContext();
+            const at = chime.currentTime + 0.01;
+            [880, 1318.5].forEach((freq, i) => {
+                const osc = chime!.createOscillator();
+                const amp = chime!.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                amp.gain.setValueAtTime(0, at + i * 0.07);
+                amp.gain.linearRampToValueAtTime(0.05, at + i * 0.07 + 0.008);
+                amp.gain.exponentialRampToValueAtTime(0.0001, at + i * 0.07 + 0.16);
+                osc.connect(amp);
+                amp.connect(chime!.destination);
+                osc.start(at + i * 0.07);
+                osc.stop(at + i * 0.07 + 0.18);
+            });
+        } catch {
+            // без звука
+        }
+    }
+    function burst(button: Element): void {
+        const box = button.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        const layer = document.createElement('div');
+        layer.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:0;height:0;z-index:2147483600;pointer-events:none`;
+        const colors = targetColors();
+        const ring = document.createElement('i');
+        ring.style.cssText = `position:absolute;left:-14px;top:-14px;width:28px;height:28px;border-radius:50%;border:2px solid ${colors[0]}`;
+        layer.append(ring);
+        ring.animate([{ transform: 'scale(.4)', opacity: 0.9 }, { transform: 'scale(1.9)', opacity: 0 }], { duration: 420, easing: 'cubic-bezier(.2,0,0,1)' });
+        for (let i = 0; i < 9; i++) {
+            const angle = (i / 9) * Math.PI * 2 + Math.random() * 0.5;
+            const distance = 22 + Math.random() * 16;
+            const dot = document.createElement('i');
+            const size = 5 + Math.random() * 4;
+            dot.style.cssText = `position:absolute;left:${-size / 2}px;top:${-size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:${colors[i % 3] ?? colors[0]}`;
+            layer.append(dot);
+            dot.animate(
+                [{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(angle) * distance}px,${Math.sin(angle) * distance}px) scale(.3)`, opacity: 0 }],
+                { duration: 480 + Math.random() * 120, easing: 'cubic-bezier(.2,0,0,1)' },
+            );
+        }
+        document.body.append(layer);
+        setTimeout(() => layer.remove(), 700);
+        (button as HTMLElement).animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.22)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.2,0,0,1)' });
+    }
+    const onLikeClick = (event: MouseEvent): void => {
+        const button = event.target instanceof Element ? event.target.closest(LIKE) : null;
+        if (!button) return;
+        const was = button.classList.contains('sc-button-selected') || button.getAttribute('aria-pressed') === 'true';
+        if (was) return;
+        if (!document.documentElement.classList.contains('scm-reduce')) burst(button);
+        if (cfg.appearance.likeSound) playChime();
+    };
+    document.addEventListener('click', onLikeClick, true);
     // html.sca-playing: интерфейс раскрывается, когда играет музыка (обложки в полный рост, свечение бара)
     function markPlaying(playing: boolean): void {
         if (playing === playingShown) return;
@@ -856,6 +954,7 @@ export function auroraPage(config: AuroraConfig): void {
             window.removeEventListener('pointermove', onMove);
             canvas?.remove();
             line?.remove();
+            document.removeEventListener('click', onLikeClick, true);
             document.documentElement.classList.remove('sca-line', 'sca-playing');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);

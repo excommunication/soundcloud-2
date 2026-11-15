@@ -279,30 +279,9 @@ body.platform-win32 .windows-controls {
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
 }
 
-/* Новый облик: глубокий тёмно-синий и переливающаяся линия снизу, как у панелей поверх переливов */
+/* SoundCloud 2: спокойная шапка без анимаций, тонкая линия снизу */
 .custom-header {
     position: relative;
-    background: linear-gradient(180deg, #0b0f1c, #070a12);
-}
-.custom-header::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(111, 139, 255, 0.55), rgba(176, 107, 255, 0.45), transparent);
-    background-size: 200% 100%;
-    animation: header-shimmer 12s linear infinite;
-    pointer-events: none;
-}
-@keyframes header-shimmer {
-    to {
-        background-position: -200% 0;
-    }
-}
-@media (prefers-reduced-motion: reduce) {
-    .custom-header::after {
-        animation: none;
-    }
+    background: #090b11;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
 }
