@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CLIP_FONT } from './clipFont';
 import { clipArtwork, clipLineAt, clipNextStyle, clipSeekStep, verticalFrame } from './clip';
 
 describe('режим «Для роликов»', () => {
@@ -32,5 +33,10 @@ describe('режим «Для роликов»', () => {
         expect(clipNextStyle('punch')).toBe('off');
         expect(clipNextStyle('off')).toBe('flow');
         expect(clipNextStyle('')).toBe('flow');
+    });
+    it('шрифт «Удара» вшит: латиница и кириллица, woff2', () => {
+        // woff2 начинается с сигнатуры «wOF2»
+        expect(atob(CLIP_FONT.latin).slice(0, 4)).toBe('wOF2');
+        expect(atob(CLIP_FONT.cyrillic).slice(0, 4)).toBe('wOF2');
     });
 });

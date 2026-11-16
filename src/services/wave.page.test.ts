@@ -1982,6 +1982,31 @@ it('ожидание рисует заготовки плиток; обложк�
     }
 });
 
+it('2.10.1: смена трека обновляет название сразу, без второго названия и призрака спустя 600 мс', async () => {
+    const site = fakeSite(relatedTracks);
+    const section = (): HTMLElement => document.getElementById('sc-wave')!;
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(100);
+    section().querySelector<HTMLButtonElement>('.scw-play')!.click();
+    await vi.advanceTimersByTimeAsync(1100);
+    const titleOf = (index: number): string => {
+        const id = site.player.getQueue().slice()[index].sound.id;
+        return 'Rel ' + Math.floor(id / 1000) + '-' + (id % 1000);
+    };
+    site.setItems(site.player.getQueue().slice(), 1);
+    // Не ждём секундного тика: название меняется на ближайшем опросе плеера (250 мс)
+    await vi.advanceTimersByTimeAsync(300);
+    expect(section().querySelector('.scw-top .scw-track')?.textContent).toBe(titleOf(1));
+    await vi.advanceTimersByTimeAsync(600);
+    expect(section().querySelectorAll('.scw-top .scw-track')).toHaveLength(1);
+    expect(section().querySelector('.scw-ghost')).toBeNull();
+    expect(section().querySelectorAll('.scw-top .scw-artist')).toHaveLength(1);
+    // Пересборки секунды подряд не запускают переход заново
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(section().querySelectorAll('.scw-top .scw-track')).toHaveLength(1);
+    expect(section().querySelector('.scw-top .scw-track')?.textContent).toBe(titleOf(1));
+});
+
 it('В6: смена трека переходом: прошлая обложка под новой, цвета обложки на секции, поздняя палитра, «Меньше анимаций» выключает', async () => {
     const withArt = (seed: number): WaveTrack[] => relatedTracks(seed).map((track) => ({
         ...track, permalink_url: 'https://soundcloud.com/a/t' + track.id, artwork_url: 'https://i1.sndcdn.com/artworks-' + track.id + '-large.jpg',

@@ -102,6 +102,16 @@ export interface ProtectOptions {
     openExternal(url: string): Promise<void>;
     /** Google отказал во входе: клиент подсказывает другие способы */
     onAuthRejected?(): void;
+    /** Шаги окна входа для журнала: на каком шаге Google режет вход (только хосты и пути, без параметров и cookies) */
+    onAuthStep?(step: string, data?: Record<string, string | number | boolean>): void;
+}
+
+/** Адрес для журнала: хост и путь, без параметров (в них бывают почта и токены) */
+export function authStepUrl(value: string): string {
+    try {
+        const url = new URL(value);
+        return url.hostname + url.pathname.slice(0, 80);
+    } catch { return 'invalid'; }
 }
 
 export function protectContent(contents: WebContents, options: ProtectOptions | ((url: string) => Promise<void>)): void {
@@ -145,6 +155,7 @@ export function protectContent(contents: WebContents, options: ProtectOptions | 
         const id = popup.id;
         authWindows.add(id);
         popup.setUserAgent(userAgent);
+        opts.onAuthStep?.('window', { ua: 'firefox', platform: process.platform });
         popup.setWindowOpenHandler(({ url }) => {
             // Ссылки «Справка», «Политика» и прочие из окна входа открываются в браузере
             if (isWebUrl(url)) void openExternal(url).catch(console.error);
@@ -154,11 +165,20 @@ export function protectContent(contents: WebContents, options: ProtectOptions | 
         popup.on('will-redirect', (event, url) => { if (!isWebUrl(url)) event.preventDefault(); });
         let rejected = false;
         popup.on('did-navigate', (_event, url) => {
+            if (isGoogleUrl(url)) opts.onAuthStep?.('google-page', { url: authStepUrl(url) });
             if (rejected || !isGoogleRejection(url)) return;
             rejected = true;
+            // Что видит страница отказа: так в журнале ясно, режет Google по профилю браузера или по самому входу
+            void popup.executeJavaScript('JSON.stringify({ title: document.title, webdriver: navigator.webdriver, brands: !!navigator.userAgentData, chrome: !!window.chrome, vendor: navigator.vendor })')
+                .then((info: string) => opts.onAuthStep?.('rejected-page', { url: authStepUrl(url), info }))
+                .catch(() => opts.onAuthStep?.('rejected-page', { url: authStepUrl(url) }));
             opts.onAuthRejected?.();
         });
+        popup.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
+            if (isMainFrame) opts.onAuthStep?.('load-failed', { code, description, url: authStepUrl(url) });
+        });
         window.once('closed', () => {
+            opts.onAuthStep?.('closed', { rejected });
             authWindows.delete(id);
             // Вход прошёл в общей сессии: cookies сразу на диск, чтобы перезапуск клиента не разлогинил
             void contents.session.cookies.flushStore().catch(() => undefined);

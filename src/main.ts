@@ -949,6 +949,7 @@ async function init() {
 
     protectContent(contentView.webContents, {
         openExternal: (url) => shell.openExternal(url),
+        onAuthStep: (step, data) => diagnostics.record('auth.' + step, data),
         onAuthRejected: () => {
             diagnostics.record('auth.google-rejected');
             queueToastNotification(translationService.translate('googleSignInRejected'));
