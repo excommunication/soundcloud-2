@@ -28,8 +28,11 @@ jobs:
       - run: npx --yes pnpm@12.15.0 build-win
         env:
           SKIP_VMP_SIGNING: 'true'
+      - run: npx --yes pnpm@12.15.0 build-setup
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: windows-test-without-vmp
-          path: build/*setup-x64.exe
+          path: |
+            build/*setup-x64.exe
+            build/SoundCloud-2-Setup.exe
           retention-days: 7

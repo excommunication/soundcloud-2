@@ -1,6 +1,6 @@
 {
     "name": "soundcloud-desktop",
-    "version": "2.8.1",
+    "version": "2.8.2",
     "description": "Клиент SoundCloud для Windows: волна по описанию, переливы WebGL и стекло",
     "author": {
         "name": "excommunication",
@@ -22,7 +22,8 @@
         "postinstall": "node node_modules/electron/install.js",
         "test:electron": "tsc && node scripts/build-info.cjs && npm run copy-header && node scripts/check-page-names.cjs && node scripts/run-electron.cjs",
         "check:page": "tsc && node scripts/check-page-names.cjs",
-        "check:repo": "node scripts/check-repo.cjs"
+        "check:repo": "node scripts/check-repo.cjs",
+        "build-setup": "node scripts/build-setup.cjs"
     },
     "main": "./tsc/main.js",
     "repository": "https://github.com/excommunication/soundcloud-2",

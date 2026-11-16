@@ -17,7 +17,8 @@
         "build.nsis.allowToChangeInstallationDirectory": false,
         "build.nsis.runAfterFinish": true,
         "build.nsis.installerSidebar": "build-resources/installerSidebar.bmp",
-        "build.nsis.installerHeader": "build-resources/installerHeader.bmp"
+        "build.nsis.installerHeader": "build-resources/installerHeader.bmp",
+        "scripts.build-setup": "node scripts/build-setup.cjs"
     },
     "relinkFiles": ["src/services/updateService.ts", "src/services/updateService.test.ts", "src/services/presenceService.ts", "src/settings/settings.js", "pages/open/open.js"],
     "ours": ["README.md", "assets/readme"],
