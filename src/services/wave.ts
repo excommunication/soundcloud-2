@@ -871,7 +871,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         get record() {
             return host.soundcloudAPI?.clipRecord;
         },
-        qr: () => qrSvg(qrMatrix('https://github.com/excommunication/soundcloud-2'), '#0b0c10'),
+        // Соседние треки: кнопки сайта в нижнем баре, как у кнопок карточки волны (2.11.1)
+        skip: (direction) => {
+            document.querySelector<HTMLElement>(direction < 0 ? '.playControls .skipControl__previous' : '.playControls .skipControl__next')?.click();
+            setTimeout(tick, 400);
+        },
+        // Ссылка заглавными: буквенно-цифровой режим QR компактнее, и на уровне H посередине остаётся место под значок (2.11.1).
+        // GitHub к регистру в пути не придирается
+        qr: () => qrSvg(qrMatrix('HTTPS://GITHUB.COM/EXCOMMUNICATION/SOUNDCLOUD-2', 'H'), '#0b0c10', 9),
         disposed: () => disposed,
     });
     // Автозамена отрывков Go+ и треков с неработающим защищённым потоком: раздел в wave/swap.ts
