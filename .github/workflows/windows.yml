@@ -33,6 +33,5 @@ jobs:
         with:
           name: windows-test-without-vmp
           path: |
-            build/SoundCloud-2-Full-Setup-x64.exe
             build/SoundCloud-2-Setup.exe
           retention-days: 7

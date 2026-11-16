@@ -1,6 +1,6 @@
 {
     "name": "soundcloud-desktop",
-    "version": "2.9.0",
+    "version": "2.10.0",
     "description": "Клиент SoundCloud для Windows: волна по описанию, переливы WebGL и стекло",
     "author": {
         "name": "excommunication",
@@ -74,7 +74,7 @@
         "win": {
             "target": "nsis",
             "icon": "assets/icons/soundcloud-win.ico",
-            "artifactName": "SoundCloud-2-Full-Setup-${arch}.${ext}"
+            "artifactName": "SoundCloud-2-Setup.${ext}"
         },
         "linux": {
             "target": [

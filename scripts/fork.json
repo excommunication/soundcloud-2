@@ -11,7 +11,7 @@
         "repository": "https://github.com/excommunication/soundcloud-2",
         "build.publish.owner": "excommunication",
         "build.publish.repo": "soundcloud-2",
-        "build.win.artifactName": "SoundCloud-2-Full-Setup-${arch}.${ext}",
+        "build.win.artifactName": "SoundCloud-2-Setup.${ext}",
         "build.nsis.oneClick": false,
         "build.nsis.perMachine": false,
         "build.nsis.allowToChangeInstallationDirectory": false,

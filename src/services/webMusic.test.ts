@@ -25,3 +25,20 @@ it('плейлисты и чарт Deezer дают треки по частот�
     expect(asked.some((url) => url.includes('playlist/2/'))).toBe(false);
     expect(cleanTitle('Song [Official Video] - Remastered 2011')).toBe('Song');
 });
+
+it('актуальное: чарт Apple Music добавляет треки и подпись, кириллица по «Без RU» отсеивается', async () => {
+    const song = (artistName: string, name: string) => ({ artistName, name });
+    const asked: string[] = [];
+    const getJson = async (url: string) => {
+        asked.push(url);
+        if (url.includes('/us/music/most-played')) return { feed: { results: [song('World Star', 'Global Hit'), song('Кто-то', 'Песня')] } };
+        if (url.includes('/kz/music/most-played')) throw new Error('502');
+        return { data: [] };
+    };
+    const found = await findWebTracks(['chart'], getJson, { noRussian: true, raw: 'чарт' });
+    expect(found.tracks).toEqual(['World Star - Global Hit']);
+    expect(found.sources).toContain('Чарт Apple Music');
+    expect(asked.some((url) => url.includes('/kz/'))).toBe(false);
+    const local = await findWebTracks(['chart'], getJson, { noRussian: false, raw: 'чарт' });
+    expect(local.tracks).toEqual(expect.arrayContaining(['World Star - Global Hit', 'Кто-то - Песня']));
+});

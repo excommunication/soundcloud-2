@@ -68,7 +68,7 @@ const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
 const { installVolume, volumeAt, volumeWheel } = volumeSectionModule;
-const { installClip, clipArtwork, verticalFrame } = clipSectionModule;
+const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle } = clipSectionModule;
 const { installSwap, trackAccess } = swapSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
@@ -790,6 +790,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         disposed: () => disposed,
     });
     // Режим «Для роликов»: обложка играющего трека на всё окно, раздел в wave/clip.ts. Кнопка в карточке и в баре
+    // Текст для режима роликов (2.10.0): строки со словами во времени считаются один раз на трек
+    let clipLyricsOf: { id: number; from: CardLyrics | null; value: { lines: Array<{ at: number; text: string; words: CardLyricWord[] }> | null; plain: string } | null } | null = null;
     const clipSection = installClip({
         lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
         now: () => {
@@ -797,13 +799,39 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const track = sound?.attributes;
             if (!sound || !track) return null;
             const duration = durationOf(sound);
+            const position = positionOf(sound);
+            const id = sound.id ?? 0;
+            // Текст ищется и вне главной: режим роликов открывают с любой страницы
+            if (id && host.soundcloudAPI?.lyrics) ensureLyrics({ ...track, id });
+            let lyrics: { lines: Array<{ at: number; text: string; words: CardLyricWord[] }> | null; plain: string } | null | undefined;
+            if (!id || !host.soundcloudAPI?.lyrics || !lyricsFor.has(id)) lyrics = id && host.soundcloudAPI?.lyrics ? undefined : null;
+            else {
+                const found = lyricsFor.get(id) ?? null;
+                if (!clipLyricsOf || clipLyricsOf.id !== id || clipLyricsOf.from !== found) {
+                    const synced = found?.synced ?? null;
+                    clipLyricsOf = {
+                        id,
+                        from: found,
+                        value: found ? { plain: found.plain, lines: synced ? synced.map((line, i) => ({ at: line.at, text: line.text, words: wordTimes(line, synced[i + 1]?.at ?? Infinity) })) : null } : null,
+                    };
+                }
+                lyrics = clipLyricsOf.value;
+            }
             return {
+                id,
                 title: (track.title ?? '').trim() || '…',
                 artist: track.user?.username ?? '',
                 art: artworkUrl(track, 't500x500'),
-                progress: duration > 0 ? positionOf(sound) / duration : 0,
+                progress: duration > 0 ? position / duration : 0,
+                positionMs: position,
+                durationMs: duration,
                 playing: !!player?.isPlaying(),
+                lyrics,
             };
+        },
+        seek: (ms) => {
+            const sound = player?.getCurrentSound();
+            if (sound && Number.isFinite(ms)) sound.seek(Math.max(0, ms));
         },
         togglePlay: () => {
             if (!player?.getCurrentSound()) return;
@@ -3836,15 +3864,32 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // Строка названия и обложка нового трека проявляются
         // Листание (2.8.1): название и автор въезжают со стороны, куда листают, с лёгким размытием; обложка проявляется
         // с небольшим увеличением, плитки «Далее» сдвигаются по очереди
-        '.scw-swap.next{animation:scw-in-next .55s cubic-bezier(.2,.8,.2,1) both}',
-        '.scw-swap.back{animation:scw-in-back .55s cubic-bezier(.2,.8,.2,1) both}',
-        '@keyframes scw-in-next{from{opacity:0;transform:translateX(34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
-        '@keyframes scw-in-back{from{opacity:0;transform:translateX(-34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
-        '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) both}',
-        '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
+        // Смена трека (2.10.0): прошлые название и автор не пропадают, а уезжают в сторону листания и тают (.scw-ghost),
+        // новые въезжают следом; прошлая обложка уплывает с поворотом, новая приезжает с другой стороны, волна вырастает
+        '.scw-swap{position:relative}',
+        '.scw-swap.next>:not(.scw-ghost){animation:scw-in-next .62s cubic-bezier(.2,.8,.2,1) .06s both}',
+        '.scw-swap.back>:not(.scw-ghost){animation:scw-in-back .62s cubic-bezier(.2,.8,.2,1) .06s both}',
+        '@keyframes scw-in-next{from{opacity:0;transform:translateX(40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}',
+        '@keyframes scw-in-back{from{opacity:0;transform:translateX(-40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}',
+        '.scw-ghost{position:absolute;left:0;top:0;right:0;pointer-events:none}',
+        '.scw-ghost.next{animation:scw-out-next .42s cubic-bezier(.4,0,.6,1) both}',
+        '.scw-ghost.back{animation:scw-out-back .42s cubic-bezier(.4,0,.6,1) both}',
+        '@keyframes scw-out-next{to{opacity:0;transform:translateX(-40px);filter:blur(8px)}}',
+        '@keyframes scw-out-back{to{opacity:0;transform:translateX(40px);filter:blur(8px)}}',
+        '.scw-cover.scw-cross{overflow:hidden}',
+        '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .7s cubic-bezier(.2,.8,.2,1) both}',
+        '.scw-cover.scw-cross.back .scw-img.on:last-of-type{animation-name:scw-cover-in-back}',
+        '.scw-cover.scw-cross .scw-img.scw-under{animation:scw-cover-out .6s cubic-bezier(.4,0,.6,1) both}',
+        '.scw-cover.scw-cross.back .scw-img.scw-under{animation-name:scw-cover-out-back}',
+        '@keyframes scw-cover-in{from{opacity:0;transform:translateX(26%) scale(1.06) rotate(3deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}',
+        '@keyframes scw-cover-in-back{from{opacity:0;transform:translateX(-26%) scale(1.06) rotate(-3deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}',
+        '@keyframes scw-cover-out{to{opacity:0;transform:translateX(-30%) scale(.88) rotate(-4deg);filter:blur(8px)}}',
+        '@keyframes scw-cover-out-back{to{opacity:0;transform:translateX(30%) scale(.88) rotate(4deg);filter:blur(8px)}}',
+        '.scw-turning .scw-wf{transform-origin:50% 50%;animation:scw-wf-in .7s cubic-bezier(.2,.8,.2,1) both}',
+        '@keyframes scw-wf-in{from{opacity:0;transform:scaleY(.12)}to{opacity:1;transform:none}}',
         // Плитки «Далее» (2.8.5) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
-        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}}',
-        'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}',
+        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-swap>*,.scw-ghost,.scw-turning .scw-wf,.scw-cover.scw-cross .scw-img{animation:none!important}.scw-ghost{display:none}}',
+        'html.scm-reduce .scw-swap,html.scm-reduce .scw-swap>*,html.scm-reduce .scw-ghost,html.scm-reduce .scw-turning .scw-wf,html.scm-reduce .scw-cover.scw-cross .scw-img{animation:none!important}html.scm-reduce .scw-ghost{display:none}',
         // Кнопки перемотки по бокам паузы
         '.scw-top.stepped{gap:10px}',
         '.scw-top.stepped>.scw-swap,.scw-top.stepped>div{margin-left:6px}',
@@ -3859,7 +3904,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '#sc-wave .scw-hold.holding::after{opacity:1;animation:scw-hold .55s linear forwards}',
         '@property --scw-hold{syntax:"<angle>";inherits:false;initial-value:0deg}',
         '@keyframes scw-hold{from{--scw-hold:0deg}to{--scw-hold:360deg}}',
-        '.scw-swap{animation:scw-fade .25s cubic-bezier(.2,0,0,1)}',
         '.scw-cover.scw-cross .scw-img{transition-duration:.3s}',
         '.scw-info{flex:1;min-width:0;display:flex;flex-direction:column}',
         '.scw-top{display:flex;gap:16px;align-items:center}',
@@ -4851,6 +4895,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const rowsScroll = rowsAt ?? section.querySelector('.scw-mix-rows')?.scrollTop ?? 0;
         const libraryScroll = libraryAt ?? section.querySelector('.scw-lib-rows')?.scrollTop ?? 0;
         const spotsBefore = tileSpots();
+        // Прошлые название и автор: при смене трека уезжают призраком (2.10.0)
+        const linesBefore = section.querySelector<HTMLElement>('[data-lines]');
         section.textContent = '';
         section.setAttribute('aria-label', T.wave);
         section.append(renderHead());
@@ -4883,6 +4929,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const shownNow = current?.track ?? outside;
         const swap = !!shownNow && !!shownTrack && shownNow.id !== shownTrack && !calm();
         const lines = el('div', swap ? 'scw-swap ' + (turnDir < 0 ? 'back' : 'next') : '');
+        lines.dataset.lines = '1';
         if (current) {
             lines.append(titleLink('div', 'scw-track', current.track), artistLink('div', 'scw-artist', current.track));
         } else if (outside) {
@@ -4899,6 +4946,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             back.title = LYRICS_T.prev;
             const forward = button('scw-step', 'site-next', LYRICS_T.next, 'next');
             forward.title = LYRICS_T.next;
+            if (swap && linesBefore) {
+                const ghost = linesBefore.cloneNode(true) as HTMLElement;
+                ghost.className = 'scw-ghost ' + (turnDir < 0 ? 'back' : 'next');
+                ghost.removeAttribute('data-lines');
+                ghost.setAttribute('aria-hidden', 'true');
+                ghost.inert = true;
+                ghost.querySelector('.scw-ghost')?.remove();
+                lines.append(ghost);
+            }
             top.append(back, play, forward, lines);
             top.classList.add('stepped');
         } else top.append(play, lines);
@@ -4938,17 +4994,17 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         info.append(top, canvas, meta, ...(scout ? [scout] : []));
         // Текст песни лежит поверх обложки, как в роликах: крупные строки, текущая белая (2.8.1)
         const showLyrics = !!cardTrack && lyricsOpen && !!host.soundcloudAPI?.lyrics;
-        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' : '') + (showLyrics && lyrics ? ' lyr' : ''));
+        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' + (turnDir < 0 ? ' back' : '') : '') + (showLyrics && lyrics ? ' lyr' : ''));
         if (current) {
             if (swap && shownCover && loadedArt.has(shownCover)) {
-                const under = el('span', 'scw-img on');
+                const under = el('span', 'scw-img on scw-under');
                 under.style.backgroundImage = 'url("' + shownCover.replace(/["\\]/g, '') + '")';
                 cover.append(under);
             }
             art(cover, current.track, 't500x500');
         } else if (outside) {
             if (swap && shownCover && loadedArt.has(shownCover)) {
-                const under = el('span', 'scw-img on');
+                const under = el('span', 'scw-img on scw-under');
                 under.style.backgroundImage = 'url("' + shownCover.replace(/["\\]/g, '') + '")';
                 cover.append(under);
             }
@@ -5925,7 +5981,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, installSwap, trackAccess, installForYou,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, installSwap, trackAccess, installForYou,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];

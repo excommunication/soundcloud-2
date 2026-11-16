@@ -1,5 +1,5 @@
 /* global require, process, __dirname, console, Buffer */
-// Маленький установщик build/SoundCloud-2-Setup.exe (~100 КБ) из setup/Setup.cs. Собирается csc.exe из .NET Framework 4,
+// Окно установки build-resources/SoundCloud-2-Setup.exe (~100 КБ) из setup/Setup.cs. Собирается csc.exe из .NET Framework 4,
 // который лежит в любой Windows, SDK не нужен. Репозиторий релизов, имя продукта и версия берутся из package.json,
 // поэтому после синхронизации с оригиналом загрузчик по-прежнему качает релизы форка. Только Windows.
 // Запускать до build-win: полный установщик вшивает копию из build-resources
@@ -54,7 +54,9 @@ namespace SoundCloudSetup {
 `,
 );
 
-const out = path.join(root, 'build', 'SoundCloud-2-Setup.exe');
+// 2.10.0: в релиз оно отдельно не выходит, только внутри полного установщика (installer.nsh). Отдельный файл
+// в build/ мешал бы: полный установщик теперь сам называется SoundCloud-2-Setup.exe
+const out = path.join(root, 'build-resources', 'SoundCloud-2-Setup.exe');
 fs.mkdirSync(path.dirname(out), { recursive: true });
 const wpf = path.join(net, 'WPF');
 execFileSync(
@@ -79,6 +81,4 @@ execFileSync(
     { stdio: 'inherit' },
 );
 fs.rmSync(gen, { force: true });
-// Копия для полного установщика: installer.nsh вшивает её и открывает вместо старых страниц
-fs.copyFileSync(out, path.join(root, 'build-resources', 'SoundCloud-2-Setup.exe'));
 console.log(`Установщик: ${path.relative(root, out)}, ${Math.round(fs.statSync(out).size / 1024)} КБ`);

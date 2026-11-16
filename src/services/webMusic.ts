@@ -1,4 +1,5 @@
-// Актуальные треки из интернета для «Настроить волну»: открытый API Deezer без ключа (поиск плейлистов, треков и чарт).
+// Актуальные треки из интернета для «Настроить волну»: открытый API Deezer без ключа (поиск плейлистов, треков и чарт)
+// и, для актуального, чарт Apple Music (2.10.0).
 // Запрос «tiktok», «radio 2026 vibes» или «фонк для зала» ищется как плейлисты, из 3-4 лучших берутся треки, к ним
 // популярные треки по запросу и, если просили актуальное, чарт. Трек, который встречается в нескольких источниках,
 // стоит выше. На выходе «Артист - Название» для поиска на SoundCloud. Ходит main: у страницы сайта CORS не пустит
@@ -12,6 +13,13 @@ export interface WebFind {
 export type GetJson = (url: string) => Promise<unknown>;
 
 const API = 'https://api.deezer.com';
+// Чарт Apple Music без ключа (2.10.0): самые прослушиваемые песни страны. Магазина RU нет (502), русскоязычный
+// чарт берётся по Казахстану, мировой по США. Ответ: feed.results[{ artistName, name }]
+const APPLE = 'https://rss.marketingtools.apple.com/api/v2';
+const appleList = (body: unknown): unknown[] => {
+    const results = (body as { feed?: { results?: unknown } } | null)?.feed?.results;
+    return Array.isArray(results) ? results.map((item) => ({ title: (item as { name?: unknown }).name, artist: { name: (item as { artistName?: unknown }).artistName } })) : [];
+};
 // Переделки, которые в волне не нужны, если о них не просили
 export const JUNK = /\b(slowed|sped\s*up|speed\s*up|nightcore|reverb|bass\s*boost(ed)?|8d|tik\s*tok\s*version|tiktok\s*version|ultra\s*slowed|super\s*slowed)\b/i;
 const TRENDING = /актуал|тренд|trend|chart|чарт|хит|\bhits?\b|\btop\b|топ|20[2-3]\d|нов(ое|ые|инк)|\bnew\b|viral|вирус/i;
@@ -55,9 +63,11 @@ export async function findWebTracks(queries: string[], getJson: GetJson, options
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
     const trending = TRENDING.test(options.raw ?? asks.join(' '));
-    const [direct, chart, ...lists] = await Promise.all([
+    const [direct, chart, appleWorld, appleLocal, ...lists] = await Promise.all([
         safe(`${API}/search/track?q=${encodeURIComponent(asks[0])}&order=RANKING&limit=25`),
         trending ? safe(`${API}/chart/0/tracks?limit=50`) : Promise.resolve(null),
+        trending ? safe(`${APPLE}/us/music/most-played/50/songs.json`) : Promise.resolve(null),
+        trending && !options.noRussian ? safe(`${APPLE}/kz/music/most-played/50/songs.json`) : Promise.resolve(null),
         ...playlists.map((item) => safe(`${API}/playlist/${item.id}/tracks?limit=80`)),
     ]);
     const wantJunk = JUNK.test(options.raw ?? asks.join(' '));
@@ -81,7 +91,9 @@ export async function findWebTracks(queries: string[], getJson: GetJson, options
     lists.forEach((body) => add(list(body), 2));
     add(list(direct), 1.2);
     add(list(chart), 1);
+    add(appleList(appleWorld), 1);
+    add(appleList(appleLocal), 1.1);
     const tracks = [...score.values()].sort((a, b) => b.score - a.score).slice(0, limit).map((entry) => entry.label);
-    const sources = [...playlists.filter((_, index) => list(lists[index]).length).map((item) => item.title), ...(list(chart).length ? ['Чарт Deezer'] : [])];
+    const sources = [...playlists.filter((_, index) => list(lists[index]).length).map((item) => item.title), ...(list(chart).length ? ['Чарт Deezer'] : []), ...(appleList(appleWorld).length || appleList(appleLocal).length ? ['Чарт Apple Music'] : [])];
     return { tracks, sources };
 }
