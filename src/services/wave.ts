@@ -3723,6 +3723,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
         seed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h2.5v4H4zM8.5 6h2.5v12H8.5zM13 3h2.5v18H13zM17.5 8H20v8h-2.5z"/></svg>',
         dislike: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>',
+        vol: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.47 4.47 0 0 0 2.5-4zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/></svg>',
+        volLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6h4l5 5V4L9 9zm13.5 3A4.5 4.5 0 0 0 16 8v8a4.47 4.47 0 0 0 2.5-4z"/></svg>',
+        mute: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.18l2.45 2.45a4.3 4.3 0 0 0 .05-.63zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25A7 7 0 0 1 14 18.7v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9zM12 4 9.91 6.09 12 8.18z"/></svg>',
         // Месяц: трек уснёт на сутки
         later: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z"/></svg>',
         // Те же часы, что у кнопки истории в шапке
@@ -3789,14 +3792,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@keyframes scw-in-back{from{opacity:0;transform:translateX(-34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
         '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) both}',
         '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
-        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile{animation:scw-tile-in .55s cubic-bezier(.2,.8,.2,1) both}',
-        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(2){animation-delay:.05s}',
-        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(3){animation-delay:.1s}',
-        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(4){animation-delay:.15s}',
-        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(5){animation-delay:.2s}',
-        '@keyframes scw-tile-in{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}',
-        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type,#sc-wave.scw-turning .scw-tile{animation:none!important}}',
-        'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type,html.scm-reduce #sc-wave.scw-turning .scw-tile{animation:none!important}',
+        // Плитки «Далее» (2.8.4) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
+        // Громкость в карточке: значок и тонкий ползунок, который раскрывается на наведении
+        '.scw-vol{display:inline-flex;align-items:center;flex:none}',
+        '.scw-vol input{-webkit-appearance:none;appearance:none;width:0;height:4px;margin:0;opacity:0;border-radius:999px;cursor:pointer;background:linear-gradient(90deg,#fff var(--scw-vol,50%),rgba(255,255,255,.22) var(--scw-vol,50%));transition:width .28s cubic-bezier(.22,1,.36,1),opacity .2s ease,margin .28s cubic-bezier(.22,1,.36,1)}',
+        '.scw-vol:hover input,.scw-vol:focus-within input,.scw-vol.drag input{width:84px;opacity:1;margin:0 8px 0 2px}',
+        '.scw-vol input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5);transition:transform .15s ease}',
+        '.scw-vol input:active::-webkit-slider-thumb{transform:scale(1.25)}',
+        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}}',
+        'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}',
         // Кнопки перемотки по бокам паузы
         '.scw-top.stepped{gap:10px}',
         '.scw-top.stepped>.scw-swap,.scw-top.stepped>div{margin-left:6px}',
@@ -4351,6 +4355,155 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         }
         return [head, tiles];
     }
+    // Обложки следующих треков грузятся заранее (2.8.4): при листании плитка встаёт уже с картинкой, а не пустой
+    // Каждый адрес запрашивается один раз: пересборка секции не плодит загрузки
+    const prefetched = new Set<string>();
+    function prefetchArt(): void {
+        for (const [index, candidate] of upcoming(8).entries()) {
+            for (const size of index < 2 ? (['t300x300', 't500x500'] as const) : (['t300x300'] as const)) {
+                const url = artworkUrl(candidate.track, size);
+                if (!url || loadedArt.has(url) || prefetched.has(url)) continue;
+                if (prefetched.size > 300) prefetched.clear();
+                prefetched.add(url);
+                const probe = new Image();
+                probe.onload = () => {
+                    if (loadedArt.size > 500) loadedArt.clear();
+                    loadedArt.add(url);
+                };
+                probe.src = url;
+            }
+        }
+    }
+    // Листание «Далее» как переезд (FLIP): место каждой плитки до пересборки запоминается, после неё плитка того же
+    // трека едет оттуда на новое место, новая проявляется справа. Пересборка без смены состава ничего не двигает
+    type TileSpot = { left: number; top: number };
+    function tileSpots(): Map<string, TileSpot> {
+        const spots = new Map<string, TileSpot>();
+        section?.querySelectorAll<HTMLElement>('.scw-tiles:not(.scw-shelf) .scw-tile[data-track]').forEach((tile) => {
+            const box = tile.getBoundingClientRect();
+            if (box.width) spots.set(tile.dataset.track ?? '', { left: box.left, top: box.top });
+        });
+        return spots;
+    }
+    function flipTiles(before: Map<string, TileSpot>): void {
+        if (!before.size || calm() || !section) return;
+        const tiles = [...section.querySelectorAll<HTMLElement>('.scw-tiles:not(.scw-shelf) .scw-tile[data-track]')];
+        const ids = tiles.map((tile) => tile.dataset.track ?? '');
+        if (ids.length === before.size && ids.every((id) => before.has(id))) {
+            // Тот же состав: если места не сменились, анимации нет вовсе
+            const moved = tiles.some((tile) => {
+                const was = before.get(tile.dataset.track ?? '');
+                const box = tile.getBoundingClientRect();
+                return !!was && Math.abs(was.left - box.left) > 1;
+            });
+            if (!moved) return;
+        }
+        let fresh = 0;
+        for (const tile of tiles) {
+            const was = before.get(tile.dataset.track ?? '');
+            const box = tile.getBoundingClientRect();
+            if (was) {
+                const dx = was.left - box.left;
+                const dy = was.top - box.top;
+                if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+                tile.animate([{ transform: `translate3d(${dx}px,${dy}px,0)` }, { transform: 'none' }], { duration: 620, easing: 'cubic-bezier(.22,1,.36,1)' });
+            } else {
+                tile.animate(
+                    [
+                        { opacity: 0, transform: 'translate3d(28px,0,0) scale(.94)', filter: 'blur(8px)' },
+                        { opacity: 1, transform: 'none', filter: 'blur(0)' },
+                    ],
+                    { duration: 560, delay: 120 + fresh * 60, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' },
+                );
+                fresh++;
+            }
+        }
+    }
+    // Громкость в карточке (2.8.4): модуль громкости сайта, если он найден, иначе клавиши сайта Shift+↑/↓ и его кнопка звука
+    interface SiteVolume { getVolume(): number; setVolume(value: number): void }
+    let siteVolume: SiteVolume | null = null;
+    let volumeSearched = false;
+    function volumeModule(): SiteVolume | null {
+        if (siteVolume || volumeSearched) return siteVolume;
+        volumeSearched = true;
+        try {
+            for (const require of findRequire()) {
+                for (const entry of Object.values(require.c ?? {})) {
+                    const exports = entry?.exports as Record<string, unknown> | undefined;
+                    if (exports && typeof exports === 'object' && typeof exports.setVolume === 'function' && typeof exports.getVolume === 'function') {
+                        siteVolume = exports as unknown as SiteVolume;
+                        return siteVolume;
+                    }
+                }
+            }
+        } catch {
+            // модули сайта недоступны: остаются клавиши
+        }
+        return null;
+    }
+    function volumeNow(bar = document.querySelector('.playControls')): number {
+        const module = volumeModule();
+        if (module) {
+            const value = Number(module.getVolume());
+            if (Number.isFinite(value)) return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
+        }
+        const node = bar?.querySelector('.volume__sliderWrapper[aria-valuenow], [role="slider"][aria-valuenow]');
+        const raw = Number(node?.getAttribute('aria-valuenow'));
+        return Number.isFinite(raw) && node ? Math.max(0, Math.min(1, raw > 1 ? raw / 100 : raw)) : 0.5;
+    }
+    const volumeMuted = (bar = document.querySelector('.playControls')): boolean => !!bar?.querySelector('.volume.muted') || volumeNow(bar) === 0;
+    function volumeSet(value: number): void {
+        const want = Math.max(0, Math.min(1, value));
+        if (volumeMuted() && want > 0) document.querySelector<HTMLElement>('.playControls .volume__button')?.click();
+        const module = volumeModule();
+        if (module) {
+            module.setVolume(want);
+            return;
+        }
+        const steps = Math.round((want - volumeNow()) * 10);
+        for (let i = 0; i < Math.abs(steps); i++) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: steps > 0 ? 'ArrowUp' : 'ArrowDown', code: steps > 0 ? 'ArrowUp' : 'ArrowDown', keyCode: steps > 0 ? 38 : 40, shiftKey: true, bubbles: true }));
+        }
+    }
+    const volumeIcon = (level: number): string => (level === 0 ? 'mute' : level < 50 ? 'volLow' : 'vol');
+    function volumeControl(): HTMLElement {
+        const box = el('span', 'scw-vol');
+        const bar = document.querySelector('.playControls');
+        const level = volumeMuted(bar) ? 0 : Math.round(volumeNow(bar) * 100);
+        const icon = volumeIcon(level);
+        const toggle = button('scw-like', 'vol-mute', T.lang === 'ru' ? 'Звук' : 'Volume', icon);
+        toggle.title = T.lang === 'ru' ? 'Звук, M' : 'Volume, M';
+        toggle.dataset.icon = icon;
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = '0';
+        range.max = '100';
+        range.step = '1';
+        range.dataset.role = 'volume';
+        range.setAttribute('aria-label', T.lang === 'ru' ? 'Громкость' : 'Volume');
+        range.value = String(level);
+        box.style.setProperty('--scw-vol', level + '%');
+        box.append(toggle, range);
+        return box;
+    }
+    // Значок и ползунок догоняют звук, если его поменяли в баре или клавишами; во время перетаскивания не трогаются
+    function syncVolume(): void {
+        const box = section?.querySelector<HTMLElement>('.scw-vol');
+        if (!box || box.classList.contains('drag')) return;
+        const range = box.querySelector<HTMLInputElement>('input[data-role="volume"]');
+        const bar = document.querySelector('.playControls');
+        const level = volumeMuted(bar) ? 0 : Math.round(volumeNow(bar) * 100);
+        if (range && document.activeElement !== range && range.value !== String(level)) {
+            range.value = String(level);
+            box.style.setProperty('--scw-vol', level + '%');
+        }
+        const toggle = box.querySelector<HTMLElement>('[data-act="vol-mute"]');
+        const icon = volumeIcon(level);
+        if (toggle && toggle.dataset.icon !== icon) {
+            toggle.dataset.icon = icon;
+            toggle.innerHTML = ICON[icon];
+        }
+    }
     let waitSince = 0;
     function renderTiles(): HTMLElement[] {
         if (state === 'empty' || state === 'error' || state === 'unavailable') return [];
@@ -4358,6 +4511,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const waiting = state === 'loading' && !active;
         const list = upcoming(5);
         if (!waiting && !list.length) return [];
+        if (!waiting) prefetchArt();
         const tiles = el('div', 'scw-tiles' + (waiting ? ' wait' : ''));
         // Заготовки появляются через 150 мс от начала ожидания; пересборка секции продолжает то же появление
         if (!waiting) waitSince = 0;
@@ -4601,6 +4755,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // Пересборка секции не должна сбрасывать прокрутку списка подборки
         const rowsScroll = rowsAt ?? section.querySelector('.scw-mix-rows')?.scrollTop ?? 0;
         const libraryScroll = libraryAt ?? section.querySelector('.scw-lib-rows')?.scrollTop ?? 0;
+        const spotsBefore = tileSpots();
+        const volumeDrag = section.querySelector('.scw-vol.drag') !== null;
         section.textContent = '';
         section.setAttribute('aria-label', T.wave);
         section.append(renderHead());
@@ -4666,7 +4822,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), volumeControl(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
             meta.append(el('div', 'scw-why', next ? fillText(LYRICS_T.outsideNext, { next }) : LYRICS_T.outside));
@@ -4677,7 +4833,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            meta.append(prev, skip, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
+            meta.append(prev, skip, volumeControl(), ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
             const row = el('div', 'scw-outside');
             const waveButton = textButton('start-wave', LYRICS_T.startWave);
             waveButton.classList.add('scw-primary', 'scw-pill');
@@ -4767,6 +4923,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         shownTrack = shownNow?.id ?? 0;
         shownCover = shownNow ? artworkUrl(shownNow, 't500x500') : '';
         turnDir = 1;
+        flipTiles(spotsBefore);
+        if (volumeDrag) section.querySelector('.scw-vol')?.classList.add('drag');
         const rowsBox = section.querySelector('.scw-mix-rows');
         if (rowsBox) rowsBox.scrollTop = rowsScroll;
         const libraryBox = section.querySelector('.scw-lib-rows');
@@ -5200,6 +5358,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 }
                 return;
             }
+            case 'vol-mute':
+                document.querySelector<HTMLElement>('.playControls .volume__button')?.click();
+                setTimeout(syncVolume, 60);
+                return;
             case 'lyrics':
                 lyricsOpen = !lyricsOpen;
                 try {
@@ -5268,9 +5430,28 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 return;
         }
     }
+    function onVolumeDown(event: PointerEvent): void {
+        const box = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-vol') : null;
+        if (!box || !(event.target instanceof HTMLInputElement)) return;
+        box.classList.add('drag');
+        const release = (): void => {
+            window.removeEventListener('pointerup', release);
+            window.removeEventListener('pointercancel', release);
+            section?.querySelector('.scw-vol')?.classList.remove('drag');
+            setTimeout(syncVolume, 80);
+        };
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+    }
     function onInput(event: Event): void {
         if (event.target instanceof HTMLSelectElement && event.target.dataset.role === 'radar-archive') {
             radarSection.select(event.target.value);
+            return;
+        }
+        if (event.target instanceof HTMLInputElement && event.target.dataset.role === 'volume') {
+            const value = Number(event.target.value);
+            event.target.closest<HTMLElement>('.scw-vol')?.style.setProperty('--scw-vol', value + '%');
+            volumeSet(value / 100);
             return;
         }
         if (!(event.target instanceof HTMLInputElement) || event.target.dataset.role !== 'genre-input') return;
@@ -5439,6 +5620,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             section.addEventListener('mousemove', onMove);
             section.addEventListener('mousedown', onDown);
             section.addEventListener('pointerdown', onHoldDown);
+            section.addEventListener('pointerdown', onVolumeDown);
             section.addEventListener('pointerup', onHoldUp);
             section.addEventListener('pointercancel', onHoldUp);
             section.addEventListener('pointerleave', onHoldUp, true);
@@ -5502,6 +5684,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             tickTimer = setInterval(() => {
                 try {
                     tick();
+                    syncVolume();
                 } catch (error) {
                     console.error('Волна: слежение за плеером', error);
                 }
