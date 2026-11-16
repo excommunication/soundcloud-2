@@ -5,7 +5,7 @@ import { trustLocalFile } from '../trustedViews';
 import type { LibraryService } from '../services/libraryService';
 import { trackPathOf } from '../services/waveSignals';
 import { withTimeout } from '../utils/withTimeout';
-import { lastWeek, recapImage, recapName, recapPeople } from './recap';
+import { lastWeek, recapImage, recapName, recapPeople, withRecapInsights } from './recap';
 
 const HEADER = 32;
 const DAY = 86400000;
@@ -99,10 +99,11 @@ export class HistoryManager {
             this.recapOnOpen = false;
             return { language: this.host.language(), signedIn: this.userId > 0, reduceMotion: this.host.reduceMotion?.() === true, playing: this.nowPlaying, recap };
         });
-        ipcMain.handle('history:overview', (event, from: unknown, to: unknown) => {
+        // Обзор приходит с личным для карточек сводки (2.10.2): характер, серия дней, пик, запасной цвет
+        ipcMain.handle('history:overview', async (event, from: unknown, to: unknown) => {
             this.guard(event);
             if ((from !== null && !isBound(from)) || !isBound(to)) return null;
-            return this.index.request('overview', this.userId, from, to);
+            return withRecapInsights(await this.index.request('overview', this.userId, from, to));
         });
         // Как попадает волна за тот же период
         ipcMain.handle('history:wave', (event, from: unknown, to: unknown) => {
@@ -161,14 +162,14 @@ export class HistoryManager {
             clipboard.writeImage(picture);
             return true;
         });
-        ipcMain.handle('history:recap-save', async (event, image: unknown, year: unknown, week: unknown) => {
+        ipcMain.handle('history:recap-save', async (event, image: unknown, year: unknown, week: unknown, card?: unknown) => {
             this.guard(event);
             const buffer = recapImage(image);
             if (!buffer || this.parentWindow.isDestroyed()) return 'failed';
             const ru = this.host.language() === 'ru';
             const { canceled, filePath } = await dialog.showSaveDialog(this.parentWindow, {
                 title: ru ? 'Сохранить сводку недели' : 'Save weekly recap',
-                defaultPath: join(app.getPath('pictures'), recapName(year, week, new Date())),
+                defaultPath: join(app.getPath('pictures'), recapName(year, week, new Date(), card)),
                 filters: [{ name: ru ? 'Картинка PNG' : 'PNG image', extensions: ['png'] }],
             });
             if (canceled || !filePath) return 'canceled';

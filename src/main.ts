@@ -40,6 +40,7 @@ import { registerUpdateIpc } from './ipc/updateIpc';
 import { registerPageIpc, type PlaybackState } from './ipc/pageIpc';
 import { registerWaveIpc } from './ipc/waveIpc';
 import { registerVibeIpc } from './ipc/vibeIpc';
+import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
 import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import type { FetchLike } from './services/vibeSearch';
@@ -68,7 +69,7 @@ import {
     type IpcMainEvent,
     type NativeImage,
 } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, promises as fsPromises } from 'fs';
 import { setupDarwinMenu } from './macos/menu';
 import { NotificationManager } from './notifications/notificationManager';
 import { SettingsManager } from './settings/settingsManager';
@@ -797,6 +798,8 @@ function setupWindowControls() {
 
 let headerView: BrowserView | null;
 let contentView: BrowserView;
+// Запись ролика (2.10.3): захват кадра страницы выдаётся один раз после нашего же clip:record-arm, сайту он недоступен
+const clipGrant = new ClipGrant();
 
 function closeUpdateScreen(): void {
     updateScreen?.close();
@@ -1004,6 +1007,17 @@ async function init() {
     });
 
     contentView.setBackgroundColor('#070a12');
+    // getDisplayMedia главной рамки сайта: только пока взведено разрешение из clip:record-arm, и снимается только эта рамка
+    // (её содержимое без шапки и рамки окна), без выбора окна и без звука системы
+    contentView.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+        const frame = request.frame;
+        const page = contentView && !contentView.webContents.isDestroyed() ? contentView.webContents : null;
+        if (!clipGrant.take() || !frame || !page || !request.videoRequested || request.audioRequested || frame !== page.mainFrame) {
+            callback({});
+            return;
+        }
+        callback({ video: frame });
+    }, { useSystemPicker: false });
     mainWindow.addBrowserView(contentView);
     // Заставка только при обычном запуске: окно, спрятанное в трей, её не показывает
     if (mainWindow.isVisible() && !process.argv.includes('--hidden')) introScreen = new IntroScreen(mainWindow);
@@ -1201,6 +1215,19 @@ async function init() {
         settingsView: () => settingsManager?.getView()?.webContents,
         page: () => contentView.webContents,
         applySettingChange,
+    });
+    registerClipIpc(ipcMain, {
+        trustedSite: isTrustedSoundCloudSender,
+        grant: clipGrant,
+        videosDir: () => app.getPath('videos'),
+        mkdir: async (dir) => void (await fsPromises.mkdir(dir, { recursive: true })),
+        write: (file, data) => fsPromises.writeFile(file, data),
+        reveal: (file) => shell.showItemInFolder(file),
+        // Красная полоса на значке в панели задач: в самом ролике никаких меток записи нет
+        recording: (on) => {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(on ? 1 : -1, on ? { mode: 'error' } : undefined);
+        },
+        now: () => Date.now(),
     });
     // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
     // длительность; ответы помнятся до перезапуска

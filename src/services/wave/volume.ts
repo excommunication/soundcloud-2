@@ -20,6 +20,10 @@ export interface VolumeSection {
     /** Значки и ползунки догоняют звук, поменянный клавишами или сайтом; ставит ползунок в бар, если сайт его перерисовал */
     sync(): void;
     toggleMute(): void;
+    /** Слышимая громкость 0..1: выключенный звук — 0 (режим «Для роликов», 2.10.2) */
+    level(): number;
+    /** Поставить громкость 0..1; больше нуля снимает выключение звука */
+    set(value: number): void;
     dispose(): void;
 }
 
@@ -296,6 +300,11 @@ export function installVolume(core: VolumeCore): VolumeSection {
         },
         sync,
         toggleMute,
+        level: () => (muted() ? 0 : level()),
+        set(value) {
+            set(value);
+            sync();
+        },
         dispose() {
             clearTimeout(first);
             for (const box of controls) box.remove();
