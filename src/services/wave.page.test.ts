@@ -4649,7 +4649,7 @@ it('2.8.6: трек в баре при запуске и текст песни �
     expect(document.getElementById('sc-wave')).not.toBeNull();
 });
 
-it('громкость 2.9.0: ползунок карточки переживает пересборку, тянется, крутится колесом, значок выключает звук', async () => {
+it('громкость 2.9.0, 2.10.0: вертикальный ползунок карточки переживает пересборку, тянется, крутится колесом, значок выключает звук', async () => {
     const site = fakeSite(relatedTracks);
     let volume = 0.6;
     const volumeApi = { getVolume: () => volume, setVolume: vi.fn((value: number) => { volume = value; }) };
@@ -4661,13 +4661,14 @@ it('громкость 2.9.0: ползунок карточки пережива
     const box = document.querySelector<HTMLElement>('#sc-wave .scv[data-kind="card"]')!;
     const track = box.querySelector<HTMLElement>('.scv-track')!;
     expect(track.getAttribute('aria-valuenow')).toBe('60');
-    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 100, width: 100, top: 0, height: 20, right: 200, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
-    track.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 125 }));
+    // Дорожка вертикальная (2.10.0): громкость растёт снизу вверх
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 20, top: 100, height: 100, right: 20, bottom: 200, x: 0, y: 100, toJSON: () => ({}) });
+    track.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientY: 175 }));
     expect(box.classList.contains('drag')).toBe(true);
     // Блок пересобирается каждую секунду: узел тот же, перетаскивание продолжается
     await vi.advanceTimersByTimeAsync(1100);
     expect(document.querySelector('#sc-wave .scv[data-kind="card"]')).toBe(box);
-    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 190 }));
+    window.dispatchEvent(new PointerEvent('pointermove', { clientY: 110 }));
     expect(volume).toBeCloseTo(0.9);
     window.dispatchEvent(new PointerEvent('pointerup', {}));
     expect(box.classList.contains('drag')).toBe(false);

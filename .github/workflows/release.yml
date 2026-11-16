@@ -57,8 +57,8 @@ jobs:
             Write-Output "Секретов EVS нет: сборка без VMP-подписи"
             "skip=true" >> $env:GITHUB_OUTPUT
           }
-      # Маленький установщик (~115 КБ) до полного: полный вшивает его и открывает вместо своих страниц.
-      # Сам он качает полный из этого же релиза, поэтому имя у него без версии
+      # Окно установки (~115 КБ) до полного установщика: полный вшивает его и открывает вместо своих страниц.
+      # Отдельным файлом в релиз оно не идёт (2.10.0): в релизе один exe
       - run: npx --yes pnpm@12.15.0 build-setup
       - run: npx --yes pnpm@12.15.0 build-win
         env:
@@ -73,14 +73,15 @@ jobs:
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $tag = '${{ inputs.tag }}'
           if (-not $tag) { $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { "v$version" } }
-          # Имена файлов одни и те же в каждом релизе (2.9.0): ссылка releases/latest/download/<имя> всегда ведёт на последнюю
-          # версию, а клиент обновляется по latest.yml. Раньше полный установщик назывался по версии, и под каждую 2.8.x был свой exe
-          $names = @('SoundCloud-2-Setup.exe', 'SoundCloud-2-Full-Setup-x64.exe', 'SoundCloud-2-Full-Setup-x64.exe.blockmap', 'latest.yml')
+          # Один установщик (2.10.0): SoundCloud-2-Setup.exe и есть полный, окно установки вшито в него. Имя одно и то же
+          # в каждом релизе: releases/latest/download/SoundCloud-2-Setup.exe ведёт на последнюю версию, клиент обновляется
+          # по latest.yml (blockmap нужен для частичной загрузки обновлений)
+          $names = @('SoundCloud-2-Setup.exe', 'SoundCloud-2-Setup.exe.blockmap', 'latest.yml')
           foreach ($name in $names) { if (-not (Test-Path "build/$name")) { throw "Нет файла сборки build/$name" } }
           $files = @($names | ForEach-Object { (Resolve-Path "build/$_").Path })
-          @('SoundCloud-2-Setup.exe', 'SoundCloud-2-Full-Setup-x64.exe') | ForEach-Object { "$((Get-FileHash "build/$_" -Algorithm SHA256).Hash.ToLower())  $_" } | Set-Content build/SHA256SUMS -Encoding ascii
+          @('SoundCloud-2-Setup.exe') | ForEach-Object { "$((Get-FileHash "build/$_" -Algorithm SHA256).Hash.ToLower())  $_" } | Set-Content build/SHA256SUMS -Encoding ascii
           $files += (Resolve-Path build/SHA256SUMS).Path
-          $notes = "SoundCloud 2 $version для Windows 10 и 11 x64.`n`nСкачай ``SoundCloud-2-Setup.exe`` (~100 КБ): он сам скачает и поставит клиент. Полный установщик без интернета: ``SoundCloud-2-Full-Setup-x64.exe``. Имена файлов в каждом релизе одни и те же, дальше клиент обновляется сам.`n`n$(git log -1 --format=%B)"
+          $notes = "SoundCloud 2 $version для Windows 10 и 11 x64.`n`nСкачай ``SoundCloud-2-Setup.exe`` — это единственный установщик, интернет для установки не нужен. Дальше клиент обновляется сам.`n`n$(git log -1 --format=%B)"
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) { gh release upload $tag @files --clobber }
           else { gh release create $tag @files --title "SoundCloud 2 $version" --notes $notes --latest }

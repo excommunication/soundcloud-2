@@ -23,7 +23,7 @@ export interface VolumeSection {
     dispose(): void;
 }
 
-/** Доля 0..1 по месту курсора на дорожке; за краями дорожки края */
+/** Доля 0..1 по месту курсора на дорожке; за краями дорожки края. Вертикальная дорожка: от низа, at = bottom − y */
 export function volumeAt(clientX: number, left: number, width: number): number {
     if (!(width > 0)) return 0;
     return Math.max(0, Math.min(1, (clientX - left) / width));
@@ -56,25 +56,26 @@ export function installVolume(core: VolumeCore): VolumeSection {
             '.scv-btn:focus-visible,.scv-track:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}',
             '.scv-btn svg{width:18px;height:18px;fill:currentColor;display:block}',
             '.scv[data-muted="true"] .scv-btn{color:rgba(255,255,255,.45)}',
-            // Попап сбоку от значка в карточке и над значком в баре. Между значком и дорожкой нет щели: курсор едет и не теряет попап
-            '.scv-pop{position:absolute;z-index:40;display:flex;align-items:center;box-sizing:border-box;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease,visibility 0s linear .16s,transform .2s cubic-bezier(.2,.8,.2,1)}',
-            '.scv.open .scv-pop,.scv.drag .scv-pop{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .16s ease,visibility 0s,transform .2s cubic-bezier(.2,.8,.2,1)}',
-            '.scv[data-kind="card"] .scv-pop{right:100%;top:50%;width:124px;height:32px;padding:0 10px 0 6px;transform:translate(6px,-50%)}',
-            '.scv[data-kind="card"].open .scv-pop,.scv[data-kind="card"].drag .scv-pop{transform:translate(0,-50%)}',
-            '.scv[data-kind="bar"] .scv-pop{bottom:100%;left:50%;width:148px;height:40px;padding:0 14px;margin-bottom:6px;border-radius:999px;transform:translate(-50%,4px);' +
-                'background:rgba(14,15,22,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 12px 30px -12px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1)}',
-            // Мостик под попапом бара: на пути от значка к попапу курсор остаётся внутри .scv
-            '.scv[data-kind="bar"] .scv-pop::after{content:"";position:absolute;left:0;right:0;top:100%;height:8px}',
-            '.scv[data-kind="bar"].open .scv-pop,.scv[data-kind="bar"].drag .scv-pop{transform:translate(-50%,0)}',
-            // Дорожка высотой 20 px ловит курсор, видна полоса 4 px посередине
-            '.scv-track{position:relative;flex:1;height:20px;cursor:pointer;touch-action:none;outline:none;--v:50%}',
-            '.scv-track::before{content:"";position:absolute;left:0;right:0;top:8px;height:4px;border-radius:999px;background:rgba(255,255,255,.22)}',
-            '.scv-fill{position:absolute;left:0;top:8px;height:4px;width:var(--v);border-radius:999px;background:#fff;pointer-events:none}',
-            '.scv-thumb{position:absolute;top:4px;left:var(--v);width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;transition:transform .12s}',
+            // Вертикальный попап над значком (2.10.0) и в карточке, и в баре: горизонтальная полоса в карточке ложилась
+            // поверх подписи «почему этот трек» и ломала ряд. Между значком и попапом мостик: курсор едет и не теряет попап
+            '.scv-pop{position:absolute;z-index:40;bottom:100%;left:50%;width:36px;height:128px;margin-bottom:6px;padding:12px 0;box-sizing:border-box;display:flex;justify-content:center;border-radius:999px;' +
+                'background:rgba(14,15,22,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 12px 30px -12px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1);' +
+                'opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,6px);transition:opacity .16s ease,visibility 0s linear .16s,transform .2s cubic-bezier(.2,.8,.2,1)}',
+            '.scv.open .scv-pop,.scv.drag .scv-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);transition:opacity .16s ease,visibility 0s,transform .2s cubic-bezier(.2,.8,.2,1)}',
+            '.scv-pop::after{content:"";position:absolute;left:0;right:0;top:100%;height:8px}',
+            '.scv[data-kind="card"] .scv-pop{height:112px}',
+            // Дорожка шириной 20 px ловит курсор, видна полоса 4 px посередине; заполнение растёт снизу
+            '.scv-track{position:relative;width:20px;height:100%;cursor:pointer;touch-action:none;outline:none;--v:50%}',
+            '.scv-track::before{content:"";position:absolute;top:0;bottom:0;left:8px;width:4px;border-radius:999px;background:rgba(255,255,255,.22)}',
+            '.scv-fill{position:absolute;left:8px;bottom:0;width:4px;height:var(--v);border-radius:999px;background:#fff;pointer-events:none}',
+            '.scv-thumb{position:absolute;left:4px;bottom:var(--v);width:12px;height:12px;margin-bottom:-6px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5);pointer-events:none;transition:transform .12s}',
             '.scv.drag .scv-thumb,.scv-track:hover .scv-thumb{transform:scale(1.2)}',
             // Ползунок бара заменяет ползунок сайта: тот прятался при каждом движении мыши и не давал себя тянуть
             'html.scv-bar-on .playControls .volume{display:none!important}',
-            '.playControls .scv[data-kind="bar"]{margin:0 4px}',
+            '.playControls .scv[data-kind="bar"]{margin:0 4px;align-self:center;top:0}',
+            // Бар (2.10.0): родная громкость спрятана, а её место осталось блоком со своей высотой и сдвигало значок вниз.
+            // Теперь место громкости — ряд по центру по высоте бара
+            'html.scv-bar-on .playControls__volume{display:flex!important;align-items:center;align-self:stretch;height:auto!important;margin:0!important;padding:0!important}',
             '.playControls .scv[data-kind="bar"] .scv-btn{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
             '.playControls .scv[data-kind="bar"] .scv-btn svg{width:16px;height:16px}',
             'html.scm-reduce .scv *{transition:none!important}',
@@ -189,7 +190,7 @@ export function installVolume(core: VolumeCore): VolumeSection {
             box.classList.add('drag', 'open');
             const move = (point: PointerEvent): void => {
                 const rect = track.getBoundingClientRect();
-                const value = volumeAt(point.clientX, rect.left, rect.width);
+                const value = volumeAt(rect.bottom - point.clientY, 0, rect.height);
                 set(value);
                 paintAll(value, value === 0);
             };
