@@ -354,6 +354,11 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     },
     // Текст играющего трека: ищет main (LRCLIB, запасной Genius), ввод проверяет он же
     lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
+    // Запись ролика из режима «Для роликов»: разрешение на захват кадра страницы и сохранение файла; ввод проверяет main
+    clipRecord: {
+        arm: (state: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state),
+        save: (data: ArrayBuffer, name: string, ext: string): Promise<unknown> => ipcRenderer.invoke('clip:save', data, name, ext),
+    },
     // Настройки волны из блока на главной: «Без русского»; ввод проверяет main
     waveOptions: {
         set: (key: string, value: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-option:set', key, value),

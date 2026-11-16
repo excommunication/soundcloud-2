@@ -104,6 +104,36 @@
             saved: 'Сохранено',
             saveFailed: 'Не удалось сохранить',
             recapClose: 'Закрыть',
+            // Карточки сводки (2.10.2): четыре истории в духе итогов года
+            recapAuto: 'Цвет обложки',
+            personaTip: 'Твой музыкальный характер за этот период',
+            recapCards: { week: 'Неделя', artist: 'Артист', track: 'Трек', vibe: 'Характер' },
+            recapCardOf: (name, n, total) => name + ', карточка ' + n + ' из ' + total,
+            recapKicker: { last: 'Твоя неделя', this: 'Твоя неделя пока' },
+            recapPerDay: (time) => 'в среднем ' + time + ' в день',
+            recapStreak: ['день подряд', 'дня подряд', 'дней подряд'],
+            recapDaysWith: ['день с музыкой', 'дня с музыкой', 'дней с музыкой'],
+            recapTopArtist: 'Артист недели',
+            recapTopTrack: 'Трек недели',
+            recapShareOfWeek: (share) => share + '% твоей недели',
+            recapCharacter: 'Твой характер недели',
+            recapPeakAt: (hour) => 'Пик в ' + hour,
+            recapHourLabel: 'Музыка по часам суток',
+            archetypes: {
+                starter: 'Разгон', nightOwl: 'Ночная сова', loyal: 'Верный фанат', repeat: 'На репите', explorer: 'Исследователь',
+                earlyBird: 'Ранняя пташка', marathon: 'Марафонец', eclectic: 'Меломан без границ', steady: 'Свой ритм',
+            },
+            archetypeLines: {
+                starter: () => 'Неделя только разгоняется, дальше больше',
+                nightOwl: (i) => i.nightShare + '% музыки с полуночи до пяти утра',
+                loyal: (i, m) => i.topShare + '% времени с ' + m.topArtist,
+                repeat: (i, m) => '«' + m.topTrack + '»: ' + m.topPlays + ' ' + plural(m.topPlays, ['раз', 'раза', 'раз']),
+                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.ru.fresh) + ' за неделю',
+                earlyBird: (i) => i.morningShare + '% музыки до десяти утра',
+                marathon: (i, m) => 'В среднем ' + m.perDay + ' музыки в день',
+                eclectic: (i, m) => m.genreCount + ' ' + plural(m.genreCount, ['жанр', 'жанра', 'жанров']) + ', и ни один не главный',
+                steady: (i) => 'Музыка ' + i.days + ' ' + plural(i.days, ['день', 'дня', 'дней']) + ' из семи, в своём темпе',
+            },
             waveTitle: 'Как попадает волна',
             waveCount: (n, p) => n + ' ' + plural(n, ['трек', 'трека', 'треков']) + ' волны ' + TEXTS.ru.periodText(p),
             waveLoading: 'Считаю',
@@ -246,6 +276,36 @@
             saved: 'Saved',
             saveFailed: 'Could not save',
             recapClose: 'Close',
+            // Recap cards (2.10.2): four stories in the spirit of a year-end wrap-up
+            recapAuto: 'Cover colour',
+            personaTip: 'Your listening personality for this period',
+            recapCards: { week: 'Week', artist: 'Artist', track: 'Track', vibe: 'Personality' },
+            recapCardOf: (name, n, total) => name + ', card ' + n + ' of ' + total,
+            recapKicker: { last: 'Your week', this: 'Your week so far' },
+            recapPerDay: (time) => 'about ' + time + ' a day',
+            recapStreak: ['day in a row', 'days in a row'],
+            recapDaysWith: ['day with music', 'days with music'],
+            recapTopArtist: 'Artist of the week',
+            recapTopTrack: 'Track of the week',
+            recapShareOfWeek: (share) => share + '% of your week',
+            recapCharacter: 'Your listening personality',
+            recapPeakAt: (hour) => 'Peak at ' + hour,
+            recapHourLabel: 'Music by hour of day',
+            archetypes: {
+                starter: 'Warming up', nightOwl: 'Night owl', loyal: 'Loyal fan', repeat: 'On repeat', explorer: 'Explorer',
+                earlyBird: 'Early bird', marathon: 'Marathoner', eclectic: 'Genre-hopper', steady: 'Own groove',
+            },
+            archetypeLines: {
+                starter: () => 'The week is just getting going',
+                nightOwl: (i) => i.nightShare + '% of your music between midnight and 5 am',
+                loyal: (i, m) => i.topShare + '% of your time with ' + m.topArtist,
+                repeat: (i, m) => '“' + m.topTrack + '”: ' + m.topPlays + ' ' + plural(m.topPlays, ['play', 'plays']),
+                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.en.fresh) + ' this week',
+                earlyBird: (i) => i.morningShare + '% of your music before 10 am',
+                marathon: (i, m) => 'About ' + m.perDay + ' of music a day',
+                eclectic: (i, m) => m.genreCount + ' ' + plural(m.genreCount, ['genre', 'genres']) + ', none of them on top',
+                steady: (i) => 'Music on ' + i.days + ' ' + plural(i.days, ['day', 'days']) + ' of seven, at your own pace',
+            },
             waveTitle: 'How well the wave fits',
             waveCount: (n, p) => n + ' wave ' + plural(n, ['track', 'tracks']) + ' ' + (p === 'all' ? 'in total' : TEXTS.en.periodText(p)),
             waveLoading: 'Counting',
@@ -705,10 +765,18 @@
         // Период начался не позже первой записи истории (всё время или месяц, когда история моложе месяца):
         // каждый артист тут появился впервые, «новых» столько же, сколько всех, и число ничего не говорит
         if (s.firstAt !== null && s.from > s.firstAt) figs.push([s.fresh, plural(s.fresh, T.fresh)]);
+        // Серия дней подряд (2.10.2): только когда полосы волны не длиннее суток, иначе дни не различить
+        const i = s.insights;
+        if (i && i.streak >= 2 && s.wave.binHours <= 24) figs.push([i.streak, plural(i.streak, T.recapStreak)]);
+        // Характер периода плашкой в цвет главного артиста
+        const persona = i && s.counted >= 5
+            ? '<div class="persona" tabindex="0" data-tip="' + esc(T.personaTip) + '" style="--pa:' + esc(i.palette.a) + ';--pb:' + esc(i.palette.b) + '">' +
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="' + PERSONA_ICONS[i.archetype] + '"/></svg><b>' + esc(T.archetypes[i.archetype]) + '</b></div>'
+            : '';
         const moreButton = s.artists.length > ARTISTS_SHORT ? '<button class="link" data-act="artists">' + esc(state.allArtists ? T.less : T.more) + '</button>' : '';
         return (
             '<div class="hero"><div><div class="big num">' + (h ? h + '<small>' + esc(T.h) + '</small>' : '') + m + '<small>' + esc(T.min) + '</small></div><div class="big-cap">' + esc(T.music(state.period)) + '</div></div>' +
-            '<div class="figs">' + figs.map(([v, l]) => '<div class="fig"><b class="num">' + v + '</b><span>' + esc(l) + '</span></div>').join('') + '</div></div>' +
+            '<div class="figs">' + figs.map(([v, l]) => '<div class="fig"><b class="num">' + v + '</b><span>' + esc(l) + '</span></div>').join('') + '</div>' + persona + '</div>' +
             periodWave(s.wave) +
             '<div class="sec"><div class="sec-h"><h2>' + esc(T.artistsTitle(state.period)) + '</h2>' + moreButton + '</div>' + artistsBlock(s.artists) + '</div>' +
             '<div class="grid2 sec"><div><div class="sec-h"><h2>' + esc(T.tracks) + '</h2></div>' + topList('track', s.tracks, 8) + '</div>' +
@@ -845,14 +913,12 @@
         message.textContent = state.lang === 'en' ? 'Could not play this track. Check your connection and try again.' : 'Не удалось включить трек. Проверь соединение и попробуй ещё раз.';
     }
 
-    // Сводка недели: неделя музыки одной картинкой, как шапка профиля на SoundCloud. Рисуется на холсте и уходит в main как PNG.
-    // Обложки и аватарки sndcdn отдаёт с разрешением для чужих страниц, поэтому холст с ними остаётся выгружаемым
-    const RECAP = { width: 1200, height: 760, hero: 330, scale: 2, font: "Onest, 'Segoe UI', system-ui, sans-serif" };
-    const RECAP_PANELS = {
-        dark: { panel: '#121212', ink: '#ffffff', muted: '#9a9a9a', line: 'rgba(255, 255, 255, 0.08)', film: 'rgba(255, 255, 255, 0.09)', empty: '#2a2a2a' },
-        light: { panel: '#f5f5f3', ink: '#141414', muted: '#666666', line: 'rgba(0, 0, 0, 0.08)', film: 'rgba(0, 0, 0, 0.06)', empty: '#e2e2de' },
-    };
-    // Восемь цветов от тёмных к светлым; у трёх светлых и нижняя часть светлая
+    // Сводка недели (2.10.2): четыре карточки-истории 9:16 в духе итогов года — неделя, артист, трек, характер.
+    // Каждая рисуется на своём холсте и уходит в main как PNG. Цвет карточки берётся с обложки или аватарки (sndcdn отдаёт
+    // картинки с разрешением для чужих страниц, холст остаётся выгружаемым); без картинки — цвет по имени артиста из main
+    const RECAP = { width: 540, height: 960, scale: 2, font: "Onest, 'Segoe UI', system-ui, sans-serif" };
+    const RECAP_CARDS = ['week', 'artist', 'track', 'vibe'];
+    // Восемь ручных цветов вместо цвета обложки, от тёмных к светлым; на трёх светлых текст тёмный
     const RECAP_PRESETS = [
         { a: '#23253f', b: '#0c0c14', panel: 'dark' },
         { a: '#4a2a96', b: '#140f2a', panel: 'dark' },
@@ -863,25 +929,26 @@
         { a: '#ffd2b0', b: '#ff7d5c', panel: 'light' },
         { a: '#f1f4f9', b: '#bccbe3', panel: 'light' },
     ];
-    const DAY_PARTS = [[6, 12], [12, 18], [18, 24], [0, 6]];
     const PRESET_KEY = 'scDesktopRecapPreset';
+    // -1 — цвет обложки (по умолчанию с 2.10.2), иначе номер ручного цвета
     function readPreset() {
         try {
-            const value = Number(window.localStorage.getItem(PRESET_KEY));
-            return window.localStorage.getItem(PRESET_KEY) !== null && Number.isInteger(value) && value >= 0 && value < RECAP_PRESETS.length ? value : 1;
+            const raw = window.localStorage.getItem(PRESET_KEY);
+            const value = Number(raw);
+            return raw !== null && raw !== 'auto' && Number.isInteger(value) && value >= 0 && value < RECAP_PRESETS.length ? value : -1;
         } catch (error) {
             console.warn('Сводка недели: цвет карточки не прочитан', error);
-            return 1;
+            return -1;
         }
     }
     function savePreset(value) {
         try {
-            window.localStorage.setItem(PRESET_KEY, String(value));
+            window.localStorage.setItem(PRESET_KEY, value < 0 ? 'auto' : String(value));
         } catch (error) {
             console.warn('Сводка недели: цвет карточки не сохранён', error);
         }
     }
-    const recap = { open: false, week: 'last', data: null, people: undefined, failed: false, busy: false, canvas: null, model: null, request: 0, draw: 0, status: '', statusTimer: 0, preset: readPreset() };
+    const recap = { open: false, week: 'last', data: null, people: undefined, failed: false, busy: false, canvas: null, cards: [], selected: 0, model: null, request: 0, draw: 0, status: '', statusTimer: 0, preset: readPreset() };
     const modal = document.createElement('div');
     modal.className = 'rc';
     modal.hidden = true;
@@ -889,6 +956,7 @@
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'rc-title');
     document.body.append(modal);
+    const reducedMotion = () => document.documentElement.classList.contains('reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Неделя с понедельника: прошлая целиком или эта до сегодняшнего дня
     const mondayOf = (at) => addDays(dayStart(at), -((new Date(at).getDay() + 6) % 7));
@@ -932,11 +1000,99 @@
     let fontsReady = null;
     const recapFonts = () =>
         fontsReady ||
-        (fontsReady = Promise.all([400, 600, 700, 800].map((weight) => document.fonts.load(weight + ' 20px Onest', 'Аa'))).catch((error) =>
+        (fontsReady = Promise.all([400, 500, 600, 700, 800].map((weight) => document.fonts.load(weight + ' 20px Onest', 'Аa'))).catch((error) =>
             console.warn('Сводка недели: шрифт не загрузился, рисую системным', error),
         ));
 
-    // Всё, что нарисовано, кроме цвета: смена цвета перерисовывает без новых запросов
+    // ===== Цвет карточки =====
+    function hslHex(h, s, l) {
+        const hue = (((h % 360) + 360) % 360) / 360;
+        const sat = Math.max(0, Math.min(1, s));
+        const light = Math.max(0, Math.min(1, l));
+        const q = light < 0.5 ? light * (1 + sat) : light + sat - light * sat;
+        const p = 2 * light - q;
+        const channel = (t) => {
+            const x = t < 0 ? t + 1 : t > 1 ? t - 1 : t;
+            const v = x < 1 / 6 ? p + (q - p) * 6 * x : x < 1 / 2 ? q : x < 2 / 3 ? p + (q - p) * (2 / 3 - x) * 6 : p;
+            return Math.round(v * 255).toString(16).padStart(2, '0');
+        };
+        return '#' + channel(hue + 1 / 3) + channel(hue) + channel(hue - 1 / 3);
+    }
+    // Три цвета от тона: яркое пятно, сосед по кругу, глубокий фон. Та же формула, что recapPalette в recap.ts
+    function paletteOf(hue, saturation) {
+        const s = Math.max(0.35, Math.min(0.9, saturation));
+        return { a: hslHex(hue, s, 0.56), b: hslHex(hue + 38, s * 0.92, 0.38), c: hslHex(hue - 24, s * 0.8, 0.11) };
+    }
+    const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
+    const rgba = (hex, alpha) => 'rgba(' + rgbOf(hex).join(', ') + ', ' + alpha + ')';
+    // Тон и сочность цвета: из них палитра соседней карточки
+    function toneOfHex(hex) {
+        const [r, g, b] = rgbOf(hex).map((v) => v / 255);
+        const max = Math.max(r, g, b);
+        const chroma = max - Math.min(r, g, b);
+        if (!chroma) return { hue: 0, sat: 0.4 };
+        const h = max === r ? ((g - b) / chroma) % 6 : max === g ? (b - r) / chroma + 2 : (r - g) / chroma + 4;
+        const l = (max + Math.min(r, g, b)) / 2;
+        return { hue: (h * 60 + 360) % 360, sat: chroma / (1 - Math.abs(2 * l - 1) || 1) };
+    }
+    // Главный тон картинки: гистограмма тонов по 30°, голос пикселя — квадрат его сочности, так серые и почти чёрные
+    // почти не голосуют. Почти серая обложка — null, тогда цвет по имени
+    function toneOf(img) {
+        if (!img) return null;
+        try {
+            const size = 32;
+            const probe = document.createElement('canvas');
+            probe.width = probe.height = size;
+            const x = probe.getContext('2d', { willReadFrequently: true });
+            x.drawImage(img, 0, 0, size, size);
+            const px = x.getImageData(0, 0, size, size).data;
+            const bins = Array.from({ length: 12 }, () => ({ w: 0, sx: 0, sy: 0, s: 0 }));
+            let total = 0;
+            for (let i = 0; i < px.length; i += 4) {
+                const r = px[i] / 255;
+                const g = px[i + 1] / 255;
+                const b = px[i + 2] / 255;
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const chroma = max - min;
+                if (chroma < 0.08) continue;
+                const h = ((max === r ? ((g - b) / chroma) % 6 : max === g ? (b - r) / chroma + 2 : (r - g) / chroma + 4) * 60 + 360) % 360;
+                const l = (max + min) / 2;
+                const w = chroma * chroma;
+                const bin = bins[Math.floor(h / 30) % 12];
+                bin.w += w;
+                bin.sx += Math.cos((h * Math.PI) / 180) * w;
+                bin.sy += Math.sin((h * Math.PI) / 180) * w;
+                bin.s += (chroma / (1 - Math.abs(2 * l - 1) || 1)) * w;
+                total += w;
+            }
+            const best = bins.reduce((a, b) => (b.w > a.w ? b : a));
+            if (total < size * size * 0.004 || best.w <= 0) return null;
+            return { hue: ((Math.atan2(best.sy, best.sx) * 180) / Math.PI + 360) % 360, sat: best.s / best.w };
+        } catch (error) {
+            console.warn('Сводка недели: цвет картинки не прочитан', error);
+            return null;
+        }
+    }
+    function presetPalette(preset) {
+        return preset.panel === 'light' ? { a: preset.b, b: preset.a, c: preset.a, light: true } : { a: preset.a, b: preset.a, c: preset.b };
+    }
+    const paletteFor = (kind, m) => (recap.preset >= 0 ? presetPalette(RECAP_PRESETS[recap.preset]) : m.palettes[kind]);
+
+    // Характер и подписи к нему: то же для страницы и для карточки
+    function personaFacts(s) {
+        const i = s.insights;
+        return {
+            topArtist: s.artists[0] ? s.artists[0].name || T.loading : '',
+            topTrack: s.tracks[0] ? s.tracks[0].name || T.loading : '',
+            topPlays: s.tracks[0] ? s.tracks[0].plays : 0,
+            fresh: s.fresh,
+            perDay: span(s.heard / Math.max(1, i ? i.days : 1)),
+            genreCount: s.genres.length,
+        };
+    }
+
+    // Всё, что нарисовано: смена цвета перерисовывает без новых запросов
     async function recapModel(s, people, week) {
         const { last } = recapRange(week);
         const tracks = s.tracks.slice(0, 5);
@@ -944,220 +1100,517 @@
         const me = people && people.me;
         const avatars = (people && people.avatars) || {};
         const [avatar, covers, faces] = await Promise.all([
-            picture(me ? sized(me.avatar, 't500x500') : ''),
-            Promise.all(tracks.map((t) => picture(sized(t.artwork, 't300x300')))),
-            Promise.all(artists.map((a) => picture(sized(avatars[artistPath(a.path)] || a.artwork, 't300x300')))),
+            picture(me ? sized(me.avatar, 't300x300') : ''),
+            Promise.all(tracks.map((t, i) => picture(sized(t.artwork, i ? 't120x120' : 't500x500')))),
+            Promise.all(artists.map((a, i) => picture(sized(avatars[artistPath(a.path)] || a.artwork, i ? 't120x120' : 't500x500')))),
         ]);
-        // Части суток по минутам звука; тепловая карта индекса идёт с понедельника, как и неделя сводки
-        const parts = DAY_PARTS.map(([from, to]) => {
+        // main считает личное по обзору; нет его (старый main) — спокойный характер и цвет полуночи
+        const insights = s.insights || { archetype: 'steady', days: 0, streak: 0, peakHour: -1, topShare: 0, nightShare: 0, morningShare: 0, trackShare: 0, freshShare: -1, palette: paletteOf(240, 0.4) };
+        const named = insights.palette;
+        const tone = (img) => {
+            const found = toneOf(img);
+            return found ? paletteOf(found.hue, found.sat) : null;
+        };
+        const trackTone = tone(covers[0]);
+        const artistTone = tone(faces[0]);
+        const base = toneOf(covers[0]) || toneOf(faces[0]) || toneOfHex(named.a);
+        const named2 = toneOfHex(named.a);
+        const hours = Array.from({ length: 24 }, (_, hour) => {
             let minutes = 0;
-            for (let day = 0; day < 7; day++) for (let hour = from; hour < to; hour++) minutes += s.heat[day * 24 + hour] || 0;
+            for (let day = 0; day < 7; day++) minutes += s.heat[day * 24 + hour] || 0;
             return minutes;
         });
-        const total = parts.reduce((sum, minutes) => sum + minutes, 0);
-        const busiest = Math.max(...parts);
-        const top = Math.max(...s.heat);
-        const peakAt = top > 0 ? s.heat.indexOf(top) : -1;
+        const days = Array.from({ length: 7 }, (_, day) => s.heat.slice(day * 24, day * 24 + 24).reduce((sum, minutes) => sum + minutes, 0));
+        const busiest = Math.max(...days);
         const { year, week: number } = isoWeek(s.from);
         return {
             year,
             number,
+            week,
             range: T.recapWeek(number, T.recapRange(s.from, last)),
             name: me ? me.username : '',
             link: me && me.permalink ? 'soundcloud.com/' + me.permalink : '',
             avatar,
             heard: s.heard,
-            stats: [
-                [s.counted, plural(s.counted, T.counted)],
-                [s.artistCount, plural(s.artistCount, T.artists)],
-                // История моложе недели: новые все, число ничего не говорит
-                ...(s.firstAt !== null && s.from > s.firstAt ? [[s.fresh, plural(s.fresh, T.fresh)]] : []),
-            ],
+            counted: s.counted,
+            artistCount: s.artistCount,
+            insights,
+            ...personaFacts(s),
             tracks: tracks.map((t, i) => ({ title: t.name || T.loading, artist: t.artistName, plays: t.plays, cover: covers[i] })),
-            artists: artists.map((a, i) => ({ name: a.name || T.loading, time: span(a.ms), face: faces[i] })),
-            genres: s.genres.slice(0, 4).map((g) => ({ name: cap(g.name), share: pct(g.plays, s.counted) + '%' })),
-            parts: parts.map((minutes, i) => ({
-                name: T.dayParts[i],
-                hours: DAY_PARTS[i][0] + '-' + DAY_PARTS[i][1],
-                share: pct(minutes, total) + '%',
-                top: minutes > 0 && minutes === busiest,
-            })),
-            peak: peakAt < 0 ? '' : T.recapPeak(fmtWeekday.format(addDays(s.from, Math.floor(peakAt / 24))), pad(peakAt % 24) + ':00'),
+            artists: artists.map((a, i) => ({ name: a.name || T.loading, time: span(a.ms), share: pct(a.ms, s.heard), face: faces[i] })),
+            genres: s.genres.slice(0, 3).map((g) => ({ name: cap(g.name), share: pct(g.plays, s.counted) })),
+            hours,
+            // Самый музыкальный день недели: теплокарта идёт с понедельника, как и неделя сводки
+            peakDay: busiest > 0 ? fmtWeekday.format(addDays(s.from, days.indexOf(busiest))) : '',
+            // Неделя и артист — цвет лица недели, трек — его обложка, характер — дополнительный тон к обложке
+            palettes: {
+                week: artistTone || trackTone || named,
+                artist: artistTone || named,
+                track: trackTone || paletteOf(named2.hue + 50, named2.sat),
+                vibe: paletteOf(base.hue + 150, Math.max(0.55, base.sat)),
+            },
         };
     }
 
-    function paintRecap(ctx, m, preset) {
+    // ===== Рисование карточек =====
+    // Иконки характера в сетке 24×24
+    const PERSONA_ICONS = {
+        starter: 'M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z',
+        nightOwl: 'M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1z',
+        loyal: 'M12 21s-7.6-4.6-9.3-9.4C1.5 8.3 3.6 4.7 7.2 4.7c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.6 0 5.7 3.6 4.5 6.9C19.6 16.4 12 21 12 21z',
+        repeat: 'M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z',
+        explorer: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm4.2 3.8-2.6 5.8-5.8 2.6 2.6-5.8z',
+        earlyBird: 'M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1 1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z',
+        marathon: 'M13 2 4 14h6l-1 8 9-12h-6z',
+        eclectic: 'M10.6 9.2 5.4 4 4 5.4l5.2 5.2zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4zm.3 9.4-1.4 1.4 3.1 3.1-2 2.1H20v-5.5l-2 2z',
+        steady: 'M2 13.5c2.3-6 4.7-6 7 0s4.7 6 7 0 4-5 6-2.5l-1.5 1.2c-1-1.2-2-.6-3 1.8-2.9 7.6-7 7.6-9.9 0-1.6-4.2-2.7-4.2-4.2 0z',
+    };
+    let grain = null;
+    // Зерно плёнки: один шум на все карточки, по пикселю холста
+    function grainPattern(ctx) {
+        if (!grain) {
+            grain = document.createElement('canvas');
+            grain.width = grain.height = 180;
+            const g = grain.getContext('2d');
+            const noise = g.createImageData(180, 180);
+            for (let i = 0; i < noise.data.length; i += 4) {
+                const v = Math.random() * 255;
+                noise.data[i] = noise.data[i + 1] = noise.data[i + 2] = v;
+                noise.data[i + 3] = 255;
+            }
+            g.putImageData(noise, 0, 0);
+        }
+        const pattern = ctx.createPattern(grain, 'repeat');
+        pattern.setTransform(new window.DOMMatrix().scale(1 / RECAP.scale));
+        return pattern;
+    }
+    // Пятна сетки по карточкам: у каждой своё расположение, чтобы четыре истории подряд не были одинаковыми
+    const MESH = {
+        week: [['a', 0.1, 0.12, 0.95, 0.95], ['b', 1, 0.5, 0.8, 0.85], ['a', 0.2, 1.02, 0.75, 0.55]],
+        artist: [['a', 0.5, 0.32, 0.85, 0.9], ['b', 0, 0.85, 0.8, 0.7], ['b', 1, 0.05, 0.6, 0.6]],
+        track: [['b', 0.9, 0.15, 0.85, 0.85], ['a', 0.05, 0.45, 0.8, 0.8], ['a', 0.85, 1, 0.7, 0.55]],
+        vibe: [['a', 0.5, 0.3, 0.7, 0.95], ['b', 0.05, 0.05, 0.7, 0.75], ['b', 0.95, 0.95, 0.85, 0.8]],
+    };
+
+    function painter(ctx, pal) {
         const W = RECAP.width;
-        const HERO = RECAP.hero;
-        const p = RECAP_PANELS[preset.panel];
-        const font = (size, weight) => (ctx.font = weight + ' ' + size + 'px ' + RECAP.font);
+        const ink = pal.light
+            ? { ink: '#121212', soft: 'rgba(18, 18, 18, 0.66)', glass: 'rgba(255, 255, 255, 0.38)', edge: 'rgba(0, 0, 0, 0.1)', faint: 'rgba(18, 18, 18, 0.3)' }
+            : { ink: '#ffffff', soft: 'rgba(255, 255, 255, 0.72)', glass: 'rgba(255, 255, 255, 0.1)', edge: 'rgba(255, 255, 255, 0.16)', faint: 'rgba(255, 255, 255, 0.34)' };
+        const font = (size, weight) => {
+            ctx.font = weight + ' ' + size + 'px ' + RECAP.font;
+        };
         const fit = (value, room) => {
+            value = String(value);
             if (ctx.measureText(value).width <= room) return value;
             let cut = value;
             while (cut && ctx.measureText(cut + '…').width > room) cut = cut.slice(0, -1);
             return cut.trimEnd() + '…';
+        };
+        const wrap = (value, room, lines) => {
+            const words = String(value).split(/\s+/).filter(Boolean);
+            const out = [];
+            let line = '';
+            for (const word of words) {
+                const next = line ? line + ' ' + word : word;
+                if (!line || ctx.measureText(next).width <= room) line = next;
+                else {
+                    out.push(line);
+                    line = word;
+                }
+            }
+            if (line) out.push(line);
+            if (out.length > lines) {
+                const kept = out.slice(0, lines);
+                kept[lines - 1] = fit(out.slice(lines - 1).join(' '), room);
+                return kept;
+            }
+            return out.map((part) => fit(part, room));
+        };
+        // Крупный заголовок: кегль уменьшается, пока текст не встанет в lines строк без многоточия
+        const headline = (value, room, lines, size, min, weight) => {
+            let current = size;
+            for (; current > min; current -= 2) {
+                font(current, weight);
+                const words = String(value).split(/\s+/).filter(Boolean);
+                let count = 1;
+                let line = '';
+                let fits = true;
+                for (const word of words) {
+                    if (ctx.measureText(word).width > room) fits = false;
+                    const next = line ? line + ' ' + word : word;
+                    if (!line || ctx.measureText(next).width <= room) line = next;
+                    else {
+                        count++;
+                        line = word;
+                    }
+                }
+                if (fits && count <= lines) break;
+            }
+            font(current, weight);
+            return { size: current, lines: wrap(value, room, lines) };
         };
         const text = (value, x, y, color, align) => {
             ctx.fillStyle = color;
             ctx.textAlign = align || 'left';
             ctx.fillText(value, x, y);
         };
-        // Квадрат из середины картинки без искажения
-        const cover = (img, x, y, size) => {
+        const cover = (img, x, y, w, h) => {
             const side = Math.min(img.naturalWidth, img.naturalHeight);
-            ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, x, y, size, size);
+            ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, x, y, w, h);
         };
-        const round = (img, cx, cy, r, fill) => {
+        const roundRect = (x, y, w, h, r) => {
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+        };
+        // Стеклянная плашка: светлая плёнка и тонкая кромка
+        const glass = (x, y, w, h, r) => {
+            roundRect(x, y, w, h, r);
+            ctx.fillStyle = ink.glass;
+            ctx.fill();
+            ctx.strokeStyle = ink.edge;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        };
+        const pill = (value, cx, y, size, weight) => {
+            font(size, weight);
+            const w = ctx.measureText(value).width + size * 1.6;
+            const h = size * 2;
+            glass(cx - w / 2, y, w, h, h / 2);
+            ctx.textBaseline = 'middle';
+            text(value, cx, y + h / 2 + 1, ink.ink, 'center');
+            ctx.textBaseline = 'alphabetic';
+            return w;
+        };
+        const circle = (img, cx, cy, r, initial) => {
             ctx.save();
             ctx.beginPath();
             ctx.arc(cx, cy, r, 0, Math.PI * 2);
             ctx.clip();
-            if (img) cover(img, cx - r, cy - r, r * 2);
+            if (img) cover(img, cx - r, cy - r, r * 2, r * 2);
             else {
+                const fill = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+                fill.addColorStop(0, pal.a);
+                fill.addColorStop(1, pal.b);
                 ctx.fillStyle = fill;
                 ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+                if (initial) {
+                    font(Math.round(r * 0.9), 800);
+                    ctx.textBaseline = 'middle';
+                    text(initial.charAt(0).toUpperCase(), cx, cy + r * 0.04, '#ffffff', 'center');
+                    ctx.textBaseline = 'alphabetic';
+                }
             }
             ctx.restore();
         };
-        // Плашка как у названия трека на SoundCloud: чёрный фон по ширине текста, части на общей базовой линии
-        const plate = (x, y, h, padX, runs, align) => {
-            const widths = runs.map((run) => {
-                font(run.size, run.weight);
-                return ctx.measureText(run.text).width;
-            });
-            const width = padX * 2 + widths.reduce((sum, w, i) => sum + w + (i ? 8 : 0), 0);
-            const left = align === 'right' ? x - width : x;
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(left, y, width, h);
-            const base = y + h / 2 + Math.max(...runs.map((run) => run.size)) * 0.36;
-            let cursor = left + padX;
-            ctx.textBaseline = 'alphabetic';
-            runs.forEach((run, i) => {
-                font(run.size, run.weight);
-                text(run.text, cursor, base, run.color);
-                cursor += widths[i] + 8;
-            });
-        };
+        return { W, pal, ink, font, fit, wrap, headline, text, cover, roundRect, glass, pill, circle };
+    }
 
-        ctx.fillStyle = p.panel;
-        ctx.fillRect(0, 0, W, RECAP.height);
-        // Шапка: градиент на 135 градусов, как linear-gradient(135deg) у макета
-        const shift = (W + HERO) / 4;
-        const gradient = ctx.createLinearGradient(W / 2 - shift, HERO / 2 - shift, W / 2 + shift, HERO / 2 + shift);
-        gradient.addColorStop(0, preset.a);
-        gradient.addColorStop(1, preset.b);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, W, HERO);
-
-        round(m.avatar, 155, 165, 115, '#c9b8ff');
-        if (!m.avatar) {
-            font(96, 700);
-            ctx.textBaseline = 'middle';
-            text((m.name || 'S').charAt(0).toUpperCase(), 155, 170, '#2a1b5c', 'center');
+    function backdrop(ctx, kind, pal) {
+        const W = RECAP.width;
+        const H = RECAP.height;
+        ctx.fillStyle = pal.c;
+        ctx.fillRect(0, 0, W, H);
+        for (const [key, x, y, r, alpha] of MESH[kind]) {
+            const g = ctx.createRadialGradient(x * W, y * H, 0, x * W, y * H, r * W);
+            g.addColorStop(0, rgba(pal[key], alpha));
+            g.addColorStop(0.55, rgba(pal[key], alpha * 0.35));
+            g.addColorStop(1, rgba(pal[key], 0));
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, W, H);
         }
-        font(40, 700);
-        plate(300, 56, 48, 12, [{ text: fit(m.name || T.recap, 520), size: 40, weight: 700, color: '#ffffff' }]);
-        if (m.link) plate(300, 112, 24, 10, [{ text: m.link, size: 15, weight: 400, color: '#cccccc' }]);
-        plate(300, 166, 72, 14, [
-            { text: span(m.heard), size: 54, weight: 800, color: '#ffffff' },
-            { text: T.recapMusic, size: 17, weight: 400, color: '#cccccc' },
-        ]);
-        plate(300, 246, 24, 10, [{ text: m.range, size: 15, weight: 400, color: '#cccccc' }]);
-        m.stats.forEach(([value, label], i) =>
-            plate(1160, 56 + i * 46, 38, 12, [
-                { text: String(value), size: 24, weight: 700, color: '#ffffff' },
-                { text: label, size: 15, weight: 400, color: '#cccccc' },
-            ], 'right'),
-        );
+        // Тень сверху и снизу: подписи читаются на любой обложке
+        const shade = ctx.createLinearGradient(0, 0, 0, H);
+        const tint = pal.light ? '255, 255, 255' : '0, 0, 0';
+        shade.addColorStop(0, 'rgba(' + tint + ', 0.22)');
+        shade.addColorStop(0.3, 'rgba(' + tint + ', 0)');
+        shade.addColorStop(0.62, 'rgba(' + tint + ', 0.05)');
+        shade.addColorStop(1, 'rgba(' + tint + ', 0.55)');
+        ctx.fillStyle = shade;
+        ctx.fillRect(0, 0, W, H);
+        ctx.save();
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.globalAlpha = 0.09;
+        ctx.fillStyle = grainPattern(ctx);
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+    }
 
-        // Низ: треки и артисты недели слева, жанры и время суток справа
+    // Шапка и подвал у всех карточек: неделя, знак и кто слушал
+    function chrome(ctx, p, m) {
+        const { W, ink } = p;
+        ctx.textBaseline = 'alphabetic';
+        p.font(11, 700);
+        ctx.letterSpacing = '1.6px';
+        p.text(p.fit(m.range.toUpperCase(), W - 200), 36, 52, ink.soft);
+        p.text('SOUNDCLOUD', W - 36, 52, ink.soft, 'right');
+        ctx.letterSpacing = '0px';
+        if (!m.name) return;
+        p.circle(m.avatar, 36 + 17, 906, 17, m.name);
+        p.font(15, 700);
+        p.text(p.fit(m.name, W - 140), 80, m.link ? 902 : 911, ink.ink);
+        if (m.link) {
+            p.font(12, 500);
+            p.text(p.fit(m.link, W - 140), 80, 920, ink.soft);
+        }
+    }
+    const kicker = (ctx, p, value, y, align) => {
+        p.font(24, 600);
+        p.text(value, align === 'center' ? p.W / 2 : 36, y, p.ink.soft, align);
+    };
+
+    function paintWeek(ctx, p, m) {
+        const { W, ink } = p;
+        kicker(ctx, p, T.recapKicker[m.week], 170);
+        // Огромное число часов, рядом единица; меньше часа — минуты
+        const minutes = Math.round(m.heard / 60000);
+        const h = Math.floor(minutes / 60);
+        const big = String(h || minutes);
+        const unit = h ? T.h : T.min;
+        const sub = h && minutes % 60 ? minutes % 60 + ' ' + T.min + ' ' + T.recapMusic : T.recapMusic;
+        let size = 250;
+        p.font(size, 800);
+        ctx.letterSpacing = '-12px';
+        while (size > 120 && ctx.measureText(big).width > W - 170) {
+            size -= 10;
+            p.font(size, 800);
+        }
+        const width = ctx.measureText(big).width;
+        p.text(big, 30, 200 + size * 0.78, ink.ink);
+        ctx.letterSpacing = '0px';
+        p.font(64, 700);
+        p.text(unit, 30 + width + 14, 200 + size * 0.78, ink.ink);
+        const base = 200 + size * 0.78;
+        p.font(30, 700);
+        p.text(p.fit(sub, W - 72), 36, base + 52, ink.ink);
+        p.font(20, 500);
+        p.text(T.recapPerDay(m.perDay), 36, base + 86, ink.soft);
+        // Характер одной плашкой: затравка последней карточки
+        p.font(18, 700);
+        const persona = T.archetypes[m.insights.archetype];
+        const pw = ctx.measureText(persona).width + 62;
+        p.glass(36, base + 116, pw, 40, 20);
+        ctx.save();
+        ctx.translate(50, base + 125);
+        ctx.scale(22 / 24, 22 / 24);
+        ctx.fillStyle = ink.ink;
+        ctx.fill(new window.Path2D(PERSONA_ICONS[m.insights.archetype]), 'evenodd');
+        ctx.restore();
         ctx.textBaseline = 'middle';
-        font(13, 600);
-        text(T.recapTracks, 40, 365, p.muted);
-        m.tracks.forEach((t, i) => {
-            const x = 40 + i * 148;
-            if (t.cover) cover(t.cover, x, 384, 128);
-            else {
-                ctx.fillStyle = p.empty;
-                ctx.fillRect(x, 384, 128, 128);
-            }
-            font(15, 600);
-            text(fit(t.title, 128), x, 529, p.ink);
-            font(13, 400);
-            text(fit(t.artist, 128), x, 546.5, p.muted);
-            ctx.fillStyle = p.muted;
-            ctx.beginPath();
-            ctx.moveTo(x, 559);
-            ctx.lineTo(x + 8, 563.5);
-            ctx.lineTo(x, 568);
-            ctx.closePath();
-            ctx.fill();
-            font(12, 400);
-            text(String(t.plays), x + 13, 563.5, p.muted);
+        p.text(persona, 82, base + 137, ink.ink);
+        ctx.textBaseline = 'alphabetic';
+        // Три плитки: прослушивания, артисты, серия дней
+        const i = m.insights;
+        const tiles = [
+            [m.counted, plural(m.counted, T.counted)],
+            [m.artistCount, plural(m.artistCount, T.artists)],
+            i.streak >= 2 ? [i.streak, plural(i.streak, T.recapStreak)] : [i.days, plural(i.days, T.recapDaysWith)],
+        ];
+        const gap = 12;
+        const tw = (W - 72 - gap * 2) / 3;
+        tiles.forEach(([value, label], n) => {
+            const x = 36 + n * (tw + gap);
+            p.glass(x, 690, tw, 150, 22);
+            p.font(48, 800);
+            ctx.letterSpacing = '-1.5px';
+            p.text(p.fit(String(value), tw - 32), x + 16, 752, ink.ink);
+            ctx.letterSpacing = '0px';
+            // Длинное слово подписи («прослушиваний») мельчит кегль, а не режется многоточием
+            const fitted = p.headline(label, tw - 32, 2, 15, 11, 500);
+            fitted.lines.forEach((line, k) => p.text(line, x + 16, 788 + k * (fitted.size + 4), ink.soft));
         });
-        font(13, 600);
-        text(T.recapArtists, 40, 603, p.muted);
-        m.artists.forEach((a, i) => {
-            const x = 40 + i * 148;
-            round(a.face, x + 32, 654, 32, p.empty);
-            ctx.textBaseline = 'middle';
-            font(15, 600);
-            text(fit(a.name, 128), x, 703, p.ink);
-            font(13, 400);
-            text(a.time, x, 720.5, p.muted);
-        });
+    }
 
-        font(13, 600);
-        text(T.recapGenres, 820, 365, p.muted);
-        if (!m.genres.length) {
-            font(15, 400);
-            text(T.nothing, 820, 397, p.muted);
-        }
-        m.genres.forEach((g, i) => {
-            const cy = 397 + i * 30;
-            font(15, 400);
-            text(g.share, 1160, cy, p.muted, 'right');
-            font(15, 600);
-            text(fit(g.name, 280), 820, cy, p.ink);
-            ctx.fillStyle = p.line;
-            ctx.fillRect(820, 411 + i * 30, 340, 1);
-        });
-        font(13, 600);
-        text(T.when, 820, 533, p.muted);
-        m.parts.forEach((d, i) => {
-            const top = 550 + i * 32;
-            if (d.top) {
-                ctx.fillStyle = p.film;
-                ctx.beginPath();
-                ctx.roundRect(810, top, 360, 30, 4);
-                ctx.fill();
+    // Строки «кто следом»: место, картинка, имя, цифра справа
+    function runners(ctx, p, list, y, round) {
+        const { W, ink } = p;
+        list.forEach((item, n) => {
+            const top = y + n * 52;
+            if (n) {
+                ctx.fillStyle = ink.edge;
+                ctx.fillRect(36, top, W - 72, 1);
             }
-            const weight = d.top ? 700 : 400;
-            font(15, weight);
-            text(d.name, 820, top + 15, p.ink);
-            text(d.share, 1160, top + 15, p.ink, 'right');
-            font(13, 400);
-            text(d.hours, 1048, top + 15, p.muted);
+            ctx.textBaseline = 'middle';
+            p.font(16, 700);
+            p.text(String(n + 2), 36, top + 26, ink.faint);
+            if (round) p.circle(item.img, 78, top + 26, 18, item.name);
+            else {
+                ctx.save();
+                p.roundRect(60, top + 8, 36, 36, 6);
+                ctx.clip();
+                if (item.img) p.cover(item.img, 60, top + 8, 36, 36);
+                else {
+                    ctx.fillStyle = ink.glass;
+                    ctx.fillRect(60, top + 8, 36, 36);
+                }
+                ctx.restore();
+            }
+            p.font(15, 500);
+            const right = item.value;
+            const rw = ctx.measureText(right).width;
+            p.text(right, W - 36, top + 26, ink.soft, 'right');
+            p.font(17, 600);
+            p.text(p.fit(item.name, W - 36 - 112 - rw - 16), 112, top + 26, ink.ink);
+            ctx.textBaseline = 'alphabetic';
         });
-        if (m.peak) {
-            font(13, 400);
-            text(m.peak, 820, 695, p.muted);
+    }
+
+    function paintArtist(ctx, p, m) {
+        const { W, ink } = p;
+        const top = m.artists[0];
+        kicker(ctx, p, T.recapTopArtist, 128, 'center');
+        // Фото в кольце на мягкой тени
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 60;
+        ctx.shadowOffsetY = 24;
+        ctx.beginPath();
+        ctx.arc(W / 2, 320, 140, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fill();
+        ctx.restore();
+        p.circle(top ? top.face : null, W / 2, 320, 140, top ? top.name : '');
+        ctx.beginPath();
+        ctx.arc(W / 2, 320, 154, 0, Math.PI * 2);
+        ctx.strokeStyle = ink.edge;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        if (!top) return;
+        const title = p.headline(top.name, W - 72, 2, 54, 34, 800);
+        title.lines.forEach((line, n) => p.text(line, W / 2, 540 + n * title.size * 1.05, ink.ink, 'center'));
+        const after = 540 + (title.lines.length - 1) * title.size * 1.05;
+        p.font(20, 500);
+        p.text(top.time + ' · ' + T.recapShareOfWeek(top.share), W / 2, after + 40, ink.soft, 'center');
+        runners(ctx, p, m.artists.slice(1, 5).map((a) => ({ name: a.name, value: a.time, img: a.face })), Math.max(after + 72, 650), true);
+    }
+
+    function paintTrack(ctx, p, m) {
+        const { W, ink } = p;
+        const top = m.tracks[0];
+        kicker(ctx, p, T.recapTopTrack, 128, 'center');
+        const side = 290;
+        const x = (W - side) / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowBlur = 60;
+        ctx.shadowOffsetY = 28;
+        p.roundRect(x, 165, side, side, 20);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        p.roundRect(x, 165, side, side, 20);
+        ctx.clip();
+        if (top && top.cover) p.cover(top.cover, x, 165, side, side);
+        else {
+            // Обложки нет: градиент цветов карточки и нота посередине
+            const fill = ctx.createLinearGradient(x, 165, x + side, 165 + side);
+            fill.addColorStop(0, p.pal.a);
+            fill.addColorStop(1, p.pal.b);
+            ctx.fillStyle = fill;
+            ctx.fillRect(x, 165, side, side);
+            ctx.translate(x + side / 2 - 60, 165 + side / 2 - 60);
+            ctx.scale(5, 5);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fill(new window.Path2D('M9 3v10.6A3.5 3.5 0 1 0 11 17V7h5V3z'));
+        }
+        ctx.restore();
+        if (!top) return;
+        const title = p.headline(top.title, W - 72, 2, 44, 28, 800);
+        title.lines.forEach((line, n) => p.text(line, W / 2, 520 + n * title.size * 1.08, ink.ink, 'center'));
+        let y = 520 + (title.lines.length - 1) * title.size * 1.08;
+        p.font(20, 500);
+        p.text(p.fit(top.artist, W - 72), W / 2, y + 34, ink.soft, 'center');
+        p.pill(top.plays + ' ' + plural(top.plays, T.plays), W / 2, y + 56, 16, 700);
+        y += 112;
+        runners(ctx, p, m.tracks.slice(1, Math.max(1, Math.min(5, 1 + Math.floor((870 - y) / 52)))).map((t) => ({ name: t.title, value: String(t.plays), img: t.cover })), y, false);
+    }
+
+    function paintVibe(ctx, p, m) {
+        const { W, ink } = p;
+        const i = m.insights;
+        kicker(ctx, p, T.recapCharacter, 128, 'center');
+        // Значок характера в светящемся круге
+        ctx.save();
+        ctx.shadowColor = ink.edge;
+        ctx.shadowBlur = 50;
+        ctx.beginPath();
+        ctx.arc(W / 2, 255, 82, 0, Math.PI * 2);
+        ctx.fillStyle = ink.glass;
+        ctx.fill();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(W / 2, 255, 82, 0, Math.PI * 2);
+        ctx.strokeStyle = ink.edge;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.save();
+        ctx.translate(W / 2 - 42, 255 - 42);
+        ctx.scale(84 / 24, 84 / 24);
+        ctx.fillStyle = ink.ink;
+        ctx.fill(new window.Path2D(PERSONA_ICONS[i.archetype]), 'evenodd');
+        ctx.restore();
+        const title = p.headline(T.archetypes[i.archetype], W - 72, 2, 60, 36, 800);
+        ctx.letterSpacing = '-1px';
+        title.lines.forEach((line, n) => p.text(line, W / 2, 425 + n * title.size * 1.04, ink.ink, 'center'));
+        ctx.letterSpacing = '0px';
+        let y = 425 + (title.lines.length - 1) * title.size * 1.04;
+        p.font(20, 500);
+        p.wrap(T.archetypeLines[i.archetype](i, m), W - 96, 2).forEach((line, n) => p.text(line, W / 2, y + 42 + n * 26, ink.soft, 'center'));
+        // Сутки по часам: пик белым, остальное дымкой
+        const chartTop = 610;
+        const chartH = 110;
+        const max = Math.max(1, ...m.hours);
+        const step = (W - 72) / 24;
+        p.font(17, 700);
+        if (i.peakHour >= 0) p.text(p.fit(T.recapPeakAt(pad(i.peakHour) + ':00') + (m.peakDay ? ' · ' + m.peakDay : ''), W - 72), 36, chartTop - 18, ink.ink);
+        m.hours.forEach((minutes, hour) => {
+            const h = minutes ? Math.max(4, (minutes / max) * chartH) : 2;
+            p.roundRect(36 + hour * step + 1.5, chartTop + chartH - h, step - 3, h, Math.min(4, (step - 3) / 2));
+            ctx.fillStyle = hour === i.peakHour ? ink.ink : ink.faint;
+            ctx.fill();
+        });
+        p.font(12, 500);
+        [0, 6, 12, 18].forEach((hour) => p.text(hour + ':00', 36 + hour * step + 1.5, chartTop + chartH + 22, ink.soft));
+        // Жанры плашками по центру
+        const chips = m.genres.map((g) => g.name + ' ' + g.share + '%');
+        p.font(15, 700);
+        const widths = chips.map((chip) => ctx.measureText(chip).width + 26);
+        let shown = chips.length;
+        while (shown > 0 && widths.slice(0, shown).reduce((sum, w) => sum + w + 8, -8) > W - 72) shown--;
+        let cursor = (W - widths.slice(0, shown).reduce((sum, w) => sum + w + 8, -8)) / 2;
+        for (let n = 0; n < shown; n++) {
+            p.pill(chips[n], cursor + widths[n] / 2, 790, 15, 700);
+            cursor += widths[n] + 8;
         }
     }
 
-    function drawRecap(m, preset) {
+    const PAINT = { week: paintWeek, artist: paintArtist, track: paintTrack, vibe: paintVibe };
+    function drawCard(kind, m) {
         const canvas = document.createElement('canvas');
         canvas.width = RECAP.width * RECAP.scale;
         canvas.height = RECAP.height * RECAP.scale;
         const ctx = canvas.getContext('2d');
         ctx.scale(RECAP.scale, RECAP.scale);
-        paintRecap(ctx, m, preset);
-        canvas.setAttribute('role', 'img');
-        canvas.setAttribute('aria-label', T.recapLabel(span(m.heard), m.stats[0][0] + ' ' + m.stats[0][1]));
+        const pal = paletteFor(kind, m);
+        backdrop(ctx, kind, pal);
+        const p = painter(ctx, pal);
+        chrome(ctx, p, m);
+        PAINT[kind](ctx, p, m);
+        canvas.setAttribute('aria-hidden', 'true');
         return canvas;
     }
+    // Подпись карточки для чтения с экрана
+    function cardLabel(kind, m, n) {
+        const what =
+            kind === 'week' ? T.recapLabel(span(m.heard), m.counted + ' ' + plural(m.counted, T.counted))
+            : kind === 'artist' ? T.recapTopArtist + ': ' + (m.topArtist || T.nothing)
+            : kind === 'track' ? T.recapTopTrack + ': ' + (m.topTrack || T.nothing)
+            : T.recapCharacter + ': ' + T.archetypes[m.insights.archetype];
+        return T.recapCardOf(T.recapCards[kind], n + 1, RECAP_CARDS.length) + '. ' + what;
+    }
 
-    // Окно сводки: шапка строится при открытии и смене языка, дальше меняются только отметки и картинка
+    // Окно сводки: шапка строится при открытии и смене языка, дальше меняются только отметки и карточки
     function buildRecapModal() {
         const button = (act, label, solid) => '<button class="rc-btn' + (solid ? ' solid' : '') + '" data-rc="' + act + '">' + esc(label) + '</button>';
         modal.innerHTML =
@@ -1165,6 +1618,7 @@
             '<div class="seg" role="group" aria-label="' + esc(T.recapWeekGroup) + '">' +
             ['last', 'this'].map((week) => '<button data-rc="week" data-week="' + week + '">' + esc(T.recapWeeks[week]) + '</button>').join('') +
             '</div><div class="rc-colors" role="group" aria-label="' + esc(T.recapColors) + '">' +
+            '<button class="rc-swatch auto" data-rc="preset" data-index="-1" aria-label="' + esc(T.recapAuto) + '" data-tip="' + esc(T.recapAuto) + '"></button>' +
             RECAP_PRESETS.map((preset, i) =>
                 '<button class="rc-swatch" data-rc="preset" data-index="' + i + '" aria-label="' + esc(T.recapPresets[i]) + '" data-tip="' + esc(T.recapPresets[i]) +
                 '" style="background:linear-gradient(135deg,' + preset.a + ',' + preset.b + ')"></button>',
@@ -1181,6 +1635,17 @@
         const status = document.getElementById('rc-status');
         if (status) status.textContent = recap.status;
     }
+    function selectCard(index, focus) {
+        const nodes = [...modal.querySelectorAll('.rc-card')];
+        if (!nodes.length) return;
+        recap.selected = (index + nodes.length) % nodes.length;
+        recap.canvas = recap.cards[recap.selected] || null;
+        nodes.forEach((node, i) => node.setAttribute('aria-pressed', String(i === recap.selected)));
+        const node = nodes[recap.selected];
+        if (focus) node.focus({ preventScroll: true });
+        node.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducedMotion() ? 'instant' : 'smooth' });
+        updateRecapBar();
+    }
     async function refreshRecapBody() {
         const body = modal.querySelector('.rc-body');
         if (!body) return;
@@ -1192,26 +1657,44 @@
         else if (!s.heard) note = T.recapEmpty[recap.week];
         if (note) {
             recap.canvas = null;
+            recap.cards = [];
             recap.model = null;
-            body.innerHTML = '<p class="empty">' + esc(note) + '</p>';
+            body.innerHTML = '<p class="empty' + (note === T.recapLoading ? ' rc-wait' : '') + '">' + esc(note) + '</p>';
             updateRecapBar();
             return;
         }
         try {
             const [model] = await Promise.all([recapModel(s, recap.people, recap.week), recapFonts()]);
             if (draw !== recap.draw || !recap.open) return;
-            const canvas = drawRecap(model, RECAP_PRESETS[recap.preset]);
-            const first = !recap.canvas;
-            recap.canvas = canvas;
+            const cards = RECAP_CARDS.map((kind) => drawCard(kind, model));
+            const first = !recap.cards.length;
+            recap.cards = cards;
+            recap.selected = Math.min(recap.selected, cards.length - 1);
+            recap.canvas = cards[recap.selected];
             recap.model = model;
-            body.replaceChildren(canvas);
+            const deck = document.createElement('div');
+            // Карточки выезжают по очереди только при первом показе, смена цвета перерисовывает на месте
+            deck.className = 'rc-deck' + (first ? ' enter' : '');
+            cards.forEach((canvas, i) => {
+                const node = document.createElement('button');
+                node.className = 'rc-card';
+                node.dataset.rc = 'card';
+                node.dataset.index = String(i);
+                node.style.setProperty('--i', String(i));
+                node.setAttribute('aria-pressed', String(i === recap.selected));
+                node.setAttribute('aria-label', cardLabel(RECAP_CARDS[i], model, i));
+                node.append(canvas);
+                deck.append(node);
+            });
+            body.replaceChildren(deck);
             updateRecapBar();
-            // Картинка появилась впервые: фокус с «Закрыть» переходит на главное действие
+            // Карточки появились впервые: фокус с «Закрыть» переходит на главное действие
             if (first && document.activeElement && document.activeElement.dataset.rc === 'close') modal.querySelector('[data-rc="copy"]').focus({ preventScroll: true });
         } catch (error) {
             console.error('Сводка недели не нарисована:', error);
             if (draw !== recap.draw || !recap.open) return;
             recap.canvas = null;
+            recap.cards = [];
             body.innerHTML = '<p class="empty">' + esc(T.recapFailed) + '</p>';
         }
         updateRecapBar();
@@ -1220,7 +1703,7 @@
         const request = ++recap.request;
         const week = recap.week;
         const current = () => request === recap.request && recap.open;
-        Object.assign(recap, { data: null, people: undefined, failed: false });
+        Object.assign(recap, { data: null, people: undefined, failed: false, cards: [], canvas: null, selected: 0 });
         refreshRecapBody();
         try {
             const { from, to } = recapRange(week);
@@ -1255,7 +1738,7 @@
         if (text) recap.statusTimer = window.setTimeout(() => setRecapStatus(''), 4000);
     }
     function openRecap() {
-        Object.assign(recap, { open: true, week: 'last', canvas: null, model: null, busy: false, status: '' });
+        Object.assign(recap, { open: true, week: 'last', canvas: null, cards: [], selected: 0, model: null, busy: false, status: '' });
         modal.hidden = false;
         view.inert = true;
         tip.hidden = true;
@@ -1271,6 +1754,7 @@
         modal.hidden = true;
         modal.innerHTML = '';
         recap.canvas = null;
+        recap.cards = [];
         view.inert = false;
         view.querySelector('[data-act="recap"]')?.focus({ preventScroll: true });
     }
@@ -1285,13 +1769,14 @@
         }
         const request = recap.request;
         const model = recap.model;
+        const card = RECAP_CARDS[recap.selected];
         recap.busy = true;
         updateRecapBar();
         let status;
         try {
             if (kind === 'copy') status = (await api.invoke('history:recap-copy', image)) === true ? T.copied : T.copyFailed;
             else {
-                const result = await api.invoke('history:recap-save', image, model ? model.year : null, model ? model.number : null);
+                const result = await api.invoke('history:recap-save', image, model ? model.year : null, model ? model.number : null, card);
                 status = result === 'saved' ? T.saved : result === 'canceled' ? '' : T.saveFailed;
             }
         } catch (error) {
@@ -1307,6 +1792,7 @@
         if (!target || target.disabled) return;
         const act = target.dataset.rc;
         if (act === 'close') return closeRecap();
+        if (act === 'card') return selectCard(Number(target.dataset.index), false);
         if (act === 'week') {
             if (target.dataset.week === recap.week) return;
             recap.week = target.dataset.week === 'this' ? 'this' : 'last';
@@ -1315,7 +1801,8 @@
             return loadRecap();
         }
         if (act === 'preset') {
-            recap.preset = Number(target.dataset.index);
+            const value = Number(target.dataset.index);
+            recap.preset = Number.isInteger(value) && value >= 0 && value < RECAP_PRESETS.length ? value : -1;
             savePreset(recap.preset);
             updateRecapBar();
             return refreshRecapBody();
@@ -1413,6 +1900,12 @@
             const next = event.shiftKey ? (at <= 0 ? buttons.length - 1 : at - 1) : (at + 1) % buttons.length;
             event.preventDefault();
             buttons[next]?.focus();
+            return;
+        }
+        // Стрелки листают карточки сводки, когда фокус на одной из них
+        if (recap.open && (event.key === 'ArrowLeft' || event.key === 'ArrowRight') && event.target.closest && event.target.closest('.rc-card')) {
+            event.preventDefault();
+            selectCard(recap.selected + (event.key === 'ArrowRight' ? 1 : -1), true);
             return;
         }
         if (event.repeat) return;
