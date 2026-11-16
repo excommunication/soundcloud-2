@@ -493,7 +493,7 @@ export function appearanceCss(appearance: Appearance): string {
     // чипы и кнопки как у фирменного стиля. html body в начале перебивает правила волны (#sc-wave …) без !important
     const w = 'html body #sc-wave';
     rows.push(
-        `${w}{--scw-surface:var(--sc2-surface-2);--scw-film:var(--sc2-surface-1);--scw-film-strong:var(--sc2-surface-2);--scw-tile:var(--sc2-surface-2);--scw-muted:var(--sc2-text-2);--scw-faint:var(--sc2-text-3);--scw-btn:#fff;--scw-btn-ink:var(--sc2-ink)}`,
+        `${w}{--scw-cover-size:196px;--scw-surface:var(--sc2-surface-2);--scw-film:var(--sc2-surface-1);--scw-film-strong:var(--sc2-surface-2);--scw-tile:var(--sc2-surface-2);--scw-muted:var(--sc2-text-2);--scw-faint:var(--sc2-text-3);--scw-btn:#fff;--scw-btn-ink:var(--sc2-ink)}`,
         `${w} .scw-title{font-size:30px;line-height:36px;font-weight:800;letter-spacing:-.6px;color:#fff}`,
         `${w} .scw-head .scw-hint{display:none}`,
         `${w} .scw-seg{padding:4px;border-radius:999px;background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
@@ -504,15 +504,15 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-genre.set{background:var(--sc2-vice);color:var(--sc2-ink)}`,
         `${w} .scw-pop{border-radius:var(--sc2-r3);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
         // Карточка «сейчас играет»: под стеклом размытая обложка играющего трека и бегущая рамка Vice, пока играет
-        `${w} .scw-body{margin:0;padding:24px;gap:28px;border-radius:var(--sc2-r4);overflow:hidden;background:rgba(14,12,26,.35);backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
+        `${w} .scw-body{margin:0;padding:18px;gap:20px;border-radius:var(--sc2-r4);overflow:hidden;background:rgba(14,12,26,.35);backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:var(--sc2-shadow),inset 0 0 0 1px var(--sc2-line)}`,
         `${w} .scw-body::before{content:"";position:absolute;inset:-40px;z-index:-2;background:var(--sca-cover,none) center/cover;filter:blur(48px) saturate(1.7) brightness(.55);opacity:.85;transition:opacity .6s}`,
         `${w} .scw-body.lit{background:rgba(14,12,26,.3)}`,
-        `${w} .scw-cover{width:236px;height:236px;border-radius:var(--sc2-r3);overflow:hidden;box-shadow:0 30px 60px -22px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.08)}`,
-        `${w} .scw-play{width:64px;height:64px;background:#fff;box-shadow:0 12px 30px -12px rgba(0,0,0,.9);transition:transform var(--sc2-fast) var(--sc2-ease)}`,
+        `${w} .scw-cover{width:var(--scw-cover-size);height:var(--scw-cover-size);border-radius:var(--sc2-r3);overflow:hidden;box-shadow:0 30px 60px -22px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.08)}`,
+        `${w} .scw-play{width:54px;height:54px;background:#fff;box-shadow:0 12px 30px -12px rgba(0,0,0,.9);transition:transform var(--sc2-fast) var(--sc2-ease)}`,
         `${w} .scw-play svg{fill:var(--sc2-ink)}`,
         `${w} .scw-play:not(:disabled):hover{transform:scale(1.06);filter:none}`,
         `${w} .scw-play:not(:disabled):active{transform:scale(.94)}`,
-        `${w} .scw-track{font-size:26px;line-height:32px;font-weight:800;letter-spacing:-.4px}`,
+        `${w} .scw-track{font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px}`,
         `${w} .scw-artist{color:var(--sc2-text-2);font-weight:600}`,
         `${w} .scw-why{color:var(--sc2-text-2)}`,
         `${w} .scw-like{border-radius:999px;transition:background var(--sc2-fast),transform var(--sc2-fast) var(--sc2-ease)}`,
@@ -533,20 +533,21 @@ export function appearanceCss(appearance: Appearance): string {
         `@media (max-width:1100px){${w} .scw-meta.outside .scw-chip:not(.scw-chip-main) span{display:none}${w} .scw-meta.outside .scw-chip:not(.scw-chip-main){padding:0 9px}}`,
         `${w} .scw-btn.scw-primary{background:#fff;color:var(--sc2-ink);box-shadow:0 10px 24px -12px rgba(0,0,0,.8)}`,
         `${w} .scw-btn.scw-primary:hover{background:#fff;filter:brightness(.95)}`,
-        // Текст песни поверх обложки (2.8.1, для съёмки роликов): обложка крупнее, затемнена, строки по центру. Сама карточка
-        // на мышь не реагирует: ни стекла, ни наклона
-        `${w} .scw-cover.lyr{width:320px;height:320px}`,
+        // Текст песни поверх обложки (2.8.1, для съёмки роликов): обложка затемнена, строки по центру. Размер обложки
+        // в режиме текста тот же (2.9.0): раньше она росла с 236 до 320 px, и весь блок прыгал при включении текста.
+        // Текст листается внутри обложки, крупный кадр для роликов теперь даёт режим «Для роликов»
+        `${w} .scw-cover.lyr{width:var(--scw-cover-size);height:var(--scw-cover-size)}`,
         `${w} .scw-cover.lyr .scw-img{filter:brightness(.62) saturate(1.1)}`,
         `${w} .scw-lyrics-note{position:absolute;left:0;right:0;bottom:12px;z-index:3;margin:0;text-align:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.78);text-shadow:0 1px 8px rgba(0,0,0,.7);pointer-events:none}`,
         `${w} .scw-lyrics{position:absolute;inset:0;z-index:3;margin:0;border-radius:inherit;overflow:hidden;background:radial-gradient(120% 80% at 50% 50%,rgba(0,0,0,.12),rgba(0,0,0,.5));box-shadow:none}`,
         // Текст в такт (2.8.3), для роликов: строки едут лентой, текущая крупно посередине, слова загораются по одному
         // с пружинкой и свечением цвета обложки, вся строка чуть набухает на ударе баса. Соседние строки размыты
-        `${w} .scw-lyrics-rows{position:absolute;inset:0;max-height:none;overflow:auto;padding:130px 18px;box-sizing:border-box;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}`,
+        `${w} .scw-lyrics-rows{position:absolute;inset:0;max-height:none;overflow:auto;padding:38% 14px;box-sizing:border-box;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}`,
         `${w} .scw-lyrics[data-synced] .scw-lyrics-rows{overflow:hidden;padding:0 20px}`,
         `${w} .scw-lyrics-track{position:relative;will-change:transform;transition:transform .75s cubic-bezier(.22,1,.36,1)}`,
         `${w} .scw-lyrics-track.calm{transition:none}`,
         `${w} .scw-lyrics-rows::-webkit-scrollbar{display:none}`,
-        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:6px 0;font-size:23px;line-height:1.16;font-weight:900;letter-spacing:-.5px;text-align:center;color:rgba(255,255,255,.3);text-shadow:0 2px 14px rgba(0,0,0,.6);cursor:pointer;` +
+        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:5px 0;font-size:19px;line-height:1.16;font-weight:900;letter-spacing:-.5px;text-align:center;color:rgba(255,255,255,.3);text-shadow:0 2px 14px rgba(0,0,0,.6);cursor:pointer;` +
             `transform:scale(.92);transform-origin:center;filter:blur(1.6px);opacity:.75;transition:color .45s ease,transform .6s cubic-bezier(.22,1,.36,1),filter .5s ease,opacity .5s ease}`,
         `${w} .scw-lyric.near{filter:blur(.7px);opacity:.9}`,
         `${w} .scw-lyric.past{color:rgba(255,255,255,.45)}`,
