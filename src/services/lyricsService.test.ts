@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findLyrics, geniusLyricsFromHtml, lyricsQuery, parseLrc, pickLrclib } from './lyricsService';
+import { findLyrics, geniusLyricsFromHtml, lyricsQuery, parseLrc, pickLrclib, syncedFor } from './lyricsService';
 
 describe('lyricsQuery', () => {
     it('артист из названия, хвосты убраны', () => {
@@ -46,4 +46,37 @@ it('findLyrics: LRCLIB с таймкодами, сеть с ошибкой не 
     expect(found?.synced?.length).toBe(5);
     const failed = await findLyrics({ getJson: async () => { throw new Error('offline'); }, getText: async () => '' }, { title: 'A - B', uploader: '', durationMs: 0 });
     expect(failed).toBeNull();
+});
+
+describe('таймкоды под загрузку (2.8.3)', () => {
+    const lrc = Array.from({ length: 6 }, (_, i) => `[00:${String(10 + i * 5).padStart(2, '0')}.00] line ${i}`).join('\n');
+    it('parseLrc: слова расширенного LRC, метки слов не попадают в текст', () => {
+        expect(parseLrc('[00:01.00] <00:01.00> Hello <00:01.50> big <00:02.10> world')).toEqual([
+            { at: 1000, text: 'Hello big world', words: [{ at: 1000, text: 'Hello' }, { at: 1500, text: 'big' }, { at: 2100, text: 'world' }] },
+        ]);
+    });
+    it('другая длительность у обычной загрузки: без таймкодов, чтобы строки не отставали', () => {
+        expect(syncedFor({ syncedLyrics: lrc, duration: 200 }, 201000, false)?.length).toBe(6);
+        expect(syncedFor({ syncedLyrics: lrc, duration: 200 }, 212000, false)).toBeNull();
+    });
+    it('slowed: таймкоды растягиваются по отношению длительностей', () => {
+        expect(syncedFor({ syncedLyrics: lrc, duration: 200 }, 250000, true)?.[0].at).toBe(12500);
+    });
+    it('findLyrics: точная запись /get раньше поиска, чужая версия из поиска даёт простой текст', async () => {
+        const urls: string[] = [];
+        const found = await findLyrics(
+            {
+                getJson: async (url) => {
+                    urls.push(url);
+                    if (url.includes('/get?')) throw new Error('404');
+                    return [{ trackName: 'Song', artistName: 'Artist', duration: 260, plainLyrics: 'p', syncedLyrics: lrc }];
+                },
+                getText: async () => '',
+            },
+            { title: 'Artist - Song', uploader: 'x', durationMs: 200000 },
+        );
+        expect(urls[0]).toContain('/get?');
+        expect(found?.plain).toBe('p');
+        expect(found?.synced).toBeNull();
+    });
 });

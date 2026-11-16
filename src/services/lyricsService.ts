@@ -4,10 +4,17 @@
 export type GetJson = (url: string) => Promise<unknown>;
 export type GetText = (url: string) => Promise<string>;
 
+export interface LyricWord {
+    /** Начало слова, мс */
+    at: number;
+    text: string;
+}
 export interface LyricLine {
     /** Начало строки, мс */
     at: number;
     text: string;
+    /** Слова с таймкодами из расширенного LRC («<мм:сс.хх> слово»); без них карточка раскладывает слова сама */
+    words?: LyricWord[];
 }
 export interface Lyrics {
     source: 'lrclib' | 'genius';
@@ -44,19 +51,35 @@ export function lyricsQuery(title: string, uploader: string): { artist: string; 
     return { artist, track: rest, retimed };
 }
 
-/** Строки LRC «[мм:сс.хх] текст»; пустые строки между куплетами остаются пустыми */
+const stampMs = (min: string, sec: string, frac?: string): number => (Number(min) * 60 + Number(sec)) * 1000 + (frac ? Number(frac.padEnd(3, '0').slice(0, 3)) : 0);
+/** Строки LRC «[мм:сс.хх] текст»; пустые строки между куплетами остаются пустыми. Расширенный LRC со словами
+ *  «<мм:сс.хх>» даёт и таймкоды слов, сами метки из текста убираются */
 export function parseLrc(text: string): LyricLine[] {
     const lines: LyricLine[] = [];
     for (const row of text.split(/\r?\n/)) {
         const stamps = [...row.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
         if (!stamps.length) continue;
-        const words = row.replace(/\[[^\]]*\]/g, '').trim();
+        const body = row.replace(/\[[^\]]*\]/g, '');
+        const words: LyricWord[] = [];
+        const tagged = /<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>\s*([^<]*)/g;
+        for (let match = tagged.exec(body); match; match = tagged.exec(body)) {
+            const word = match[4].trim();
+            if (word) words.push({ at: stampMs(match[1], match[2], match[3]), text: word });
+        }
+        const plain = body.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
         for (const stamp of stamps) {
-            const fraction = stamp[3] ? Number(stamp[3].padEnd(3, '0')) : 0;
-            lines.push({ at: (Number(stamp[1]) * 60 + Number(stamp[2])) * 1000 + fraction, text: words });
+            const line: LyricLine = { at: stampMs(stamp[1], stamp[2], stamp[3]), text: plain };
+            if (words.length >= 2) line.words = words.map((word) => ({ ...word }));
+            lines.push(line);
         }
     }
     return lines.sort((a, b) => a.at - b.at);
+}
+
+/** Таймкоды под другой темп: slowed и sped up растягивают песню целиком, строки сдвигаются в той же пропорции */
+export function scaleLines(lines: LyricLine[], ratio: number): LyricLine[] {
+    const at = (value: number): number => Math.round(value * ratio);
+    return lines.map((line) => ({ ...line, at: at(line.at), ...(line.words ? { words: line.words.map((word) => ({ ...word, at: at(word.at) })) } : {}) }));
 }
 
 interface LrclibItem {
@@ -85,7 +108,11 @@ export function pickLrclib(items: unknown, artist: string, track: string, durati
         if (!score) continue;
         if (wantArtist && who && (who === wantArtist || who.includes(wantArtist) || wantArtist.includes(who))) score += 3;
         const seconds = typeof item.duration === 'number' ? item.duration : 0;
-        if (durationMs > 0 && seconds > 0 && Math.abs(seconds * 1000 - durationMs) < 4000) score += 2;
+        // Длительность решает между версиями одной песни: чужая версия (радио, расширенная, ремастер) даёт отставание строк
+        if (durationMs > 0 && seconds > 0) {
+            const diff = Math.abs(seconds * 1000 - durationMs);
+            score += diff < 1500 ? 3 : diff < 4000 ? 2 : diff < 10000 ? 0 : -1;
+        }
         if (textOf(item.syncedLyrics)) score += 1;
         if (!best || score > best.score) best = { item, score };
     }
@@ -157,7 +184,27 @@ export function pickGenius(body: unknown, artist: string, track: string): { url:
     return null;
 }
 
-/** Поиск текста: LRCLIB по полям, LRCLIB общим запросом, потом Genius. Ошибки сети дают null, а не исключение */
+/** Разница длительностей, при которой таймкоды ещё совпадают с загрузкой на SoundCloud */
+const SYNC_DRIFT_MS = 3500;
+/** Таймкоды записи LRCLIB под эту загрузку. Темп переделки: пересчёт по отношению длительностей. Обычная загрузка
+ *  с другой длительностью (вступление, другая версия) строки не получает: лучше простой текст, чем отставание */
+export function syncedFor(item: LrclibItem, durationMs: number, retimed: boolean): LyricLine[] | null {
+    const raw = textOf(item.syncedLyrics);
+    if (!raw) return null;
+    let lines = parseLrc(String(item.syncedLyrics));
+    if (lines.length < 4) return null;
+    const seconds = typeof item.duration === 'number' ? item.duration : 0;
+    if (durationMs > 0 && seconds > 0) {
+        const ratio = durationMs / (seconds * 1000);
+        if (retimed) {
+            if (ratio < 0.6 || ratio > 1.6 || Math.abs(ratio - 1) < 0.02) return null;
+            lines = scaleLines(lines, ratio);
+        } else if (Math.abs(durationMs - seconds * 1000) > SYNC_DRIFT_MS) return null;
+    } else if (retimed) return null;
+    return lines;
+}
+
+/** Поиск текста: LRCLIB точной записью по длительности, по полям, общим запросом, потом Genius. Ошибки сети дают null */
 export async function findLyrics(
     deps: { getJson: GetJson; getText: GetText },
     input: { title: string; uploader: string; durationMs: number },
@@ -165,22 +212,30 @@ export async function findLyrics(
     const { artist, track, retimed } = lyricsQuery(input.title, input.uploader);
     if (!track) return null;
     const safe = <T>(task: Promise<T>): Promise<T | null> => task.catch(() => null);
-    const lrclib = 'https://lrclib.net/api/search?';
-    const asks = [
-        lrclib + new URLSearchParams({ track_name: track, ...(artist ? { artist_name: artist } : {}) }).toString(),
-        lrclib + new URLSearchParams({ q: (artist + ' ' + track).trim() }).toString(),
-    ];
+    const lrclib = 'https://lrclib.net/api/';
+    const asks: string[] = [];
+    // /get отдаёт запись той же длительности (±2 с): у неё таймкоды совпадают с этой загрузкой
+    if (artist && !retimed && input.durationMs > 0) {
+        asks.push(lrclib + 'get?' + new URLSearchParams({ track_name: track, artist_name: artist, duration: String(Math.round(input.durationMs / 1000)) }).toString());
+    }
+    asks.push(
+        lrclib + 'search?' + new URLSearchParams({ track_name: track, ...(artist ? { artist_name: artist } : {}) }).toString(),
+        lrclib + 'search?' + new URLSearchParams({ q: (artist + ' ' + track).trim() }).toString(),
+    );
+    // Первая подходящая запись с текстом запоминается; если у неё нет годных таймкодов, ищется запись, где они есть
+    let first: { item: LrclibItem } | null = null;
     for (const url of asks) {
-        const item = pickLrclib(await safe(deps.getJson(url)), artist, track, retimed ? 0 : input.durationMs);
+        const body = await safe(deps.getJson(url));
+        const items = Array.isArray(body) ? body : body && typeof body === 'object' ? [body] : [];
+        const item = pickLrclib(items, artist, track, input.durationMs);
         if (!item) continue;
-        const synced = !retimed && textOf(item.syncedLyrics) ? parseLrc(String(item.syncedLyrics)) : [];
-        return {
-            source: 'lrclib',
-            title: textOf(item.trackName),
-            artist: textOf(item.artistName),
-            plain: String(item.plainLyrics).trim(),
-            synced: synced.length >= 4 ? synced : null,
-        };
+        first ??= { item };
+        const synced = syncedFor(item, input.durationMs, retimed);
+        if (synced) return { source: 'lrclib', title: textOf(item.trackName), artist: textOf(item.artistName), plain: String(item.plainLyrics).trim(), synced };
+    }
+    if (first) {
+        const item = first.item;
+        return { source: 'lrclib', title: textOf(item.trackName), artist: textOf(item.artistName), plain: String(item.plainLyrics).trim(), synced: null };
     }
     const found = pickGenius(await safe(deps.getJson('https://genius.com/api/search/song?per_page=5&q=' + encodeURIComponent((artist + ' ' + track).trim()))), artist, track);
     if (!found) return null;
