@@ -104,7 +104,7 @@
             saved: 'Сохранено',
             saveFailed: 'Не удалось сохранить',
             recapClose: 'Закрыть',
-            // Карточки сводки (2.10.2): четыре истории в духе итогов года
+            // Карточки сводки (2.11.0): четыре истории в духе итогов года
             recapAuto: 'Цвет обложки',
             personaTip: 'Твой музыкальный характер за этот период',
             recapCards: { week: 'Неделя', artist: 'Артист', track: 'Трек', vibe: 'Характер' },
@@ -276,7 +276,7 @@
             saved: 'Saved',
             saveFailed: 'Could not save',
             recapClose: 'Close',
-            // Recap cards (2.10.2): four stories in the spirit of a year-end wrap-up
+            // Recap cards (2.11.0): four stories in the spirit of a year-end wrap-up
             recapAuto: 'Cover colour',
             personaTip: 'Your listening personality for this period',
             recapCards: { week: 'Week', artist: 'Artist', track: 'Track', vibe: 'Personality' },
@@ -765,7 +765,7 @@
         // Период начался не позже первой записи истории (всё время или месяц, когда история моложе месяца):
         // каждый артист тут появился впервые, «новых» столько же, сколько всех, и число ничего не говорит
         if (s.firstAt !== null && s.from > s.firstAt) figs.push([s.fresh, plural(s.fresh, T.fresh)]);
-        // Серия дней подряд (2.10.2): только когда полосы волны не длиннее суток, иначе дни не различить
+        // Серия дней подряд (2.11.0): только когда полосы волны не длиннее суток, иначе дни не различить
         const i = s.insights;
         if (i && i.streak >= 2 && s.wave.binHours <= 24) figs.push([i.streak, plural(i.streak, T.recapStreak)]);
         // Характер периода плашкой в цвет главного артиста
@@ -913,7 +913,7 @@
         message.textContent = state.lang === 'en' ? 'Could not play this track. Check your connection and try again.' : 'Не удалось включить трек. Проверь соединение и попробуй ещё раз.';
     }
 
-    // Сводка недели (2.10.2): четыре карточки-истории 9:16 в духе итогов года — неделя, артист, трек, характер.
+    // Сводка недели (2.11.0): четыре карточки-истории 9:16 в духе итогов года — неделя, артист, трек, характер.
     // Каждая рисуется на своём холсте и уходит в main как PNG. Цвет карточки берётся с обложки или аватарки (sndcdn отдаёт
     // картинки с разрешением для чужих страниц, холст остаётся выгружаемым); без картинки — цвет по имени артиста из main
     const RECAP = { width: 540, height: 960, scale: 2, font: "Onest, 'Segoe UI', system-ui, sans-serif" };
@@ -930,7 +930,7 @@
         { a: '#f1f4f9', b: '#bccbe3', panel: 'light' },
     ];
     const PRESET_KEY = 'scDesktopRecapPreset';
-    // -1 — цвет обложки (по умолчанию с 2.10.2), иначе номер ручного цвета
+    // -1 — цвет обложки (по умолчанию с 2.11.0), иначе номер ручного цвета
     function readPreset() {
         try {
             const raw = window.localStorage.getItem(PRESET_KEY);

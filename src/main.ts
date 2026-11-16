@@ -798,7 +798,7 @@ function setupWindowControls() {
 
 let headerView: BrowserView | null;
 let contentView: BrowserView;
-// Запись ролика (2.10.3): захват кадра страницы выдаётся один раз после нашего же clip:record-arm, сайту он недоступен
+// Запись ролика (2.11.0): захват кадра страницы выдаётся один раз после нашего же clip:record-arm, сайту он недоступен
 const clipGrant = new ClipGrant();
 
 function closeUpdateScreen(): void {

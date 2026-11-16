@@ -99,7 +99,7 @@ export class HistoryManager {
             this.recapOnOpen = false;
             return { language: this.host.language(), signedIn: this.userId > 0, reduceMotion: this.host.reduceMotion?.() === true, playing: this.nowPlaying, recap };
         });
-        // Обзор приходит с личным для карточек сводки (2.10.2): характер, серия дней, пик, запасной цвет
+        // Обзор приходит с личным для карточек сводки (2.11.0): характер, серия дней, пик, запасной цвет
         ipcMain.handle('history:overview', async (event, from: unknown, to: unknown) => {
             this.guard(event);
             if ((from !== null && !isBound(from)) || !isBound(to)) return null;
