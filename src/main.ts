@@ -87,7 +87,8 @@ import { autoUpdater } from 'electron-updater';
 import { ShortcutService } from './services/shortcutService';
 import { audioMonitorScript } from './services/audioMonitorService';
 import path from 'path';
-import { platform, release } from 'os';
+import { platform, release, totalmem } from 'os';
+import { memoryVerdict } from './services/memoryGuard';
 
 import Store from 'electron-store';
 import windowStateManager from 'electron-window-state';
@@ -309,6 +310,7 @@ process.on('uncaughtException', (error) => {
     dialog.showErrorBox('A JavaScript error occurred in the main process', 'Uncaught Exception:\n' + (error?.stack ?? String(error)));
 });
 let diagnosticTimer: ReturnType<typeof setInterval> | undefined;
+let memoryGuardTimer: ReturnType<typeof setInterval> | undefined;
 // Пользователь не у компьютера (экран заблокирован, простой дольше 10 минут): журнал сигналов помечает такие прослушивания
 const awayTracker = new AwayTracker(() => powerMonitor.getSystemIdleTime());
 let awayTimer: ReturnType<typeof setInterval> | undefined;
@@ -835,6 +837,24 @@ async function init() {
         loopDelay.reset();
     }, 30000);
     diagnosticTimer.unref();
+    // Сторож памяти (2.10.1, services/memoryGuard.ts): плеер сайта копит ~2,5 МБ на каждый пропущенный трек, раздутую
+    // страницу перезагружаем, когда это не мешает музыке. После перезагрузки волна сама восстанавливает очередь
+    const guardStartedAt = Date.now();
+    let lastGuardReloadAt = guardStartedAt;
+    memoryGuardTimer = setInterval(() => {
+        if (store.get('memoryGuard', true) === false || !contentView || contentView.webContents.isDestroyed() || contentView.webContents.isLoading()) return;
+        const pid = contentView.webContents.getOSProcessId();
+        const page = app.getAppMetrics().find((item) => item.pid === pid);
+        if (!page) return;
+        const pageMiB = page.memory.workingSetSize / 1024;
+        const shown = !!mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized();
+        const verdict = memoryVerdict({ pageMiB, totalMiB: totalmem() / 1048576, playing: playback.info.isPlaying, windowShown: shown, sinceReloadMs: Date.now() - lastGuardReloadAt });
+        if (!verdict) return;
+        lastGuardReloadAt = Date.now();
+        diagnostics.record('memory.reload', { kind: verdict, pageMiB: Math.round(pageMiB), playing: playback.info.isPlaying, windowVisible: shown });
+        contentView.webContents.reload();
+    }, 20000);
+    memoryGuardTimer.unref();
     powerMonitor.on('suspend', () => { diagnostics.record('system.suspend'); diagnostics.flush(); });
     powerMonitor.on('resume', () => {
         diagnostics.record('system.resume');
@@ -1664,6 +1684,7 @@ app.on('before-quit', (event) => {
         return;
     }
     clearInterval(diagnosticTimer);
+    clearInterval(memoryGuardTimer);
     clearInterval(awayTimer);
     isQuitting = true;
     if (presenceService) void presenceService.dispose();
@@ -1688,6 +1709,7 @@ app.on('before-quit', (event) => {
 app.on('will-quit', () => {
     store.set('gpuCompatibilityRunning', false);
     clearInterval(diagnosticTimer);
+    clearInterval(memoryGuardTimer);
     loopDelay.disable();
     diagnostics.close();
     // Сигналы, которые страница успела дослать после before-quit

@@ -1093,9 +1093,15 @@ export function auroraPage(config: AuroraConfig): void {
     }
     const scale = (): number => ({ eco: 0.35, balanced: 0.5, high: 0.8 })[cfg.appearance.quality] ?? 0.5;
     const fpsCap = (): number => ({ eco: 24, balanced: 40, high: 60 })[cfg.appearance.quality] ?? 40;
+    // Слабый ПК (2.10.1): если фон стабильно рисуется заметно медленнее своего предела (в среднем за 4 с), разрешение
+    // уменьшается ступенями до 55 %. Назад не растёт до перезагрузки страницы: прыгать туда-обратно хуже, чем оставаться мягче
+    let thin = 1;
+    let perfAt = 0;
+    let perfSum = 0;
+    let perfN = 0;
     function resize(): void {
         if (!canvas || !gl) return;
-        const s = scale() * Math.min(2, window.devicePixelRatio || 1);
+        const s = scale() * (cfg.appearance.quality === 'eco' ? 1 : thin) * Math.min(2, window.devicePixelRatio || 1);
         const w = Math.max(64, Math.round(window.innerWidth * s));
         const h = Math.max(64, Math.round(window.innerHeight * s));
         if (canvas.width !== w || canvas.height !== h) {
@@ -1337,7 +1343,10 @@ export function auroraPage(config: AuroraConfig): void {
     let lastAudio = 0;
     function draw(now: number): void {
         frame = requestAnimationFrame(draw);
-        if (document.hidden) return;
+        if (document.hidden) {
+            perfAt = 0;
+            return;
+        }
         // Звук и детектор бита идут каждый кадр, а не с частотой фона (2.8.0): на «Балансе» фон рисуется 30 раз в секунду,
         // и удар опаздывал до 33 мс и дрожал. Вспышки интерфейса тоже пишутся сразу
         const a = cfg.appearance;
@@ -1360,6 +1369,18 @@ export function auroraPage(config: AuroraConfig): void {
         if (now - last < step - 1) return;
         const dt = last ? Math.min(100, now - last) : 16;
         last = now;
+        if (!perfAt) {
+            perfAt = now;
+            perfSum = perfN = 0;
+        } else {
+            perfSum += dt;
+            perfN++;
+            if (now - perfAt > 4000) {
+                if (sound.playing && perfN > 24 && perfSum / perfN > step * 1.7 && thin > 0.56) thin = Math.max(0.55, thin - 0.15);
+                perfAt = now;
+                perfSum = perfN = 0;
+            }
+        }
         if (!useEffect(cfg.appearance.effect)) return;
         resize();
         drawLine(now, sound.playing, amount);
