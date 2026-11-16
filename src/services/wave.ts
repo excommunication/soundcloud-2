@@ -852,7 +852,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (player.isPlaying()) player.pauseCurrent({ userInitiated: true });
             else player.playCurrent({ userInitiated: true });
         },
-        // Нижняя панель режима (2.10.2): громкость через раздел громкости, лайк через кнопку сайта в баре
+        // Нижняя панель режима (2.11.0): громкость через раздел громкости, лайк через кнопку сайта в баре
         volume: () => volumeSection.level(),
         setVolume: (value) => volumeSection.set(value),
         toggleMute: () => volumeSection.toggleMute(),
@@ -866,7 +866,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             node.click();
             setTimeout(tick, 400);
         },
-        // Волна на полосе времени, запись и значок с QR (2.10.3): цепочка звука сайта берётся в момент вызова, она меняется с треком
+        // Волна на полосе времени, запись и значок с QR (2.11.0): цепочка звука сайта берётся в момент вызова, она меняется с треком
         audioTap: () => host.__scAudioTap?.() ?? null,
         get record() {
             return host.soundcloudAPI?.clipRecord;

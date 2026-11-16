@@ -17,7 +17,7 @@ export function recapImage(value: unknown): Buffer | null {
 }
 
 /** Имя файла по неделе ISO: soundcloud-week-2026-40.png; неделя не пришла, значит по сегодняшней дате.
- *  Карточка сводки (2.10.2) добавляет хвост: soundcloud-week-2026-40-artist.png; чужое имя карточки отбрасывается */
+ *  Карточка сводки (2.11.0) добавляет хвост: soundcloud-week-2026-40-artist.png; чужое имя карточки отбрасывается */
 export function recapName(year: unknown, week: unknown, at: Date, card?: unknown): string {
     const pad = (n: number): string => String(n).padStart(2, '0');
     const valid = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
@@ -68,7 +68,7 @@ export function recapPeople(value: unknown, asked: readonly string[]): RecapPeop
     return { me, avatars };
 }
 
-// ===== Карточки сводки (2.10.2): характер недели, серия дней, пик и цвет карточки по имени =====
+// ===== Карточки сводки (2.11.0): характер недели, серия дней, пик и цвет карточки по имени =====
 export type RecapArchetype = 'starter' | 'nightOwl' | 'loyal' | 'repeat' | 'explorer' | 'earlyBird' | 'marathon' | 'eclectic' | 'steady';
 export interface RecapPalette {
     /** Яркий цвет пятна */

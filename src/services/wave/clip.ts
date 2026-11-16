@@ -8,7 +8,7 @@
 // H — спрятать подписи, L — стиль текста, P — текст сбоку (2.10.1): обложка слева остаётся чистой, а текст идёт отдельной
 // колонкой справа, как в Spotify; в кадре 9:16 колонка под обложкой. «Поток» набран шрифтом самого сайта, «Удар» — Montserrat
 // Black (шрифт вшит в клиент, OFL), пробел — пауза.
-// 2.10.3: полоса времени стала волной, которая бьётся в такт (анализатор на цепочке звука сайта), кнопка записи ролика в MP4 (R,
+// 2.11.0: полоса времени стала волной, которая бьётся в такт (анализатор на цепочке звука сайта), кнопка записи ролика в MP4 (R,
 // Shift+R — 15 с; кадр страницы снимает getDisplayMedia, в файл идёт только вырез кадра и звук трека), «Эффекты на бит» (B) и значок
 // sc2 с QR-кодом (Q). Всё это выключено, пока режим закрыт, и не работает при «уменьшить движение».
 // Раздел страницы волны: installClip уходит на страницу текстом (pageHelpers в wave.ts) и ни на что снаружи не ссылается
@@ -45,7 +45,7 @@ export interface ClipCore {
     now(): ClipNow | null;
     togglePlay(): void;
     seek(ms: number): void;
-    /** Слышимая громкость 0..1, выключенный звук — 0 (нижняя панель, 2.10.2) */
+    /** Слышимая громкость 0..1, выключенный звук — 0 (нижняя панель, 2.11.0) */
     volume(): number;
     setVolume(value: number): void;
     toggleMute(): void;
@@ -211,7 +211,7 @@ export function installClip(core: ClipCore): ClipSection {
         lyrics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zM4 9.5h11v2H4zM4 14h8v2H4zM17.5 12.2V18a2.5 2.5 0 1 1-1.5-2.3V10h4v2.2z"/></svg>',
         side: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h13v12h-13zM3 3.5v9h5v-9zM10 5h3v1.5h-3zm-1 2.5h4V9H9zm1 2.5h3v1.5h-3z"/></svg>',
         full: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5H6V3H3v3H1.5zm8.5 0h4.5V6H13V3h-3zM1.5 10H3v3h3v1.5H1.5zm11.5 0h1.5v4.5H10V13h3z"/></svg>',
-        // Нижняя панель (2.10.2): перемотка на 10 с — круговая стрелка с цифрой внутри, как в подкастах
+        // Нижняя панель (2.11.0): перемотка на 10 с — круговая стрелка с цифрой внутри, как в подкастах
         back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2.2a.5.5 0 0 0-.82-.38L7.1 5.12a.5.5 0 0 0 0 .76l4.08 3.3A.5.5 0 0 0 12 8.8V7a6 6 0 1 1-6 6 1 1 0 0 0-2 0 8 8 0 1 0 8-8z"/><text x="12" y="16" text-anchor="middle" font-size="6.6" font-weight="800" font-family="system-ui,sans-serif">10</text></svg>',
         forward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2.2a.5.5 0 0 1 .82-.38l4.08 3.3a.5.5 0 0 1 0 .76l-4.08 3.3A.5.5 0 0 1 12 8.8V7a6 6 0 1 0 6 6 1 1 0 0 1 2 0 8 8 0 1 1-8-8z"/><text x="12" y="16" text-anchor="middle" font-size="6.6" font-weight="800" font-family="system-ui,sans-serif">10</text></svg>',
         play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1.2 1.2 0 0 0 1.84 1.01l10.06-6.4a1.2 1.2 0 0 0 0-2.02L9.84 4.59A1.2 1.2 0 0 0 8 5.6z"/></svg>',
@@ -251,7 +251,7 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc-title{font-size:clamp(18px,calc(var(--scc-h) * .042),64px);line-height:1.24;font-weight:900;letter-spacing:-.02em;padding:.06em 0 .08em;margin:-.06em 0 -.08em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
             '.scc-artist{margin-top:.4em;padding-bottom:.1em;font-size:clamp(13px,calc(var(--scc-h) * .026),36px);line-height:1.3;font-weight:700;color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
             // Полоса времени тянется: поле щелчка выше самой полосы
-            // Полоса времени (2.10.3): волна на canvas, сыгранное белым, остальное 30%. Тянется и щёлкается, поле щелчка выше самой волны
+            // Полоса времени (2.11.0): волна на canvas, сыгранное белым, остальное 30%. Тянется и щёлкается, поле щелчка выше самой волны
             '.scc-bar{position:relative;flex:none;width:min(100%,calc(var(--scc-h) * .62));height:max(28px,calc(var(--scc-h) * .045));border-radius:6px;background:rgba(255,255,255,.22);cursor:pointer;touch-action:none;transition:opacity .25s ease}',
             '.scc-bar.wavy{background:none}',
             '.scc-bar.wavy>i{display:none}',
@@ -329,7 +329,7 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc-tools button[data-style="punch"]{background:color-mix(in srgb,var(--sca-c1,#ffd24a) 70%,#fff);color:#0b0c10}',
             '.scc-tools button:focus-visible{outline:2px solid #fff;outline-offset:2px}',
             '.scc-tools svg{width:16px;height:16px;fill:currentColor}',
-            // Нижняя панель (2.10.2): перемотка, пауза, громкость и лайк. Прячется вместе с верхней через 2 с без движения мыши,
+            // Нижняя панель (2.11.0): перемотка, пауза, громкость и лайк. Прячется вместе с верхней через 2 с без движения мыши,
             // в кадр ролика не попадает. Стоит у нижнего края окна, вне кадра 9:16 и ниже подписей
             '.scc-dock{position:absolute;left:50%;bottom:14px;z-index:2;display:flex;align-items:center;gap:2px;max-width:calc(100vw - 32px);box-sizing:border-box;padding:4px 6px 4px 12px;border-radius:999px;' +
                 'background:linear-gradient(180deg,rgba(28,30,40,.62),rgba(10,11,16,.72));backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);' +
@@ -373,7 +373,7 @@ export function installClip(core: ClipCore): ClipSection {
             '@keyframes scc-spark{0%{opacity:0;transform:scale(.35)}25%{opacity:1}100%{opacity:0;transform:scale(1.3)}}',
             // Узкое окно: без времени и дорожки громкости, значок звука остаётся
             '@media (max-width:560px){.scc-time,.scc-vtrack{display:none}.scc-dock{padding:4px 6px}}',
-            // ===== Запись ролика (2.10.3) =====
+            // ===== Запись ролика (2.11.0) =====
             // Идёт запись: панели, курсор и подсказки убраны, в кадр попадает только сам ролик. Метка записи стоит вне выреза
             '.scc.rec{cursor:none}',
             '.scc.rec .scc-tools,.scc.rec .scc-dock,.scc.rec .scc-toast{opacity:0!important;visibility:hidden;pointer-events:none;transition:none!important}',
@@ -388,7 +388,7 @@ export function installClip(core: ClipCore): ClipSection {
             '@keyframes scc-pop{0%{opacity:0;transform:scale(1.6)}100%{opacity:1;transform:scale(1)}}',
             '.scc-toast{position:absolute;left:50%;bottom:78px;z-index:3;max-width:min(560px,calc(100vw - 32px));box-sizing:border-box;padding:9px 16px;border-radius:999px;background:rgba(10,11,16,.8);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);font-size:13px;font-weight:700;text-align:center;opacity:0;transform:translate(-50%,8px);pointer-events:none;transition:opacity .25s ease,transform .25s ease}',
             '.scc-toast.on{opacity:1;transform:translate(-50%,0)}',
-            // ===== Эффекты на бит (2.10.3): только transform и opacity, один canvas, огибающая удара --fxk 0..1 =====
+            // ===== Эффекты на бит (2.11.0): только transform и opacity, один canvas, огибающая удара --fxk 0..1 =====
             '.scc.fx .scc-frame{transform:scale(calc(1 + var(--fxk,0) * .02));will-change:transform}',
             '.scc-tint{position:absolute;left:-30%;top:-30%;width:160%;height:160%;pointer-events:none;mix-blend-mode:color;opacity:calc(.1 + var(--fxk,0) * .22);background:conic-gradient(#ff2a6d,#ffd23d,#2aff9c,#2ad4ff,#8a2aff,#ff2a6d);animation:scc-spin 22s linear infinite}',
             '.scc:not(.playing) .scc-tint{animation-play-state:paused}',
@@ -402,7 +402,7 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc.fx .scc-art::before{transform:translate3d(calc(var(--fxk,0) * -8px),0,0)}',
             '.scc.fx .scc-art::after{background-color:#00f;transform:translate3d(calc(var(--fxk,0) * 8px),0,0)}',
             '.scc.fx .scc-art>.scc-lyr{z-index:1}',
-            // ===== Значок sc2 и QR (2.10.3): внутри кадра, в правом нижнем углу, под подписями и текстом =====
+            // ===== Значок sc2 и QR (2.11.0): внутри кадра, в правом нижнем углу, под подписями и текстом =====
             '.scc-qr{position:absolute;right:calc(var(--scc-w) * .035);bottom:calc(var(--scc-h) * .02);z-index:1;display:flex;flex-direction:column;align-items:center;gap:calc(var(--scc-h) * .005);padding:calc(var(--scc-h) * .006);border-radius:calc(var(--scc-h) * .012);background:rgba(10,11,16,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);pointer-events:none}',
             '.scc-qr>b{font:800 clamp(9px,calc(var(--scc-h) * .0145),17px)/1 system-ui,sans-serif;letter-spacing:.14em;color:rgba(255,255,255,.9)}',
             '.scc-qr>svg{display:block;width:clamp(64px,calc(var(--scc-h) * .1),150px);height:auto;border-radius:calc(var(--scc-h) * .008)}',
@@ -487,7 +487,7 @@ export function installClip(core: ClipCore): ClipSection {
     const savedStyle = read('sc2-clip-lyrics');
     let lyricStyle: ClipLyricStyle = savedStyle === 'punch' || savedStyle === 'off' ? savedStyle : 'flow';
     let side = read('sc2-clip-side') === 'on';
-    // Эффекты на бит и значок с QR (2.10.3): по умолчанию выключены, помнятся между запусками
+    // Эффекты на бит и значок с QR (2.11.0): по умолчанию выключены, помнятся между запусками
     let fx = read('sc2-clip-fx') === 'on';
     let qrOn = read('sc2-clip-qr') === 'on';
     const reduced = (): boolean => document.documentElement.classList.contains('scm-reduce') || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -810,7 +810,7 @@ export function installClip(core: ClipCore): ClipSection {
         });
     }
     let polledAt = 0;
-    // ===== Волна на полосе времени и эффекты на бит (2.10.3) =====
+    // ===== Волна на полосе времени и эффекты на бит (2.11.0) =====
     // Анализатор цепляется к регулятору звука сайта (как у переливов), раз в секунду проверяется, не сменился ли он вместе с треком.
     // Работает только пока режим открыт, трек играет и вкладка видна; на паузе волна рисуется один раз за опрос
     const BARS = 56;
@@ -1152,7 +1152,7 @@ export function installClip(core: ClipCore): ClipSection {
         }
     }
 
-    // ===== Запись ролика (2.10.3) =====
+    // ===== Запись ролика (2.11.0) =====
     type RecState = 'idle' | 'prep' | 'count' | 'live';
     let recState: RecState = 'idle';
     let recStop: ((save: boolean) => void) | null = null;
