@@ -6,7 +6,8 @@
     const veil = document.getElementById('veil');
     const fx = document.getElementById('fx');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const spring = 'cubic-bezier(.34,1.56,.64,1)';
+    // Мягкая пружина: без сильного перелёта, иначе движение выглядит дёрганым
+    const spring = 'cubic-bezier(.22,1.2,.36,1)';
     const bars = [...document.querySelectorAll('.bars rect')];
     const cloud = document.querySelector('.cloud');
     let gone = false;
@@ -16,12 +17,12 @@
         for (const bar of bars) bar.style.transform = 'none';
         cloud.style.opacity = '1';
     } else {
-        logo.animate([{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 520, easing: spring, fill: 'both' });
+        logo.animate([{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 900, easing: spring, fill: 'both' });
         bars.forEach((bar, i) =>
-            bar.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 520, delay: 80 + i * 55, easing: spring, fill: 'forwards' }),
+            bar.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 800, delay: 140 + i * 90, easing: spring, fill: 'forwards' }),
         );
         cloud
-            .animate([{ opacity: 0, transform: 'translateY(10px) scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 560, delay: 420, easing: spring, fill: 'forwards' })
+            .animate([{ opacity: 0, transform: 'translateY(10px) scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 760, easing: spring, fill: 'forwards' })
             .finished.then(() => {
                 if (gone) return;
                 for (const bar of bars) {
@@ -55,9 +56,9 @@
         const streak = document.createElement('i');
         streak.style.cssText = `left:0;top:${y - 2}px;width:100%;height:4px;background:linear-gradient(90deg,transparent,rgba(190,205,255,.9) 35%,#fff 50%,rgba(210,180,255,.9) 65%,transparent);filter:blur(1.5px);transform-origin:${x}px 50%`;
         fx.append(flash, ring, streak);
-        ring.animate([{ transform: 'scale(.2)', opacity: 1 }, { transform: 'scale(8)', opacity: 0 }], { duration: 820, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
-        flash.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.7)', opacity: 0 }], { duration: 460, easing: 'ease-out', fill: 'forwards' });
-        streak.animate([{ transform: 'scaleX(0)', opacity: 1 }, { transform: 'scaleX(1)', opacity: 0.9, offset: 0.35 }, { transform: 'scaleX(1)', opacity: 0 }], { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+        ring.animate([{ transform: 'scale(.2)', opacity: 1 }, { transform: 'scale(8)', opacity: 0 }], { duration: 1200, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
+        flash.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.7)', opacity: 0 }], { duration: 700, easing: 'ease-out', fill: 'forwards' });
+        streak.animate([{ transform: 'scaleX(0)', opacity: 1 }, { transform: 'scaleX(1)', opacity: 0.9, offset: 0.35 }, { transform: 'scaleX(1)', opacity: 0 }], { duration: 1000, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
         // Осколки летят вверх веером (взрыв у нижнего края) и опадают
         for (let i = 0; i < 46; i++) {
             const piece = document.createElement('i');
@@ -78,16 +79,15 @@
                     { transform: `translate(${dx * 0.75}px,${dy}px) rotate(${spin * 0.6}deg) scale(1)`, opacity: 1, offset: 0.5 },
                     { transform: `translate(${dx}px,${dy * 0.55 + 60}px) rotate(${spin}deg) scale(.4)`, opacity: 0 },
                 ],
-                { duration: 900 + Math.random() * 450, easing: 'cubic-bezier(.15,.75,.35,1)', fill: 'forwards' },
+                { duration: 1300 + Math.random() * 600, easing: 'cubic-bezier(.15,.75,.35,1)', fill: 'forwards' },
             );
         }
         // Круг взрыва открывает клиент: маленькая дыра в маске растёт масштабом слоя вокруг точки взрыва
         veil.style.setProperty('--x', x + 'px');
         veil.style.setProperty('--y', y + 'px');
-        veil.style.transformOrigin = x + 'px ' + y + 'px';
         veil.classList.add('open');
-        const far = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 60;
-        veil.animate([{ transform: 'scale(1)' }, { transform: 'scale(' + Math.min(200, far / 22).toFixed(2) + ')' }], { duration: 950, easing: 'cubic-bezier(.55,0,.2,1)', fill: 'forwards' });
+        const far = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 80;
+        veil.animate([{ '--r': '0px' }, { '--r': far.toFixed(0) + 'px' }], { duration: 1500, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'forwards' });
     }
 
     window.introGo = () => {
@@ -110,12 +110,12 @@
         // Сжатие с подлётом вверх, потом падение по дуге с разгоном и поворотом
         logo.animate(
             [
-                { transform: 'translate(0,0) rotate(0deg) scale(1)', easing: 'cubic-bezier(.3,0,.2,1)' },
-                { transform: 'translate(0,-34px) rotate(-6deg) scale(.4)', offset: 0.38, easing: 'cubic-bezier(.55,0,.9,.45)' },
-                { transform: `translate(${dx * 0.45}px,${dy * 0.3}px) rotate(70deg) scale(.36)`, offset: 0.72, easing: 'cubic-bezier(.4,.1,.9,.6)' },
+                { transform: 'translate(0,0) rotate(0deg) scale(1)', easing: 'cubic-bezier(.4,0,.2,1)' },
+                { transform: 'translate(0,-34px) rotate(-6deg) scale(.4)', offset: 0.34, easing: 'cubic-bezier(.45,0,.75,.5)' },
+                { transform: `translate(${dx * 0.45}px,${dy * 0.3}px) rotate(70deg) scale(.36)`, offset: 0.7, easing: 'cubic-bezier(.35,.1,.8,.65)' },
                 { transform: `translate(${dx}px,${dy}px) rotate(200deg) scale(.28)` },
             ],
-            { duration: 1050, fill: 'forwards' },
+            { duration: 1900, fill: 'forwards' },
         ).finished.then(() => {
             falling = false;
             logo.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, fill: 'forwards' });

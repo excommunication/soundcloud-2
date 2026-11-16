@@ -3,11 +3,13 @@ import { join } from 'path';
 import { trustLocalFile } from '../trustedViews';
 
 /** Самая короткая заставка: сборка логотипа должна успеть доиграть */
-export const INTRO_MIN_MS = 1500;
+export const INTRO_MIN_MS = 2200;
 /** Сайт так и не загрузился: заставка уходит сама */
 export const INTRO_MAX_MS = 9000;
 /** Сколько идёт бросок, взрыв и раскрытие клиента */
-export const INTRO_OUT_MS = 2300;
+export const INTRO_OUT_MS = 3700;
+/** Крайний срок после ухода заставки: что бы ни случилось, вид заставки к этому времени снят и клиент доступен */
+export const INTRO_HARD_MS = 3000;
 
 // Заставка поверх всего окна при запуске (шапка тоже под ней): логотип собирается, пока грузится сайт, потом его
 // подбрасывает, он взрывается и круг взрыва открывает клиент
@@ -19,6 +21,7 @@ export class IntroScreen {
     private pendingGo = false;
     private readonly resize = (): void => this.layout();
     private readonly safety: NodeJS.Timeout;
+    private hard: NodeJS.Timeout | null = null;
 
     constructor(private window: BrowserWindow) {
         const view = new WebContentsView({
@@ -40,6 +43,10 @@ export class IntroScreen {
             this.loaded = true;
             if (this.pendingGo) this.play();
         });
+        // Заставка, которая не загрузилась или упала, не должна оставаться непрозрачной поверх клиента: он выглядел бы
+        // открытым, но не отвечал
+        view.webContents.on('did-fail-load', () => this.close());
+        view.webContents.on('render-process-gone', () => this.close());
         window.contentView.addChildView(view);
         window.on('resize', this.resize);
         this.view = view;
@@ -67,6 +74,8 @@ export class IntroScreen {
         this.leaving = true;
         clearTimeout(this.safety);
         const wait = Math.max(0, INTRO_MIN_MS - (Date.now() - this.started));
+        // Страница заставки не дала did-finish-load или анимация не дошла до конца: вид снимается принудительно
+        this.hard = setTimeout(() => this.close(), wait + INTRO_OUT_MS + INTRO_HARD_MS);
         setTimeout(() => {
             if (this.loaded) this.play();
             else this.pendingGo = true;
@@ -83,6 +92,8 @@ export class IntroScreen {
     }
     public close(): void {
         clearTimeout(this.safety);
+        if (this.hard) clearTimeout(this.hard);
+        this.hard = null;
         const view = this.view;
         this.view = null;
         if (!view) return;

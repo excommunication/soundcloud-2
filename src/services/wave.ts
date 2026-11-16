@@ -460,6 +460,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // В6: трек, обложка и цвет подложки в блоке сейчас; смена трека идёт переходом от них.
     // drawFrom: когда начала расти форма нового трека (0 - не растёт), drawFor - трек, чья форма ещё не пришла
     let shownTrack = 0;
+    // Куда листают: 1 вперёд, -1 назад; от этого зависит, с какой стороны въезжает новый трек
+    let turnDir = 1;
+    let turnTimer: ReturnType<typeof setTimeout> | undefined;
     let shownCover = '';
     // Палитра света, которая сейчас стоит на секции
     let shownTint = '';
@@ -3718,6 +3721,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>',
         shake: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>',
         more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
+        seed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h2.5v4H4zM8.5 6h2.5v12H8.5zM13 3h2.5v18H13zM17.5 8H20v8h-2.5z"/></svg>',
         dislike: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>',
         // Месяц: трек уснёт на неделю
         later: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z"/></svg>',
@@ -3777,6 +3781,36 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@keyframes scw-drift-b{0%{transform:translate(-10%,8%) scale(.9);opacity:.45}40%{transform:translate(25%,-8%) scale(1.1);opacity:1}75%{transform:translate(48%,10%) scale(1);opacity:.55}100%{transform:translate(15%,-4%) scale(1.15);opacity:.9}}',
         '@keyframes scw-drift-c{0%{transform:translate(15%,-8%) scale(1.1);opacity:.8}45%{transform:translate(-18%,12%) scale(.9);opacity:.35}100%{transform:translate(-30%,-6%) scale(1.05);opacity:1}}',
         // Строка названия и обложка нового трека проявляются
+        // Листание (2.8.1): название и автор въезжают со стороны, куда листают, с лёгким размытием; обложка проявляется
+        // с небольшим увеличением, плитки «Далее» сдвигаются по очереди
+        '.scw-swap.next{animation:scw-in-next .55s cubic-bezier(.2,.8,.2,1) both}',
+        '.scw-swap.back{animation:scw-in-back .55s cubic-bezier(.2,.8,.2,1) both}',
+        '@keyframes scw-in-next{from{opacity:0;transform:translateX(34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
+        '@keyframes scw-in-back{from{opacity:0;transform:translateX(-34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
+        '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) both}',
+        '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
+        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile{animation:scw-tile-in .55s cubic-bezier(.2,.8,.2,1) both}',
+        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(2){animation-delay:.05s}',
+        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(3){animation-delay:.1s}',
+        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(4){animation-delay:.15s}',
+        '#sc-wave.scw-turning .scw-tiles:not(.scw-shelf) .scw-tile:nth-child(5){animation-delay:.2s}',
+        '@keyframes scw-tile-in{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}',
+        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type,#sc-wave.scw-turning .scw-tile{animation:none!important}}',
+        'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type,html.scm-reduce #sc-wave.scw-turning .scw-tile{animation:none!important}',
+        // Кнопки перемотки по бокам паузы
+        '.scw-top.stepped{gap:10px}',
+        '.scw-top.stepped>.scw-swap,.scw-top.stepped>div{margin-left:6px}',
+        '#sc-wave .scw-step{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:50%;transition:background-color .15s,transform .15s cubic-bezier(.2,.8,.2,1)}',
+        '.scw-step svg{width:20px;height:20px;fill:var(--scw-btn,#fff)}',
+        '#sc-wave .scw-step:hover{background:var(--scw-film-strong);transform:scale(1.08)}',
+        '#sc-wave .scw-step:active{transform:scale(.92)}',
+        // «Не сейчас»: кольцо заполняется, пока кнопку держат; рядом с другими не стоит, чтобы не попасть случайно
+        '#sc-wave .scw-hold{position:relative;margin-right:14px}',
+        '#sc-wave .scw-hold::before{content:"";position:absolute;right:-9px;top:8px;bottom:8px;width:1px;background:var(--scw-film-strong)}',
+        '#sc-wave .scw-hold::after{content:"";position:absolute;inset:-2px;border-radius:50%;pointer-events:none;background:conic-gradient(var(--scw-btn,#fff) 0 var(--scw-hold,0deg),transparent 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));opacity:0}',
+        '#sc-wave .scw-hold.holding::after{opacity:1;animation:scw-hold .55s linear forwards}',
+        '@property --scw-hold{syntax:"<angle>";inherits:false;initial-value:0deg}',
+        '@keyframes scw-hold{from{--scw-hold:0deg}to{--scw-hold:360deg}}',
         '.scw-swap{animation:scw-fade .25s cubic-bezier(.2,0,0,1)}',
         '.scw-cover.scw-cross .scw-img{transition-duration:.3s}',
         '.scw-info{flex:1;min-width:0;display:flex;flex-direction:column}',
@@ -4356,6 +4390,40 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     const LYRICS_T = T.lang === 'ru'
         ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', none: 'Текст этой песни не нашёлся', prev: 'Предыдущий трек', next: 'Следующий трек' }
         : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
+    // «Не сейчас» (2.8.1): мышью срабатывает только при удержании, чтобы на луну не попадали случайно
+    const HOLD_T = T.lang === 'ru'
+        ? { hint: 'Не сейчас: удерживай', tip: 'Удерживай «Не сейчас», трек вернётся в волну позже' }
+        : { hint: 'Not now: hold', tip: 'Hold “Not now”, the track returns to the wave later' };
+    const HOLD_MS = 550;
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    let holdNode: HTMLElement | null = null;
+    function holdCancel(): void {
+        if (holdTimer !== undefined) clearTimeout(holdTimer);
+        holdTimer = undefined;
+        holdNode?.classList.remove('holding');
+        holdNode = null;
+    }
+    function onHoldDown(event: PointerEvent): void {
+        const node = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-hold[data-act="later"]') : null;
+        if (!node || event.button !== 0) return;
+        holdCancel();
+        holdNode = node;
+        node.classList.add('holding');
+        holdTimer = setTimeout(() => {
+            holdTimer = undefined;
+            const current = currentCandidate();
+            node.classList.remove('holding');
+            holdNode = null;
+            if (current) void setExcluded('later-track', fromTrack(current.track), true);
+        }, HOLD_MS);
+    }
+    function onHoldUp(event: PointerEvent): void {
+        if (holdTimer === undefined) return;
+        const node = holdNode;
+        holdCancel();
+        // Отпущено раньше времени: подсказка вместо действия
+        if (node && event.type === 'pointerup') showToast(HOLD_T.tip);
+    }
     interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string }> | null }
     const lyricsFor = new Map<number, CardLyrics | null>();
     const lyricsAsked = new Set<number>();
@@ -4483,8 +4551,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             return node;
         };
         // Блок пересобирается целиком: при смене трека прошлые обложка и цвет переносятся в новый, и смена идёт переходом
-        const swap = !!current && !!shownTrack && current.track.id !== shownTrack && !calm();
-        const lines = el('div', swap ? 'scw-swap' : '');
+        const shownNow = current?.track ?? outside;
+        const swap = !!shownNow && !!shownTrack && shownNow.id !== shownTrack && !calm();
+        const lines = el('div', swap ? 'scw-swap ' + (turnDir < 0 ? 'back' : 'next') : '');
         if (current) {
             lines.append(titleLink('div', 'scw-track', current.track), artistLink('div', 'scw-artist', current.track));
         } else if (outside) {
@@ -4495,15 +4564,23 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (state !== 'idle') line.setAttribute('role', 'status');
             lines.append(line);
         }
-        top.append(play, lines);
+        // Перемотка по трекам по обе стороны от паузы (2.8.1): прошлый и следующий в очереди сайта
+        if (current || outside) {
+            const back = button('scw-step', 'site-prev', LYRICS_T.prev, 'prev');
+            back.title = LYRICS_T.prev;
+            const forward = button('scw-step', 'site-next', LYRICS_T.next, 'next');
+            forward.title = LYRICS_T.next;
+            top.append(back, play, forward, lines);
+            top.classList.add('stepped');
+        } else top.append(play, lines);
         const canvas = el('canvas', 'scw-wf' + (current || outside ? ' live' : ''));
         const meta = el('div', 'scw-meta');
         if (current) {
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            const later = button('scw-like', 'later', T.later, 'later');
-            later.title = T.later + ', Ctrl+D';
+            const later = button('scw-like scw-hold', 'later', T.later, 'later');
+            later.title = HOLD_T.hint + ', Ctrl+D';
             const dislike = button('scw-like', 'dislike', T.menuDislike, 'dislike');
             dislike.title = T.menuDislike;
             const more = button('scw-like', 'more', T.more, 'more');
@@ -4523,9 +4600,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             meta.append(prev, skip, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
             const row = el('div', 'scw-outside');
             const waveButton = textButton('start-wave', LYRICS_T.startWave);
-            waveButton.classList.add('scw-primary');
+            waveButton.classList.add('scw-primary', 'scw-pill');
             waveButton.insertAdjacentHTML('afterbegin', ICON.play);
-            row.append(waveButton, textButton('wave-current', LYRICS_T.waveFrom));
+            const seedButton = textButton('wave-current', LYRICS_T.waveFrom);
+            seedButton.classList.add('scw-pill');
+            seedButton.insertAdjacentHTML('afterbegin', ICON.seed);
+            row.append(waveButton, seedButton);
             outsideRow = row;
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
@@ -4533,11 +4613,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         } else if (state === 'error' || state === 'unavailable') meta.append(textButton('retry', T.retry));
         const scout = current ? scoutSection.panel(current.track.id) : null;
         info.append(top, canvas, meta, ...(outsideRow ? [outsideRow] : []), ...(scout ? [scout] : []));
-        if (cardTrack && lyricsOpen && host.soundcloudAPI?.lyrics) {
-            if (lyrics) info.append(renderLyrics(lyrics));
-            else info.append(el('div', 'scw-lyrics-note', lyricsKnown ? LYRICS_T.none : LYRICS_T.searching));
-        }
-        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' : ''));
+        // Текст песни лежит поверх обложки, как в роликах: крупные строки, текущая белая (2.8.1)
+        const showLyrics = !!cardTrack && lyricsOpen && !!host.soundcloudAPI?.lyrics;
+        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' : '') + (showLyrics && lyrics ? ' lyr' : ''));
         if (current) {
             if (swap && shownCover && loadedArt.has(shownCover)) {
                 const under = el('span', 'scw-img on');
@@ -4546,6 +4624,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }
             art(cover, current.track, 't500x500');
         } else if (outside) {
+            if (swap && shownCover && loadedArt.has(shownCover)) {
+                const under = el('span', 'scw-img on');
+                under.style.backgroundImage = 'url("' + shownCover.replace(/["\\]/g, '') + '")';
+                cover.append(under);
+            }
             art(cover, outside, 't500x500');
         } else if (state === 'idle' && preview.some((item) => artworkUrl(item.track, 't300x300'))) {
             cover.classList.add('collage');
@@ -4558,6 +4641,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             cover.classList.add('scw-empty-cover');
             cover.setAttribute('aria-hidden', 'true');
             cover.innerHTML = '<svg viewBox="0 0 200 200" fill="none"><circle cx="100" cy="100" r="76" stroke="currentColor" opacity=".07"/><circle cx="100" cy="100" r="57" stroke="currentColor" opacity=".12"/><path d="M48 96v8m13-22v36m13-43v50m13-61v72m13-84v96m13-75v54m13-44v34m13-43v52m13-36v20" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/></svg>';
+        }
+        if (showLyrics && (current || outside)) {
+            if (lyrics) cover.append(renderLyrics(lyrics));
+            else cover.append(el('div', 'scw-lyrics-note', lyricsKnown ? LYRICS_T.none : LYRICS_T.searching));
         }
         // Слой света пересоздаётся с блоком: пятна продолжают движение с той же фазы, свет и подложка в состоянии
         // прошлого блока. Цвета новой обложки ещё считаются: остаются прошлые, потом перетекают
@@ -4584,7 +4671,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         }
         if (swap) {
             // Уже загруженная обложка встала бы сразу: проявление поверх прошлой запускается с нуля
-            const image = cover.lastElementChild;
+            const images = cover.querySelectorAll<HTMLElement>(':scope > .scw-img');
+            const image = images[images.length - 1];
+            section.classList.add('scw-turning');
+            if (turnTimer !== undefined) clearTimeout(turnTimer);
+            turnTimer = setTimeout(() => section?.classList.remove('scw-turning'), 900);
             if (image instanceof HTMLElement && image.classList.contains('on')) {
                 image.classList.remove('on');
                 void image.offsetWidth;
@@ -4592,8 +4683,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }
             drawFor = current?.track.id ?? 0;
         }
-        shownTrack = current?.track.id ?? 0;
-        shownCover = current ? artworkUrl(current.track, 't500x500') : '';
+        shownTrack = shownNow?.id ?? 0;
+        shownCover = shownNow ? artworkUrl(shownNow, 't500x500') : '';
+        turnDir = 1;
         const rowsBox = section.querySelector('.scw-mix-rows');
         if (rowsBox) rowsBox.scrollTop = rowsScroll;
         const libraryBox = section.querySelector('.scw-lib-rows');
@@ -5017,8 +5109,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 }
                 return;
             case 'wave-current': {
-                const link = section?.querySelector('.scw-body .scw-track a');
-                if (link) menuSection.actOn(link, 'wave-track');
+                // Трек не из волны: меню по ссылке карточки его не знало (оно отдаёт только трек волны), поэтому волна
+                // запускается прямо от играющего трека
+                const track = outsideTrack();
+                if (track?.permalink_url) menuSection.startTrack(track);
+                else {
+                    const link = section?.querySelector('.scw-body .scw-track a');
+                    if (link) menuSection.actOn(link, 'wave-track');
+                }
                 return;
             }
             case 'lyrics':
@@ -5032,6 +5130,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 return;
             case 'site-prev':
             case 'site-next':
+                turnDir = control.dataset.act === 'site-prev' ? -1 : 1;
                 document.querySelector<HTMLElement>(control.dataset.act === 'site-prev' ? '.playControls .skipControl__previous' : '.playControls .skipControl__next')?.click();
                 setTimeout(tick, 300);
                 return;
@@ -5063,7 +5162,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 const current = currentCandidate();
                 if (!current) return;
                 // «Не сейчас» и «Не нравится» у играющего трека сразу ставят следующий
-                if (control.dataset.act === 'later') void setExcluded('later-track', fromTrack(current.track), true);
+                // «Не сейчас» мышью только удержанием (см. onHold), клавиатурой и Ctrl+D сразу
+                if (control.dataset.act === 'later') {
+                    if (event.detail > 0) return;
+                    void setExcluded('later-track', fromTrack(current.track), true);
+                }
                 else if (control.dataset.act === 'dislike') void setExcluded('track', fromTrack(current.track), true);
                 else void setExcluded('more', fromTrack(current.track), !moreTracks.has(current.track.id));
                 return;
@@ -5252,6 +5355,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             section.addEventListener('mouseleave', () => { hideTip(); if (hover !== null) { hover = null; paint(); } });
             section.addEventListener('mousemove', onMove);
             section.addEventListener('mousedown', onDown);
+            section.addEventListener('pointerdown', onHoldDown);
+            section.addEventListener('pointerup', onHoldUp);
+            section.addEventListener('pointercancel', onHoldUp);
+            section.addEventListener('pointerleave', onHoldUp, true);
             // События прокрутки не всплывают: списки подборки и «Моей музыки» ловятся на погружении
             section.addEventListener('scroll', (event) => {
                 if (!(event.target instanceof HTMLElement)) return;

@@ -316,6 +316,15 @@ export function installVibe(core: VibeCore): VibeSection {
 
     // Поиск по плану. Если из интернета пришло много треков, текстовый поиск по SoundCloud почти не нужен: он и тащил
     // «slowed tiktok version». Треки из плана ищутся по «артист название» и берутся только точные совпадения
+    // Запрос по частям для второго захода: целиком без слов-связок, латиницей и по каждому слову; в конце общий «тренд»
+    function looseQueries(text: string): string[] {
+        const stop = /^(чет|чёт|что|го|давай|включи|мне|хочу|надо|пожалуйста|какое|какой|что-то|что-нибудь|some|something|please|play|me)$/iu;
+        const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 3 && !stop.test(word));
+        const whole = words.join(' ');
+        const latin = whole.replace(/\p{Script=Cyrillic}/gu, (ch) => ({ а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ы: 'y', э: 'e', ю: 'yu', я: 'ya' } as Record<string, string>)[ch] ?? '');
+        return [...new Set([whole, latin, ...words, 'trending now', 'viral hits'].filter((item) => item.length >= 3))].slice(0, 8);
+    }
+
     async function collect(plan: VibePlan, mine: number): Promise<{ tracks: WaveTrack[]; hits: Map<number, VibeHit> }> {
         const hits = new Map<number, VibeHit>();
         const all: WaveTrack[] = [];
@@ -376,11 +385,21 @@ export function installVibe(core: VibeCore): VibeSection {
             if (mine !== request) return;
             setStep(3);
             let top = vibeRank(tracks, hits, plan, Date.now(), 40, core.isExcluded);
+            let usedPlan = plan;
+            // Ничего не нашлось: второй заход без жанров и слов-связок, по отдельным словам запроса и по тому, что сейчас в тренде
+            if (!top.length) {
+                const loose = looseQueries(text);
+                const relaxed: VibePlan = { ...plan, queries: loose, tags: [], tracks: [], artists: [], words: [], avoid: [], popularity: 'hits', fresh: false };
+                const second = await collect(relaxed, mine);
+                if (mine !== request) return;
+                top = vibeRank(second.tracks, second.hits, relaxed, Date.now(), 40, core.isExcluded);
+                usedPlan = relaxed;
+            }
             if (variant > 0 && top.length > 8) {
                 const shift = (variant * 7) % top.length;
                 top = [...top.slice(shift), ...top.slice(0, shift)];
             }
-            lastPlan = plan;
+            lastPlan = usedPlan;
             lastTop = top;
             lastError = answer?.error ?? '';
             if (!top.length) {

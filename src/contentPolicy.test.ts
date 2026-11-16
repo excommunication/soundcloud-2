@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isShortLink, isSoundCloudUrl, isWebUrl, shortLinkTarget, sitePagePath } from './contentPolicy';
+import { isBlankPopup, isShortLink, isSoundCloudUrl, isWebUrl, shortLinkTarget, sitePagePath } from './contentPolicy';
 describe('короткая ссылка on.soundcloud.com', () => {
     it('узнаётся только сама короткая ссылка', () => {
         expect(isShortLink('https://on.soundcloud.com/9BWtqT2nIcIiAubq3X')).toBe(true);
@@ -30,6 +30,13 @@ describe('полная загрузка страницы сайта вместо
         ]) expect(sitePagePath(target, here)).toBeNull();
         expect(sitePagePath('https://soundcloud.com/a', 'https://secure.soundcloud.com/web-auth')).toBeNull();
         expect(sitePagePath('https://soundcloud.com/a', 'about:blank')).toBeNull();
+    });
+});
+describe('окно входа через провайдера', () => {
+    it('пустое окно под адрес провайдера разрешено, прочие схемы нет', () => {
+        expect(isBlankPopup('about:blank')).toBe(true);
+        expect(isBlankPopup('')).toBe(true);
+        for (const url of ['javascript:alert(1)', 'file:///C:/x', 'data:text/html,x', 'https://accounts.google.com']) expect(isBlankPopup(url)).toBe(false);
     });
 });
 describe('navigation boundaries', () => {

@@ -133,6 +133,8 @@ async function initializeSettings() {
         // В режиме разработки подсказка совпадает со статусом, второй раз её не выводим
         const hint = state.hint !== state.status ? state.hint : '';
         document.getElementById('updateHint').textContent = [tr('Версия') + ' ' + state.version + '.', hint].filter(Boolean).join(' ');
+        // Пасхалка: наведи на версию
+        document.getElementById('updateHint').title = 'Sound Claude';
         document.getElementById('updateStatus').textContent = state.status;
         document.getElementById('installUpdate').hidden = state.canInstall !== true;
     }

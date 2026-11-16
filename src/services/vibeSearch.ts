@@ -66,7 +66,35 @@ const RULES: Rule[] = [
     { re: /\b90(-?х|s|'s)(?![\d])|девяност/iu, tags: ['90s'], words: ['90s'] },
     { re: /аниме|anime/iu, tags: ['anime'], words: ['anime'] },
     { re: /гейм|gaming|видеоигр|для\s+игр|\bgame\b/iu, tags: ['gaming'], words: ['gaming'] },
+    // Разговорное: «хайповое», «залетает», «тикток» (2.8.1: такие запросы раньше не давали ни одного поиска)
+    { re: /хайп|вирус|viral|тик\s?ток|tik\s?tok|тренд|залета|залет|trending/iu, tags: ['viral', 'trending'], queries: ['tiktok viral', 'trending now'], words: ['viral', 'tiktok', 'trending'], popularity: 'hits' },
+    { re: /бомб|огонь|жар(а|ко)|fire|banger|slap|имба|качев|топчик/iu, tags: ['banger'], queries: ['banger hype'], words: ['banger', 'hype'] },
+    { re: /лёгк|легк|ненавяз|background/iu, tags: ['chill'], words: ['chill', 'easy'] },
 ];
+
+// Слова-связки разговорной речи: «чёт хайповое го», «включи мне что-нибудь грустное». Их нет смысла искать
+const FILLER = new Set([
+    'чет', 'чёт', 'че', 'чё', 'что', 'чтото', 'что-то', 'чтонибудь', 'что-нибудь', 'го', 'давай', 'давайте', 'включи', 'включай', 'поставь', 'найди', 'хочу', 'хочется',
+    'мне', 'нам', 'нужно', 'нужен', 'нужна', 'надо', 'можно', 'пожалуйста', 'плиз', 'какое-нибудь', 'какой-нибудь', 'такое', 'такой', 'такая',
+    'типо', 'ну', 'вот', 'так', 'это', 'и', 'а', 'под', 'для', 'на', 'по', 'я', 'мы', 'щас', 'сейчас', 'бы', 'ли', 'же', 'как', 'нибудь',
+    'some', 'something', 'please', 'play', 'give', 'me', 'want', 'wanna', 'lets', "let's", 'go', 'the', 'an', 'i', 'to', 'of', 'for', 'music', 'songs', 'song', 'tracks', 'track',
+    'музыка', 'музыку', 'песни', 'песню', 'песня', 'трек', 'треки', 'музон', 'музончик',
+]);
+/** Запрос без слов-связок: «чёт хайповое го» → «хайповое». Если убирать нечего или остаётся пусто, возвращается сам текст */
+export function coreText(input: string): string {
+    const words = clean(input).split(' ');
+    const kept = words.filter((word) => !FILLER.has(word.toLowerCase().replace(/[.,!?;:()"«»]+/g, '')));
+    return kept.length ? kept.join(' ') : clean(input);
+}
+const TRANSLIT: Record<string, string> = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f',
+    х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+};
+/** Русские артисты часто записаны латиницей: «кай ангел» ищется ещё и как «kai angel» (простая транслитерация) */
+export function translit(text: string): string {
+    // «ай», «ей», «ой» в именах чаще пишут через i: кай → kai, дей → dei
+    return text.toLowerCase().replace(/([аеёиоуыэюя])й/gu, '$1и').replace(/\p{Script=Cyrillic}/gu, (ch) => TRANSLIT[ch] ?? ch);
+}
 
 // Жанры, которые узнаются в тексте как есть (латиница) и по-русски через genreEnglish
 const GENRES = [
@@ -161,8 +189,16 @@ export function planLocal(input: string, context: VibeContext = { genres: [], no
     if (genreList.length > 1) queries.push(genreList[0] + ' ' + genreList[1]);
     queries.push(...genreList.map((genre) => (popularity === 'hits' ? genre + ' hits' : genre)));
     if (!genreList.length && context.genres.length && scene) queries.push(context.genres[0] + ' ' + scene, ...context.genres.slice(0, 2).map((genre) => scene + ' ' + genre));
+    // Текст без слов-связок и его латиница: так находятся и артисты («кай ангел»), и обрывки вроде «чёт хайповое го»
+    const core = coreText(text);
+    if (core && core.split(' ').length <= 6 && !/[.!?]/.test(core)) {
+        queries.push(core);
+        if (/\p{Script=Cyrillic}/u.test(core) && core.length <= 40) queries.push(translit(core));
+    }
     if (text.length <= 40 && !/[.!?]/.test(text)) queries.push(text);
     for (const artist of artists) queries.push(artist);
+    // Запрос из нескольких слов без разбора: поиск по каждому значимому слову, чтобы хоть что-то нашлось
+    if (!tags.length) for (const word of core.split(' ')) if (word.length >= 4 && !/^\d+$/.test(word)) queries.push(word);
     if (!queries.length && !tags.length) queries.push(text);
     return {
         title: vibeTitle(text),
@@ -307,7 +343,7 @@ export async function askModel(config: AiConfig, user: string, fetcher: FetchLik
 export async function planVibe(text: string, context: VibeContext, config: AiConfig | null, fetcher: FetchLike, web?: GetJson): Promise<{ plan: VibePlan; error?: string }> {
     const local = planLocal(text, context);
     const webAsk = web
-        ? findWebTracks([text, local.queries[0] ?? '', local.tags.slice(0, 2).join(' ')], web, { noRussian: local.lang === 'noRu', raw: text }).catch(() => ({ tracks: [], sources: [] }))
+        ? findWebTracks([coreText(text), local.queries[0] ?? '', local.tags.slice(0, 2).join(' ')], web, { noRussian: local.lang === 'noRu', raw: text }).catch(() => ({ tracks: [], sources: [] }))
         : Promise.resolve({ tracks: [], sources: [] });
     const [result, found] = await Promise.all([planModel(text, context, config, fetcher, local), webAsk]);
     if (found.tracks.length) {
