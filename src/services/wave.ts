@@ -749,6 +749,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         pinned: (target) => pinIndex(target) >= 0,
         pin: (target, add) => pinTarget(target, add),
         playGenre: (label) => playGenre(label),
+        lyricsLabel: (target) => menuLyricsLabel(target),
+        showLyrics: (target) => menuShowLyrics(target),
         cardGenre: (node) => {
             const card = node.closest<HTMLElement>('.scw-card[data-card]');
             const index = card ? Number(card.dataset.card) : -1;
@@ -3792,7 +3794,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@keyframes scw-in-back{from{opacity:0;transform:translateX(-34px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}',
         '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) both}',
         '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
-        // Плитки «Далее» (2.8.4) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
+        // Плитки «Далее» (2.8.5) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
         // Громкость в карточке: значок и тонкий ползунок, который раскрывается на наведении
         '.scw-vol{display:inline-flex;align-items:center;flex:none}',
         '.scw-vol input{-webkit-appearance:none;appearance:none;width:0;height:4px;margin:0;opacity:0;border-radius:999px;cursor:pointer;background:linear-gradient(90deg,#fff var(--scw-vol,50%),rgba(255,255,255,.22) var(--scw-vol,50%));transition:width .28s cubic-bezier(.22,1,.36,1),opacity .2s ease,margin .28s cubic-bezier(.22,1,.36,1)}',
@@ -3844,6 +3846,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '#sc-wave .scw-like:hover{background:var(--scw-film-strong)}',
         '.scw-like[aria-pressed="true"] svg{fill:#ff5500}',
         '#sc-wave .scw-btn{height:32px;padding:0 12px;border-radius:4px;background:var(--scw-surface);font-weight:600}',
+        '#sc-wave .scw-chip{height:32px;padding:0 12px 0 9px;display:inline-flex;align-items:center;gap:6px;flex:none;border-radius:999px;background:var(--scw-surface);font-weight:700;white-space:nowrap}',
+        '#sc-wave .scw-chip svg{width:16px;height:16px;flex:none;fill:currentColor}',
+        '#sc-wave .scw-meta.outside{flex-wrap:nowrap;gap:8px}',
+        '#sc-wave .scw-sub{margin-top:4px;color:var(--scw-muted);font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.scw-cover{position:relative;width:200px;height:200px;flex:none;background:var(--scw-tile)}',
         '.scw-cover.scw-empty-cover{display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#ff550016,transparent 65%),#191919}',
         '.scw-empty-cover svg{width:100%;height:100%;color:#f50}',
@@ -4045,6 +4051,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-dialog-body{overflow-y:auto;padding:0 16px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}',
         '.scw-dialog-h{color:var(--scw-muted);font-size:12px;line-height:16px;margin:16px 0 4px}',
         '.scw-dialog .scw-hint{color:var(--scw-muted);padding:4px 0}',
+        '.scw-lyrics-dialog{width:min(520px,calc(100vw - 32px))}',
+        '.scw-lyrics-text{padding:8px 0 4px;user-select:text;cursor:text}',
+        '.scw-lyrics-text p{margin:0;font-size:16px;line-height:26px;font-weight:700;color:rgba(255,255,255,.9)}',
+        '.scw-lyrics-text p.gap{height:14px}',
+        '.scw-lyrics-from{font-size:12px;margin-top:10px}',
         '.scw-vrow{display:flex;align-items:center;gap:8px;min-width:0;border-radius:4px}',
         '.scw-vrow:hover{background:var(--scw-film)}',
         '.scw-dialog .scw-vplay{flex:1;min-width:0;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:12px;height:48px;padding:4px 8px;text-align:left}',
@@ -4089,6 +4100,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         node.dataset.act = act;
         node.setAttribute('aria-label', label);
         if (icon) node.insertAdjacentHTML('beforeend', ICON[icon]);
+        return node;
+    }
+    // Капсула со значком и подписью (2.8.5): для кнопок, смысл которых по одному значку не угадать
+    function chip(className: string, act: string, label: string, icon: string, text: string): HTMLButtonElement {
+        const node = button(className, act, label, icon);
+        node.append(el('span', '', text));
+        node.title = label;
         return node;
     }
     function textButton(act: string, label: string): HTMLButtonElement {
@@ -4355,7 +4373,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         }
         return [head, tiles];
     }
-    // Обложки следующих треков грузятся заранее (2.8.4): при листании плитка встаёт уже с картинкой, а не пустой
+    // Обложки следующих треков грузятся заранее (2.8.5): при листании плитка встаёт уже с картинкой, а не пустой
     // Каждый адрес запрашивается один раз: пересборка секции не плодит загрузки
     const prefetched = new Set<string>();
     function prefetchArt(): void {
@@ -4419,7 +4437,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }
         }
     }
-    // Громкость в карточке (2.8.4): модуль громкости сайта, если он найден, иначе клавиши сайта Shift+↑/↓ и его кнопка звука
+    // Громкость в карточке (2.8.5): модуль громкости сайта, если он найден, иначе клавиши сайта Shift+↑/↓ и его кнопка звука
     interface SiteVolume { getVolume(): number; setVolume(value: number): void }
     let siteVolume: SiteVolume | null = null;
     let volumeSearched = false;
@@ -4542,8 +4560,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // rowsAt: прокрутка списка подборки, когда секция вернулась на страницу и своя прокрутка списка потеряна
     // ===== Трек не из волны и текст песни (2.7.1) =====
     const LYRICS_T = T.lang === 'ru'
-        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', prev: 'Предыдущий трек', next: 'Следующий трек' }
-        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', prev: 'Previous track', next: 'Next track' };
+        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', chip: 'Текст', waveShort: 'По треку', none: 'Текста этой песни не нашлось', prev: 'Предыдущий трек', next: 'Следующий трек' }
+        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', chip: 'Lyrics', waveShort: 'From track', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
     // «Не сейчас» (2.8.1): мышью срабатывает только при удержании, чтобы на луну не попадали случайно
     const HOLD_T = T.lang === 'ru'
         ? { hint: 'Не сейчас: удерживай', tip: 'Удерживай «Не сейчас», трек вернётся в волну позже' }
@@ -4606,6 +4624,113 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             return title ? (who && !title.includes(who) ? who + ' · ' + title : title) : '';
         } catch {
             return '';
+        }
+    }
+    // Текст из меню по правому клику (2.8.5). Играющий трек: включает и выключает текст на карточке волны и
+    // прокручивает к ней. Любой другой трек: окно с текстом поверх страницы, на какой бы странице сайта ты ни был
+    function playingMatches(target: MenuTarget): WaveTrack | null {
+        const playing = currentCandidate()?.track ?? outsideTrack();
+        if (!playing) return null;
+        if (target.track) return target.track.id === playing.id ? playing : null;
+        return canonicalUrl(playing.permalink_url) === canonicalUrl(target.url) ? playing : null;
+    }
+    function cardOnPage(): boolean {
+        return !!section?.isConnected && !!section.querySelector('.scw-cover');
+    }
+    function menuLyricsLabel(target: MenuTarget): string | null {
+        if (!host.soundcloudAPI?.lyrics) return null;
+        return playingMatches(target) && cardOnPage() && lyricsOpen ? LYRICS_T.hide : LYRICS_T.showOn;
+    }
+    function menuShowLyrics(target: MenuTarget): void {
+        if (playingMatches(target) && cardOnPage()) {
+            lyricsOpen = !lyricsOpen;
+            try {
+                localStorage.setItem('sc2-lyrics', lyricsOpen ? 'on' : 'off');
+            } catch {
+                // не сохранилось: до перезагрузки страницы
+            }
+            render();
+            ensureLyricsLoop();
+            if (lyricsOpen) section?.querySelector('.scw-cover')?.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' });
+            return;
+        }
+        void openLyricsDialog(target);
+    }
+    let lyricsBox: HTMLElement | null = null;
+    let lyricsRequest = 0;
+    function closeLyricsDialog(): void {
+        lyricsRequest++;
+        lyricsBox?.remove();
+        lyricsBox = null;
+        document.removeEventListener('keydown', onLyricsKey, true);
+    }
+    function onLyricsKey(event: KeyboardEvent): void {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        closeLyricsDialog();
+    }
+    async function openLyricsDialog(target: MenuTarget): Promise<void> {
+        const api = host.soundcloudAPI?.lyrics;
+        if (!api) return;
+        closeLyricsDialog();
+        ensureStyle();
+        const request = lyricsRequest;
+        const back = el('div', 'scw-dialog-back');
+        const dialog = el('div', 'scw-dialog scw-lyrics-dialog');
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+        dialog.setAttribute('aria-labelledby', 'scw-lyrics-title');
+        const head = el('div', 'scw-dialog-top');
+        const title = el('b', '', LYRICS_T.show);
+        title.id = 'scw-lyrics-title';
+        const close = button('scw-icon', 'lyrics-close', T.dialogClose, 'x');
+        close.title = T.dialogClose;
+        head.append(title, close);
+        const body = el('div', 'scw-dialog-body');
+        body.append(el('div', 'scw-hint', LYRICS_T.searching));
+        dialog.append(head, body);
+        back.append(dialog);
+        back.addEventListener('click', (event) => {
+            const node = event.target instanceof Element ? event.target : null;
+            if (!node?.closest('.scw-dialog') || node.closest('[data-act="lyrics-close"]')) closeLyricsDialog();
+        });
+        document.body.append(back);
+        document.addEventListener('keydown', onLyricsKey, true);
+        lyricsBox = back;
+        close.focus();
+        const empty = (text: string): void => {
+            body.textContent = '';
+            body.append(el('div', 'scw-hint', text));
+        };
+        try {
+            const track = target.track ?? (await trackOf(target));
+            if (request !== lyricsRequest) return;
+            if (!track) throw new Error('Трек не распознан');
+            const who = (track.user?.username ?? '').trim();
+            title.textContent = (track.title ?? '').trim() + (who ? ' · ' + who : '');
+            const cached = lyricsFor.get(track.id);
+            let plain = cached?.plain ?? '';
+            let source = cached?.source ?? '';
+            if (!cached) {
+                const value = await api({ title: track.title ?? '', uploader: who, durationMs: track.full_duration || track.duration || 0 });
+                if (request !== lyricsRequest) return;
+                const data = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+                plain = typeof data?.plain === 'string' ? data.plain : '';
+                source = data?.source === 'genius' ? 'Genius' : 'LRCLIB';
+            }
+            if (!plain.trim()) {
+                empty(LYRICS_T.none);
+                return;
+            }
+            body.textContent = '';
+            const text = el('div', 'scw-lyrics-text');
+            for (const line of plain.split('\n')) text.append(el('p', line.trim() ? '' : 'gap', line || '\u00a0'));
+            body.append(text, el('div', 'scw-hint scw-lyrics-from', fillText(LYRICS_T.source, { source })));
+        } catch (error) {
+            if (request !== lyricsRequest) return;
+            console.warn('Текст песни: окно не собрано', error);
+            empty(LYRICS_T.none);
         }
     }
     function ensureLyrics(track: WaveTrack): void {
@@ -4679,9 +4804,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         }
         lyricsLine = -1;
         lyricsWord = -1;
-        // Выключить текст можно и прямо с обложки, не только кнопкой в ряду значков
-        const hide = button('scw-lyrics-hide', 'lyrics', LYRICS_T.hide, 'x');
-        hide.title = LYRICS_T.hide;
+        // Выключить текст можно и прямо с обложки: подписанная плашка, видна на наведении, чтобы не попадать в ролики
+        const hide = chip('scw-cover-chip scw-lyrics-hide', 'lyrics', LYRICS_T.hide, 'x', LYRICS_T.hide);
         box.append(rows, hide, el('div', 'scw-lyrics-src', fillText(LYRICS_T.source, { source: lyrics.source }) + (lyrics.synced ? ' · ' + LYRICS_T.synced : '')));
         return box;
     }
@@ -4776,13 +4900,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (cardTrack) ensureLyrics(cardTrack);
         const lyrics = cardTrack ? lyricsFor.get(cardTrack.id) ?? null : null;
         const lyricsKnown = cardTrack ? lyricsFor.has(cardTrack.id) : false;
-        let outsideRow: HTMLElement | null = null;
         const lyricsButton = (): HTMLButtonElement | null => {
             if (!cardTrack || !host.soundcloudAPI?.lyrics) return null;
-            // Режим текста включается и выключается этой кнопкой; включённая подсвечена (2.8.3)
+            // Режим текста (2.8.5): капсула «Текст» с подписью, включённая подсвечена цветом обложки. Раньше тут был
+            // один значок, и было непонятно, что он показывает текст и включён ли текст сейчас
             const label = lyricsOpen ? LYRICS_T.hide : LYRICS_T.showOn;
-            const node = button('scw-like scw-lyrics-toggle', 'lyrics', label, 'lyrics');
-            node.title = label;
+            const node = chip('scw-chip scw-lyrics-toggle', 'lyrics', label, 'lyrics', LYRICS_T.chip);
             node.setAttribute('aria-pressed', String(lyricsOpen));
             return node;
         };
@@ -4825,30 +4948,24 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             meta.append(el('div', 'scw-why', reasonText(current.reason, T)), volumeControl(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
-            meta.append(el('div', 'scw-why', next ? fillText(LYRICS_T.outsideNext, { next }) : LYRICS_T.outside));
-            const prev = button('scw-like', 'site-prev', LYRICS_T.prev, 'prev');
-            prev.title = LYRICS_T.prev;
-            const skip = button('scw-like', 'site-next', LYRICS_T.next, 'next');
-            skip.title = LYRICS_T.next;
+            // Трек не из волны (2.8.5): «Моя волна» и «Волна по треку» компактными капсулами в том же ряду, что
+            // и значки у трека волны. Отдельной строки под ними больше нет, и карточка не растёт вниз. «Назад» и
+            // «вперёд» уже стоят по бокам от паузы и здесь не повторяются
+            // «Не из волны · далее …» строкой под артистом: в ряду с капсулами она сжималась до обрывка
+            meta.classList.add('outside');
+            lines.append(el('div', 'scw-sub', next ? fillText(LYRICS_T.outsideNext, { next }) : LYRICS_T.outside));
+            const waveButton = chip('scw-chip scw-chip-main', 'start-wave', LYRICS_T.startWave, 'play', LYRICS_T.startWave);
+            const seedButton = chip('scw-chip', 'wave-current', LYRICS_T.waveFrom, 'seed', LYRICS_T.waveShort);
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            meta.append(prev, skip, volumeControl(), ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
-            const row = el('div', 'scw-outside');
-            const waveButton = textButton('start-wave', LYRICS_T.startWave);
-            waveButton.classList.add('scw-primary', 'scw-pill');
-            waveButton.insertAdjacentHTML('afterbegin', ICON.play);
-            const seedButton = textButton('wave-current', LYRICS_T.waveFrom);
-            seedButton.classList.add('scw-pill');
-            seedButton.insertAdjacentHTML('afterbegin', ICON.seed);
-            row.append(waveButton, seedButton);
-            outsideRow = row;
+            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), volumeControl(), like, el('div', 'scw-time'));
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
             if (mode === 'fresh') meta.append(textButton('to-similar', T.toSimilar));
         } else if (state === 'error' || state === 'unavailable') meta.append(textButton('retry', T.retry));
         const scout = current ? scoutSection.panel(current.track.id) : null;
-        info.append(top, canvas, meta, ...(outsideRow ? [outsideRow] : []), ...(scout ? [scout] : []));
+        info.append(top, canvas, meta, ...(scout ? [scout] : []));
         // Текст песни лежит поверх обложки, как в роликах: крупные строки, текущая белая (2.8.1)
         const showLyrics = !!cardTrack && lyricsOpen && !!host.soundcloudAPI?.lyrics;
         const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' : '') + (showLyrics && lyrics ? ' lyr' : ''));
@@ -4882,6 +4999,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             // Текста нет: на обложке ничего не пишется (2.8.3), обложка остаётся чистой
             if (lyrics) cover.append(renderLyrics(lyrics));
             else if (!lyricsKnown) cover.append(el('div', 'scw-lyrics-note', LYRICS_T.searching));
+        } else if (lyrics && (current || outside) && host.soundcloudAPI?.lyrics) {
+            // Текст нашёлся, но выключен: плашка «Показать текст» на обложке, видна на наведении
+            cover.append(chip('scw-cover-chip scw-lyrics-show', 'lyrics', LYRICS_T.showOn, 'lyrics', LYRICS_T.showOn));
         }
         // Слой света пересоздаётся с блоком: пятна продолжают движение с той же фазы, свет и подложка в состоянии
         // прошлого блока. Цвета новой обложки ещё считаются: остаются прошлые, потом перетекают
