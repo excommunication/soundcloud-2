@@ -12,6 +12,7 @@ function setup(releaseUrl = 'https://github.com/owner/repo/releases/tag/v1', ope
         updates: () => updates,
         screenOwns: (sender) => sender === own.sender,
         later: vi.fn(),
+        action: vi.fn(),
         openExternal: vi.fn(async () => {}),
         openPath: vi.fn(async () => openError),
         dataFolder: () => 'C:/data',
@@ -27,7 +28,9 @@ describe('обработчики обновлений', () => {
         for (const channel of ['install-update-now', 'get-update-state', 'open-release-page', 'check-updates', 'open-data-folder'])
             await expect(ipc.invoke(channel, stranger)).rejects.toThrow('Недопустимый отправитель IPC');
         await ipc.send('update-screen-later', stranger);
+        await ipc.send('update-screen-action', stranger);
         expect(deps.later).not.toHaveBeenCalled();
+        expect(deps.action).not.toHaveBeenCalled();
         expect(updates.installNow).not.toHaveBeenCalled();
         expect(updates.check).not.toHaveBeenCalled();
     });
@@ -35,6 +38,8 @@ describe('обработчики обновлений', () => {
         const { ipc, own, updates, deps } = setup();
         await ipc.send('update-screen-later', own);
         expect(deps.later).toHaveBeenCalledOnce();
+        await ipc.send('update-screen-action', own);
+        expect(deps.action).toHaveBeenCalledOnce();
         await expect(ipc.invoke('install-update-now', own)).resolves.toBe(true);
         await ipc.invoke('check-updates', own);
         expect(updates.check).toHaveBeenCalledOnce();
