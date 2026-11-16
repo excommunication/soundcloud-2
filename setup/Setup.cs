@@ -4,7 +4,10 @@
 // ~100 КБ, а обновления из клиента идут как раньше, через тот же полный установщик.
 // WPF на .NET Framework 4.8, который есть в любой Windows 10 1903+ и 11. Интерфейс собран кодом, без XAML, чтобы
 // собираться обычным csc.exe из Windows без SDK (scripts/build-setup.cjs). Поэтому синтаксис C# 5: без $"" и ?.
-// Ключи: --reinstall ставит заново, даже если стоит последняя версия; --dry всё как обычно, но без установки и запуска
+// Ключи: --reinstall ставит заново, даже если стоит последняя версия; --dry всё как обычно, но без установки и запуска.
+// --file <путь> ставит уже скачанный полный установщик без загрузки: так его вызывает сам полный установщик, когда его
+// запустили не тихо (двойной клик или обновление из клиента), чтобы окно у установки всегда было одно, это.
+// --updated передаётся полному установщику дальше: обновление из клиента
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -37,9 +40,13 @@ namespace SoundCloudSetup
                 ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
                 bool dry = Array.IndexOf(args, "--dry") >= 0;
                 bool reinstall = Array.IndexOf(args, "--reinstall") >= 0;
+                bool updated = Array.IndexOf(args, "--updated") >= 0;
+                int at = Array.IndexOf(args, "--file");
+                string file = at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
+                if (file != null && !File.Exists(file)) file = null;
                 var app = new Application();
                 app.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                return app.Run(new SetupWindow(dry, reinstall));
+                return app.Run(new SetupWindow(dry, reinstall, file, updated));
             }
         }
     }
@@ -182,7 +189,8 @@ namespace SoundCloudSetup
         static readonly Color Gray = Color.FromRgb(0x5A, 0x5A, 0x5A);
         static readonly Color Bg = Color.FromRgb(0x12, 0x12, 0x12);
 
-        readonly bool dry;
+        readonly bool dry, updated;
+        readonly string localFile;
         readonly Stopwatch clock = Stopwatch.StartNew();
         double last, phaseStart;
         volatile Phase phase = Phase.Check;
@@ -221,9 +229,11 @@ namespace SoundCloudSetup
         StackPanel buttons;
         Grid bottom;
 
-        public SetupWindow(bool dry, bool reinstall)
+        public SetupWindow(bool dry, bool reinstall, string file, bool updated)
         {
             this.dry = dry;
+            this.localFile = file;
+            this.updated = updated;
             Title = "SoundCloud 2";
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
@@ -572,6 +582,30 @@ namespace SoundCloudSetup
             string stage = "check";
             try
             {
+                if (localFile != null)
+                {
+                    // Полный установщик уже на диске: без проверки релиза и загрузки, сразу установка
+                    stage = "install";
+                    installed = Installed.Find();
+                    string next = FileVersionInfo.GetVersionInfo(localFile).ProductVersion ?? "";
+                    Ui(delegate
+                    {
+                        if (installed == null || next.Length == 0) info.Text = next.Length > 0 ? L.S("Версия ", "Version ") + next : "";
+                        else if (installed.Text == next) info.Text = L.S("Переустановка ", "Reinstalling ") + next;
+                        else info.Text = L.S("Обновление ", "Update ") + installed.Text + "  →  " + next;
+                        shown = barTarget = 0.82;
+                        SetPhase(Phase.Install);
+                        SetStatus(updated ? L.S("Обновление…", "Updating…") : L.S("Установка…", "Installing…"));
+                    });
+                    Install(localFile);
+                    Ui(delegate
+                    {
+                        SetPhase(Phase.Done);
+                        SetStatus(L.S("Готово. Запускаем SoundCloud 2", "Done. Starting SoundCloud 2"));
+                        Launch();
+                    });
+                    return;
+                }
                 release = Release.Fetch();
                 installed = Installed.Find();
                 if (!force && installed != null && installed.Version != null && installed.Version >= release.Version)
@@ -665,15 +699,17 @@ namespace SoundCloudSetup
         {
             if (dry) { Thread.Sleep(4000); return; }
             // Тихая установка полного установщика electron-builder: без страниц, клиент закрывается сам, если открыт
-            var p = Process.Start(new ProcessStartInfo(file, "/S") { UseShellExecute = false });
+            var p = Process.Start(new ProcessStartInfo(file, updated ? "/S --updated" : "/S") { UseShellExecute = false });
             p.WaitForExit();
             if (p.ExitCode != 0) throw new Exception(L.S("код ", "code ") + p.ExitCode);
-            try { File.Delete(file); } catch (Exception) { }
+            // Свой скачанный файл убираем, а чужой (из кэша обновлений клиента или скачанный руками) не трогаем
+            if (localFile == null) try { File.Delete(file); } catch (Exception) { }
         }
 
         void Launch()
         {
-            if (dry) return;
+            // SC2_SETUP_NO_LAUNCH=1: проверка установки без запуска клиента (смоук-тесты)
+            if (dry || Environment.GetEnvironmentVariable("SC2_SETUP_NO_LAUNCH") == "1") return;
             var app = Installed.Find();
             if (app == null) return;
             try { Process.Start(new ProcessStartInfo(app.Exe) { UseShellExecute = true, WorkingDirectory = app.Dir }); }

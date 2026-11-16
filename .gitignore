@@ -8,3 +8,4 @@ docs/
 .env.*
 *.log
 build-resources/*.preview.png
+build-resources/SoundCloud-2-Setup.exe
