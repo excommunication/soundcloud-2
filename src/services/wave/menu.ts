@@ -77,6 +77,8 @@ export interface MenuSection {
     closeMenu(): void;
     /** Волна от закреплённого плейлиста или артиста по ссылке; title для плашки «Собираю волну» */
     startLink(kind: 'playlist' | 'artist', url: string, title: string): void;
+    /** Волна от конкретного трека (трек не из волны на карточке): меню его не знает, поэтому трек передаётся целиком */
+    startTrack(track: WaveTrack): void;
     /** Действие меню над треком под узлом (нижний бар, строка списка): true, если цель нашлась и действие есть */
     actOn(node: Element, act: string): boolean;
     /** Какие действия меню сейчас доступны трека под узлом: по ним кнопки знают, нажаты ли они (undislike, unmore) */
@@ -485,6 +487,7 @@ export function installMenu(core: MenuCore): MenuSection {
         onDocumentKey,
         closeMenu,
         startLink: (kind, url, title) => void startSeed(kind, { kind, url, artistUrl: '' }, title),
+        startTrack: (track) => void startSeed('track', { kind: 'track', url: track.permalink_url ?? '', artistUrl: track.user?.permalink_url ?? '', track }),
         actOn: (node, act) => {
             const target = menuTarget(node);
             if (!target) return false;

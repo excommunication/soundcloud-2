@@ -15,31 +15,36 @@ body {
     inset: 0;
     background: radial-gradient(120% 90% at 50% 40%, #0d1222 0%, #070a12 60%, #04060b 100%);
     overflow: hidden;
-    will-change: transform;
 }
-/* Дыра взрыва: маска с маленьким кругом, растёт масштабом слоя (на видеокарте, без перерисовки каждый кадр) */
+/* Дыра взрыва: радиус круга в маске анимируется напрямую. Раньше росла сама маска масштабом слоя, и её край расплывался
+   в мутное пятно; теперь край чёткий на любом размере */
+@property --r {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
 .veil.open {
-    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent 22px, #000 30px);
-    mask-image: radial-gradient(circle at var(--x) var(--y), transparent 22px, #000 30px);
+    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 2px));
+    mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 2px));
 }
 .blob {
     position: absolute;
     width: 60vmax;
     height: 60vmax;
     border-radius: 50%;
-    filter: blur(90px);
     opacity: 0.32;
-    animation: drift 9s ease-in-out infinite alternate;
+    animation: drift 14s ease-in-out infinite alternate;
+    will-change: transform;
 }
 .blob.a {
     left: -10vmax;
     top: -18vmax;
-    background: #3a5bff;
+    background: radial-gradient(closest-side, #3a5bff, transparent);
 }
 .blob.b {
     right: -16vmax;
     bottom: -22vmax;
-    background: #b14cff;
+    background: radial-gradient(closest-side, #b14cff, transparent);
     animation-delay: -3s;
 }
 .blob.c {
@@ -47,7 +52,7 @@ body {
     top: 40vh;
     width: 34vmax;
     height: 34vmax;
-    background: #19c3ff;
+    background: radial-gradient(closest-side, #19c3ff, transparent);
     opacity: 0.18;
     animation-delay: -6s;
 }
@@ -88,7 +93,7 @@ body {
     opacity: 0;
 }
 .idle .bars rect {
-    animation: eq 1.1s ease-in-out infinite alternate;
+    animation: eq 1.6s ease-in-out infinite alternate;
 }
 .idle .bars rect:nth-child(2) {
     animation-delay: -0.3s;

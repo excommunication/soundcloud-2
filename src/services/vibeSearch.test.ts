@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { askModel, extractJson, isAiConfig, planLocal, planVibe, sanitizePlan, vibeTitle, type FetchLike } from './vibeSearch';
+import { askModel, coreText, extractJson, isAiConfig, planLocal, planVibe, sanitizePlan, translit, vibeTitle, type FetchLike } from './vibeSearch';
 
 describe('planLocal', () => {
     it('разбирает сцену, жанр и настроение по-русски', () => {
@@ -101,5 +101,31 @@ describe('модель', () => {
         const result = await planVibe('chill', { genres: [], noRussian: false }, { provider: 'openai', baseUrl: '', model: '', key: '' }, fetcher);
         expect(fetcher).not.toHaveBeenCalled();
         expect(result.error).toBeTruthy();
+    });
+});
+
+describe('разговорные запросы (2.8.1)', () => {
+    it('«чёт хайповое го» даёт поиски, а не пустой план', () => {
+        const plan = planLocal('чёт хайповое го');
+        expect(plan.queries.length).toBeGreaterThan(2);
+        expect(plan.tags).toContain('viral');
+        expect(plan.popularity).toBe('hits');
+        expect(plan.queries).toContain('tiktok viral');
+    });
+    it('слова-связки убираются, остаётся суть', () => {
+        expect(coreText('чёт хайповое го')).toBe('хайповое');
+        expect(coreText('включи мне что-нибудь грустное')).toBe('грустное');
+        expect(coreText('го')).toBe('го');
+    });
+    it('имя артиста ищется и по-русски, и латиницей', () => {
+        const plan = planLocal('кай ангел');
+        expect(plan.queries).toContain('кай ангел');
+        expect(plan.queries).toContain(translit('кай ангел'));
+        expect(translit('кай ангел')).toBe('kai angel');
+    });
+    it('«тикток 2026» по-прежнему просит свежее и популярное', () => {
+        const plan = planLocal('тикток 2026');
+        expect(plan.fresh).toBe(true);
+        expect(plan.popularity).toBe('hits');
     });
 });

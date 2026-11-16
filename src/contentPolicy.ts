@@ -7,6 +7,11 @@ export function isSoundCloudUrl(value: string): boolean {
             (url.hostname === 'soundcloud.com' || url.hostname.endsWith('.soundcloud.com'));
     } catch { return false; }
 }
+/** Окно входа сначала открывается пустым (window.open('') или about:blank), и только потом ему задаётся адрес провайдера.
+ *  Раньше такое окно отклонялось, и сайт писал «Please enable popup windows and try again» */
+export function isBlankPopup(value: string): boolean {
+    return value === '' || value === 'about:blank';
+}
 export function isWebUrl(value: string): boolean {
     try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password; }
     catch { return false; }
@@ -69,7 +74,7 @@ export function protectContent(contents: WebContents, openExternal: (url: string
         if (!isSoundCloudUrl(url)) event.preventDefault();
     });
     // Вход через внешнего провайдера сохраняет opener и сессию, но не получает preload клиента.
-    contents.setWindowOpenHandler(({ url }) => isWebUrl(url) ? {
+    contents.setWindowOpenHandler(({ url }) => isWebUrl(url) || isBlankPopup(url) ? {
         action: 'allow',
         overrideBrowserWindowOptions: {
             autoHideMenuBar: true,

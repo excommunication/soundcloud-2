@@ -1,34 +1,54 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* global require, Buffer, __dirname, setTimeout */
-// Картинки установщика: боковая 164x314 (приветствие и финиш) и шапка 150x57 (страница установки), 24-битные BMP
-// в build-resources. Рисует Electron из HTML, чтобы оформление совпадало с заставкой клиента.
-// Запуск: electron scripts/installer-art.cjs
+// Картинки установщика (2.8.1): минимализм в духе установщика Claude, палитра Spotify (чёрный и зелёный).
+// Боковая 164x314 (приветствие и финиш), шапка 150x57 (страница установки) и восемь кадров шапки со спиннером:
+// установщик меняет их 8 раз в секунду, получается «архивная» покадровая анимация с низким fps.
+// Спиннер это двенадцать лучей-столбиков эквалайзера по кругу, как лучи у звезды Claude, но столбики SoundCloud.
+// Всё в build-resources. Рисует Electron из HTML. Запуск: electron scripts/installer-art.cjs
 const { app, BrowserWindow } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const LOGO =
-    '<svg viewBox="0 -4 200 96"><g fill="#fff">' +
-    [[2, 45, 32], [15, 38, 46], [28, 41, 46], [41.5, 26, 61], [54.5, 20, 67], [68, 23, 64], [81.5, 13, 74]].map(([x, y, h]) => `<rect x="${x}" y="${y}" width="6" height="${h}" rx="3"/>`).join('') +
-    '<path d="M100 87Q95 87 95 82V10Q95 5 100 3.5Q108 1 117 1Q155 1 163 36Q167 35 170 35Q193 35 193 61Q193 87 168 87Z"/></g></svg>';
-const page = (width, height, body) => `<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;background:#0b0e18;font-family:'Segoe UI',system-ui,sans-serif;color:#fff}
-.bg{position:absolute;inset:0;background:radial-gradient(120% 70% at 20% 0%,#2b3fae 0%,transparent 60%),radial-gradient(110% 60% at 100% 100%,#7a35c9 0%,transparent 62%),radial-gradient(80% 40% at 60% 55%,#0f8fc4 0%,transparent 70%),#0b0e18}
-.grain{position:absolute;inset:0;opacity:.5;background:radial-gradient(circle at 50% 120%,rgba(11,14,24,0) 30%,#0b0e18 100%)}
-${body.css}</style></head><body><div class="bg"></div><div class="grain"></div>${body.html}</body></html>`;
+const BG = '#121212';
+const GREEN = '#1ed760';
+const FRAMES = 8;
+const RAYS = 12;
+// Длины лучей по кругу: повторяются через четыре, поэтому поворот на 120° даёт тот же рисунок и круг замыкается
+const BASE = [1, 0.62, 0.84, 0.48];
 
-const sidebar = page(164, 314, {
-    css: `.logo{position:absolute;left:28px;top:96px;width:108px;filter:drop-shadow(0 10px 24px rgba(0,0,0,.55))}
-.name{position:absolute;left:0;right:0;top:176px;text-align:center;font-size:19px;font-weight:700;letter-spacing:-.3px}
-.sub{position:absolute;left:0;right:0;top:204px;text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62)}
-.eq{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;align-items:flex-end;gap:3px;padding:0 10px;box-sizing:border-box;opacity:.5}
-.eq i{flex:1;border-radius:2px 2px 0 0;background:linear-gradient(#fff,rgba(255,255,255,.08))}`,
-    html: `<div class="logo">${LOGO}</div><div class="name">SoundCloud 2</div><div class="sub">Моя волна</div><div class="eq">${Array.from({ length: 26 }, (_, i) => `<i style="height:${Math.round(10 + 44 * Math.abs(Math.sin(i * 0.9) * Math.cos(i * 0.31)))}px"></i>`).join('')}</div>`,
-});
-const header = page(150, 57, {
-    css: `.logo{position:absolute;right:14px;top:14px;width:62px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}`,
-    html: `<div class="logo">${LOGO}</div>`,
-});
+// Звезда из столбиков. frame 0..7 поворачивает её на 15° за кадр и «дёргает» длины, как рисованную от руки
+function spark(size, frame, color, hot) {
+    const c = size / 2;
+    const inner = size * 0.17;
+    const reach = size * 0.33;
+    const width = Math.max(2.4, size * 0.058);
+    let out = '';
+    for (let i = 0; i < RAYS; i++) {
+        const wobble = 0.82 + 0.18 * (((i * 5 + frame * 3) % 8) / 7);
+        const length = reach * BASE[i % 4] * wobble;
+        const angle = (i * 360) / RAYS + frame * 15;
+        const lit = hot && (i + frame) % RAYS === 0;
+        out += `<line x1="${c}" y1="${c - inner}" x2="${c}" y2="${c - inner - length}" stroke="${lit ? GREEN : color}" stroke-width="${width}" stroke-linecap="round" transform="rotate(${angle} ${c} ${c})"/>`;
+    }
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+}
+
+const page = (width, height, css, html) => `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;background:${BG};font-family:'Segoe UI',system-ui,sans-serif;color:#fff}
+${css}</style></head><body>${html}</body></html>`;
+
+const sidebar = page(
+    164,
+    314,
+    `.glow{position:absolute;inset:0;background:radial-gradient(90% 55% at 50% 118%,rgba(30,215,96,.20),transparent 70%)}
+.spark{position:absolute;left:19px;top:70px}
+.name{position:absolute;left:0;right:0;top:206px;text-align:center;font-size:20px;font-weight:800;letter-spacing:-.4px}
+.sub{position:absolute;left:0;right:0;top:234px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#b3b3b3}
+.egg{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:9px/1 Consolas,'Courier New',monospace;letter-spacing:.12em;color:#5c5c5c}`,
+    `<div class="glow"></div><div class="spark">${spark(126, 0, '#fff', true)}</div><div class="name">SoundCloud 2</div><div class="sub">Моя волна</div><div class="egg">// sound claude</div>`,
+);
+const headerFrame = (frame) =>
+    page(150, 57, `.spark{position:absolute;left:50px;top:3px}`, `<div class="spark">${spark(51, frame, '#fff', true)}</div>`);
 
 // 24-битный BMP снизу вверх из BGRA-буфера Electron, строки добиты до 4 байт
 function bmp(image, width, height) {
@@ -64,13 +84,17 @@ function bmp(image, width, height) {
 app.on('window-all-closed', () => undefined);
 app.whenReady().then(async () => {
     const target = path.resolve(__dirname, '..', 'build-resources');
-    for (const [name, html, width, height] of [['installerSidebar.bmp', sidebar, 164, 314], ['installerHeader.bmp', header, 150, 57]]) {
+    fs.mkdirSync(path.join(target, 'spin'), { recursive: true });
+    const jobs = [['installerSidebar.bmp', sidebar, 164, 314], ['installerHeader.bmp', headerFrame(0), 150, 57]];
+    for (let i = 0; i < FRAMES; i++) jobs.push([path.join('spin', `sp${i}.bmp`), headerFrame(i), 150, 57]);
+    for (const [name, html, width, height] of jobs) {
         const win = new BrowserWindow({ width, height, show: false, frame: false, useContentSize: true, webPreferences: { sandbox: true } });
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await new Promise((resolve) => setTimeout(resolve, 250));
         const image = await win.webContents.capturePage({ x: 0, y: 0, width, height });
         fs.writeFileSync(path.join(target, name), bmp(image, width, height));
-        fs.writeFileSync(path.join(target, name.replace('.bmp', '.preview.png')), image.toPNG());
+        // Предпросмотры нужны только для глаз и в репозиторий не идут (см. .gitignore)
+        if (!name.startsWith('spin')) fs.writeFileSync(path.join(target, name.replace('.bmp', '.preview.png')), image.toPNG());
         win.destroy();
     }
     app.exit(0);

@@ -47,7 +47,7 @@ describe('оформление', () => {
     });
 });
 
-import { beatInit, beatStep } from './aurora';
+import { beatInit, beatStep, envelopeTempo } from './aurora';
 
 describe('бит', () => {
     const run = (bpm: number, seconds: number, beatAt = (t: number) => (t % (60000 / bpm)) < 90) => {
@@ -100,5 +100,37 @@ describe('бит', () => {
         expect(hits).toBeLessThanOrEqual(1);
         expect(state.bpm).toBe(0);
         expect(state.pulse).toBeLessThan(0.05);
+    });
+});
+
+describe('envelopeTempo (2.8.1)', () => {
+    const wave = (bpm: number): number[] => {
+        const duration = 180000;
+        const period = 60000 / bpm;
+        return Array.from({ length: 1800 }, (_, i) => {
+            const phase = ((i * duration) / 1800 % period) / period;
+            return 60 + 40 * Math.exp(-phase * 5) + ((i * 7919) % 13);
+        });
+    };
+    it('находит темп по форме волны', () => {
+        for (const bpm of [100, 128, 140]) {
+            const found = envelopeTempo(wave(bpm), 180000);
+            expect(found).not.toBeNull();
+            expect(Math.abs(60000 / (found?.period ?? 1) - bpm)).toBeLessThan(bpm * 0.06);
+        }
+    });
+    it('ровная форма и короткие данные ритма не дают', () => {
+        expect(envelopeTempo(new Array(1800).fill(80), 180000)).toBeNull();
+        expect(envelopeTempo([1, 2, 3], 1000)).toBeNull();
+    });
+    it('детектор бита не залипает: удары идут весь трек', () => {
+        const state = beatInit();
+        let late = 0;
+        for (let t = 0; t < 30000; t += 16) {
+            const phase = (t % 469) / 469;
+            const f = Math.min(1, 0.25 + 0.7 * Math.exp(-phase * 7));
+            if (beatStep(state, f ** 3, 0.4, t, 16) && t > 20000) late++;
+        }
+        expect(late).toBeGreaterThan(15);
     });
 });

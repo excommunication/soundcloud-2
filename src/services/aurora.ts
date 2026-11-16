@@ -197,6 +197,44 @@ export function beatStep(state: BeatState, bass: number, level: number, now: num
     return hit;
 }
 
+/** Темп по форме волны трека, когда анализатор слышит тишину (зашифрованный поток): автокорреляция огибающей в диапазоне
+ *  80..170 ударов в минуту, период с дробной точностью. null, если ритма не видно или отсчёты слишком редкие.
+ *  Функция уходит на страницу текстом вместе с beatStep, поэтому ни от чего снаружи не зависит */
+export function envelopeTempo(raw: number[], duration: number): { period: number } | null {
+    const n = raw.length;
+    if (n < 64 || !(duration > 0)) return null;
+    const step = duration / n;
+    let mean = 0;
+    for (let i = 0; i < n; i++) mean += raw[i];
+    mean /= n;
+    let energy = 0;
+    const x = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        x[i] = raw[i] - mean;
+        energy += x[i] * x[i];
+    }
+    if (energy <= 0) return null;
+    const minLag = Math.max(2, Math.floor(60000 / 170 / step));
+    const maxLag = Math.ceil(60000 / 80 / step);
+    if (maxLag + 2 >= n / 2 || minLag >= maxLag) return null;
+    const score: number[] = [];
+    for (let lag = minLag - 1; lag <= maxLag + 1; lag++) {
+        let sum = 0;
+        for (let i = 0; i + lag < n; i++) sum += x[i] * x[i + lag];
+        score[lag] = sum / energy;
+    }
+    let best = minLag;
+    for (let lag = minLag; lag <= maxLag; lag++) if (score[lag] > score[best]) best = lag;
+    if (!(score[best] > 0.1)) return null;
+    // Вершина параболы по трём соседним отсчётам: период не округляется до шага формы волны
+    const a = score[best - 1];
+    const b = score[best];
+    const c = score[best + 1];
+    const bend = a - 2 * b + c;
+    const shift = bend < 0 ? (0.5 * (a - c)) / bend : 0;
+    return { period: (best + Math.max(-0.5, Math.min(0.5, shift))) * step };
+}
+
 /** Три цвета палитры; у «Из обложки» это цвета до первой обложки */
 export function paletteColors(appearance: Appearance): [string, string, string] {
     if (appearance.palette === 'custom') return appearance.colors;
@@ -439,6 +477,9 @@ export function appearanceCss(appearance: Appearance): string {
         `.sidebarModule{border-radius:var(--sc2-r4)!important;padding:8px 14px 4px!important;background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)!important}`,
         `.sidebarModule .soundBadge .sc-artwork,.sidebarModule .sc-artwork{border-radius:var(--sc2-r1)!important;overflow:hidden}`,
         `.sidebarHeader__title,.sidebarModule h3{letter-spacing:.08em;font-weight:800!important}`,
+        // Пустая полоса справа над лайками (2.8.1): модуль, из которого блокировщик убрал содержимое, оставался стеклянной плашкой
+        // с отступами. Модуль без ссылок, картинок, кнопок, списков и текста не показывается
+        `.sidebarModule:empty,.l-sidebar-right .sidebarModule:not(:has(a,img,button,li,p,h2,h3,canvas,iframe,input,[class*="Artwork"],.sc-artwork)){display:none!important}`,
     );
     // Блок «Моей волны»: большая карточка «сейчас играет» с размытой обложкой в фоне, плитки «Далее» как карточки-обложки,
     // чипы и кнопки как у фирменного стиля. html body в начале перебивает правила волны (#sc-wave …) без !important
@@ -470,21 +511,28 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-like:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 18px;background:var(--sc2-surface-2);font-weight:700}`,
+        // Кнопки под треком не из волны (2.8.1): две капсулы одной высоты со значками, главная белая, вторая стеклянная
         `${w} .scw-outside{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}`,
-        `${w} .scw-btn.scw-primary{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.7)}`,
-        `${w} .scw-btn.scw-primary svg{width:16px;height:16px;fill:var(--sc2-ink)}`,
-        `${w} .scw-btn.scw-primary:hover,${w} .scw-btn[data-act="wave-current"]:hover{transform:translateY(-1px)}`,
-        `${w} .scw-lyrics-note{margin-top:14px;font-size:13px;color:var(--sc2-text-3)}`,
-        // Текст песни (2.7.1): строки крупно, текущая белая, прошедшие тише, остальные приглушены; клик по строке перематывает
-        `${w} .scw-lyrics{position:relative;margin-top:14px;border-radius:var(--sc2-r3);background:rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px var(--sc2-line)}`,
-        `${w} .scw-lyrics-rows{max-height:230px;overflow:auto;padding:16px 18px;scrollbar-width:none;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent)}`,
+        `${w} .scw-btn.scw-pill{height:40px;padding:0 20px 0 15px;display:inline-flex;align-items:center;gap:9px;border-radius:999px;font-size:14px;font-weight:700;letter-spacing:-.1px;background:rgba(255,255,255,.1);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#fff;transition:transform var(--sc2-fast) var(--sc2-ease),background var(--sc2-fast),box-shadow var(--sc2-fast)}`,
+        `${w} .scw-btn.scw-pill svg{width:18px;height:18px;flex:none;fill:currentColor}`,
+        `${w} .scw-btn.scw-pill:hover{background:rgba(255,255,255,.18);transform:translateY(-1px)}`,
+        `${w} .scw-btn.scw-pill:active{transform:scale(.97)}`,
+        `${w} .scw-btn.scw-primary{background:#fff;color:var(--sc2-ink);box-shadow:0 10px 24px -12px rgba(0,0,0,.8)}`,
+        `${w} .scw-btn.scw-primary:hover{background:#fff;filter:brightness(.95)}`,
+        // Текст песни поверх обложки (2.8.1, для съёмки роликов): обложка крупнее, затемнена, строки по центру. Сама карточка
+        // на мышь не реагирует: ни стекла, ни наклона
+        `${w} .scw-cover.lyr{width:320px;height:320px}`,
+        `${w} .scw-cover.lyr .scw-img{filter:brightness(.62) saturate(1.1)}`,
+        `${w} .scw-lyrics-note{position:absolute;left:0;right:0;bottom:12px;z-index:3;margin:0;text-align:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.78);text-shadow:0 1px 8px rgba(0,0,0,.7);pointer-events:none}`,
+        `${w} .scw-lyrics{position:absolute;inset:0;z-index:3;margin:0;border-radius:inherit;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.42));box-shadow:none}`,
+        `${w} .scw-lyrics-rows{position:absolute;inset:0;max-height:none;overflow:auto;padding:130px 18px;box-sizing:border-box;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 24%,#000 76%,transparent);mask-image:linear-gradient(transparent,#000 24%,#000 76%,transparent)}`,
         `${w} .scw-lyrics-rows::-webkit-scrollbar{display:none}`,
-        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:3px 0;font-size:19px;line-height:1.3;font-weight:800;letter-spacing:-.2px;color:rgba(255,255,255,.34);cursor:pointer;transition:color .35s ease,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease;transform-origin:left center;filter:blur(.3px)}`,
-        `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:15px;font-weight:600;color:rgba(255,255,255,.78);filter:none}`,
-        `${w} .scw-lyric.past{color:rgba(255,255,255,.5)}`,
-        `${w} .scw-lyric.now{color:#fff;transform:scale(1.03);filter:none;text-shadow:0 0 24px color-mix(in srgb,var(--sca-c1,#fff) 50%,transparent)}`,
-        `${w} .scw-lyric:hover{color:rgba(255,255,255,.85)}`,
-        `${w} .scw-lyrics-src{padding:0 18px 10px;font-size:11px;color:var(--sc2-text-3)}`,
+        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:4px 0;font-size:22px;line-height:1.18;font-weight:900;letter-spacing:-.4px;text-align:center;color:rgba(255,255,255,.4);text-shadow:0 2px 14px rgba(0,0,0,.65);cursor:pointer;transition:color .35s ease,transform .4s cubic-bezier(.2,.8,.2,1),filter .35s ease;transform-origin:center;filter:blur(.4px)}`,
+        `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:16px;font-weight:800;color:rgba(255,255,255,.88);filter:none}`,
+        `${w} .scw-lyric.past{color:rgba(255,255,255,.55)}`,
+        `${w} .scw-lyric.now{color:#fff;transform:scale(1.07);filter:none;text-shadow:0 0 26px color-mix(in srgb,var(--sca-c1,#fff) 60%,transparent),0 2px 14px rgba(0,0,0,.7)}`,
+        `${w} .scw-lyric:hover{color:rgba(255,255,255,.9)}`,
+        `${w} .scw-lyrics-src{position:absolute;left:0;right:0;bottom:8px;padding:0;text-align:center;font-size:10px;color:rgba(255,255,255,.55);pointer-events:none}`,
         `${w} .scw-up-h{font-size:13px;font-weight:700;color:var(--sc2-text-2);margin:26px 0 10px}`,
         // «Далее»: карточки-обложки в полный рост, название под ними, подъём и увеличение обложки на наведении
         `${w} .scw-tiles:not(.scw-shelf){gap:16px}`,
@@ -533,16 +581,11 @@ export function appearanceCss(appearance: Appearance): string {
             'box-shadow:inset 0 0 calc(70px + var(--sca-kick,0) * 90px) calc(var(--sca-kick,0) * 10px) rgba(0,0,0,calc(.18 + var(--sca-kick,0) * .3))}',
         'html.sca-playing #sca-thump{opacity:1}',
         // Обложка в карточке волны вздрагивает на ударе
-        'html.sca-playing #sc-wave .scw-cover{transform:scale(calc(1 + var(--sca-kick,0) * .018))!important;transition:transform 90ms ease-out,filter .4s ease!important}',
+        // Карточка (обложка и текст поверх) на ударе дрожит в сторону, выбранную для удара, и чуть набухает
+        'html.sca-playing #sc-wave .scw-cover{transform:translate3d(calc(var(--sca-sx,0) * 5px),calc(var(--sca-sy,0) * 5px),0) scale(calc(1 + var(--sca-kick,0) * .035))!important;transition:transform 70ms ease-out,filter .4s ease!important;will-change:transform}',
+        // Фон на ударе: холст чуть увеличен, чтобы края не показывались, и дёргается в ту же сторону
+        'html.sca-playing:not(.sca-fx-soft):not(.sca-fx-off) #sca-bg{transform:translate3d(calc(var(--sca-sx,0) * 12px),calc(var(--sca-sy,0) * 12px),0) scale(calc(1.05 + var(--sca-kick,0) * .04));transition:opacity 1.2s ease,transform 70ms ease-out}',
         'html.scm-reduce #sca-club,html.scm-reduce #sca-thump{display:none}',
-        // Стекло карточки волны: наклон, бегущий блик и светлый край у курсора
-        'html body #sc-wave .scw-body{transform:perspective(1400px) rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg));transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease!important}',
-        'html body #sc-wave .scw-body.sc2-glass-on{transition:transform .12s linear,box-shadow .4s ease!important;box-shadow:0 34px 70px -28px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.14)!important}',
-        'html body #sc-wave .scw-body::after{content:"";position:absolute;inset:0;z-index:4;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .4s ease;' +
-            'background:radial-gradient(520px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.13),rgba(255,255,255,.03) 35%,transparent 60%),' +
-            'linear-gradient(115deg,transparent 30%,rgba(255,255,255,.06) 45%,transparent 60%) calc(var(--gx,50%) * 1.4 - 20%) 0/200% 100% no-repeat;mix-blend-mode:screen}',
-        'html body #sc-wave .scw-body.sc2-glass-on::after{opacity:1}',
-        'html body #sc-wave .scw-body.sc2-glass-on{outline:1px solid transparent;background-image:radial-gradient(300px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.07),transparent 70%)!important}',
         // Уровни эффектов (2.7.1): «мягкие» без затемнения краёв и толчка обложки, «выкл» без клуба вовсе
         'html.sca-fx-soft #sca-thump,html.sca-fx-off #sca-thump,html.sca-fx-off #sca-club{display:none}',
         'html.sca-fx-soft #sca-club .beam{opacity:calc(.02 + var(--sca-energy,0) * .12)}',
@@ -749,6 +792,7 @@ export function auroraPage(config: AuroraConfig): void {
     let freq: Uint8Array<ArrayBuffer> | null = null;
     let silentSince = 0;
     let useEnvelope = false;
+    let heard = 0;
     const envMax = new Map<number, number>();
     let cssPulse = -1;
     // Полосы спектра для линии прогресса: 32 логарифмические от 40 Гц до 8 кГц, 0..1
@@ -772,6 +816,50 @@ export function auroraPage(config: AuroraConfig): void {
             const i = Math.max(0, Math.min(raw.length - 1, Math.round(at + (b - spectrum.length / 2) * 0.6)));
             spectrum[b] = (raw[i] / max) * (0.75 + 0.25 * Math.sin(b * 1.7 + at));
         }
+    }
+    // Метроном по форме волны: период из envelopeTempo (раз на трек), фаза пересчитывается каждые 0,7 с по последним 6 с
+    // формы волны: берётся сдвиг, при котором отсчёты на сетке ударов в среднем самые громкие. Возвращает 0..1 сразу после
+    // удара сетки и спад к нулю до следующего, -1 если ритма нет
+    let tempo: { id: number; period: number } | null = null;
+    let tempoPhase = 0;
+    let tempoAt = 0;
+    function envelopeKick(env: { id: number; raw: number[] | null; position: number; duration: number }, max: number): number {
+        const rawList = env.raw;
+        if (!rawList || env.duration <= 0) return -1;
+        if (!tempo || tempo.id !== env.id) {
+            const found = envelopeTempo(rawList, env.duration);
+            tempo = { id: env.id, period: found ? found.period : 0 };
+            tempoAt = 0;
+        }
+        const period = tempo.period;
+        if (!period) return -1;
+        const stepMs = env.duration / rawList.length;
+        const stamp = performance.now();
+        if (stamp - tempoAt > 700) {
+            tempoAt = stamp;
+            const from = env.position - 6000;
+            let bestScore = -1;
+            let bestPhase = 0;
+            const grain = Math.max(8, stepMs / 4);
+            for (let phase = 0; phase < period; phase += grain) {
+                let sum = 0;
+                let count = 0;
+                for (let t = from + phase; t < env.position; t += period) {
+                    const i = Math.round(t / stepMs);
+                    if (i < 0 || i >= rawList.length) continue;
+                    sum += rawList[i] / max;
+                    count++;
+                }
+                const mean = count ? sum / count : 0;
+                if (mean > bestScore) {
+                    bestScore = mean;
+                    bestPhase = phase;
+                }
+            }
+            tempoPhase = from + bestPhase;
+        }
+        const since = (((env.position - tempoPhase) % period) + period) % period;
+        return Math.exp(-since / (period * 0.22));
     }
     // kick: бас в энергии (куб уровня), а не в децибелах анализатора: в них бочка поднимает полосу на считаные проценты
     function readAudio(now: number): { bass: number; kick: number; level: number; playing: boolean } {
@@ -800,7 +888,8 @@ export function auroraPage(config: AuroraConfig): void {
             }
         }
         if (!playing) return { bass: 0, kick: 0, level: 0, playing };
-        if (analyser && freq && !useEnvelope) {
+        if (analyser && freq) {
+            // Анализатор читается и в режиме формы волны: услышал звук, значит поток всё-таки отдаёт его, и бит снова по звуку
             analyser.getByteFrequencyData(freq);
             const hz = analyser.context.sampleRate / analyser.fftSize;
             let bass = 0;
@@ -819,12 +908,24 @@ export function auroraPage(config: AuroraConfig): void {
             }
             bass = bassN ? bass / bassN / 255 : 0;
             kick = bassN ? kick / bassN : 0;
-            fillSpectrum(freq, hz);
             level = level / Math.max(1, top - 1) / 255;
-            if (level > 0.01) silentSince = 0;
-            else if (!silentSince) silentSince = now;
-            else if (now - silentSince > 1500) useEnvelope = true;
-            if (!useEnvelope) return { bass, kick, level, playing };
+            if (level > 0.01) {
+                silentSince = 0;
+                // Раньше после первых 1,5 с тишины (начало трека, буферизация) режим формы волны оставался до конца трека,
+                // и бит пропадал: звук есть, а детектор его не читает. Теперь возврат после 6 слышимых кадров подряд
+                if (useEnvelope && ++heard > 6) {
+                    useEnvelope = false;
+                    heard = 0;
+                }
+            } else {
+                heard = 0;
+                if (!silentSince) silentSince = now;
+                else if (now - silentSince > 1500) useEnvelope = true;
+            }
+            if (!useEnvelope) {
+                fillSpectrum(freq, hz);
+                return { bass, kick, level, playing };
+            }
         }
         if (env?.raw?.length && env.duration > 0) {
             let max = envMax.get(env.id);
@@ -837,6 +938,10 @@ export function auroraPage(config: AuroraConfig): void {
             const i = Math.max(0, Math.min(env.raw.length - 2, Math.floor(at)));
             const value = (env.raw[i] + (env.raw[i + 1] - env.raw[i]) * (at - i)) / max;
             envelopeSpectrum(env.raw, at, max);
+            // Форма волны плавная и ударов не содержит: пока нашёлся темп, удар это метроном по этому темпу, привязанный
+            // к громким местам формы волны, а его сила идёт от громкости. Иначе одиночные рывки только на дропах
+            const tick = envelopeKick(env, max);
+            if (tick >= 0) return { bass: Math.max(value, tick * value), kick: tick * (0.35 + 0.65 * value), level: value * 0.8, playing };
             return { bass: value, kick: value * value, level: value * 0.8, playing };
         }
         return { bass: 0, kick: 0, level: 0.3, playing };
@@ -1043,6 +1148,8 @@ export function auroraPage(config: AuroraConfig): void {
     // По ним светится «щель под дверью» внизу, ходят лучи и чуть вздрагивают края окна. Пишется только заметная разница
     const clubShown: Record<string, number> = {};
     let bassNow = 0;
+    let shakeBeat = 0;
+    let shakeAngle = 0;
     function clubVar(name: string, value: number, step: number): void {
         if (Math.abs((clubShown[name] ?? -1) - value) < step) return;
         clubShown[name] = value;
@@ -1054,7 +1161,16 @@ export function auroraPage(config: AuroraConfig): void {
         const scale = FX_SCALE[fx];
         const on = sound.playing && !calm && amount > 0 && scale > 0;
         bassNow += ((on ? sound.bass : 0) - bassNow) * 0.25;
-        clubVar('--sca-kick', on ? Math.min(1, beat.pulse * amount * 1.3 * fxFlash()) : 0, 0.03);
+        const kick = on ? Math.min(1, beat.pulse * amount * 1.3 * fxFlash()) : 0;
+        clubVar('--sca-kick', kick, 0.03);
+        // Тряска на ударе (2.8.1): на каждом ударе выбирается новое направление, и дальше сдвиг идёт вместе с вспышкой.
+        // Раньше трясло только затемнение краёв, и тряска была заметна одним рывком
+        if (beat.last !== shakeBeat) {
+            shakeBeat = beat.last;
+            shakeAngle = Math.random() * Math.PI * 2;
+        }
+        clubVar('--sca-sx', Math.cos(shakeAngle) * kick, 0.03);
+        clubVar('--sca-sy', Math.sin(shakeAngle) * kick, 0.03);
         clubVar('--sca-bass', Math.min(1, bassNow * amount * 1.4 * scale), 0.03);
         clubVar('--sca-energy', on ? Math.min(1, (beat.level * 0.7 + beat.drop * 0.6) * amount * 1.4 * scale) : 0, 0.03);
         const sweep = beat.bpm ? (60 / beat.bpm) * 16 : 10;
@@ -1224,10 +1340,10 @@ export function auroraPage(config: AuroraConfig): void {
         canvas.classList.add('on');
     }
     // Лайк: сердечко пружинит, из кнопки вылетают сердечки в цветах обложки, плашка трека коротко «вибрирует», как
-    // тактильный отклик; звук мягкий: щелчок-пузырь и колокольчик мажорного аккорда. Только на «поставить»
+    // тактильный отклик; звук тихий «поп». Только на «поставить»
     const LIKE = '.sc-button-like, .playbackSoundBadge__like, #sc-wave .scw-like[data-act="like"], .queueItemView__like';
     // Плашка, которая вибрирует на лайке
-    const PLATE = '#sc-wave .scw-body, .playControls__inner, .soundList__item, .trackList__item, .compactTrackList__item, .systemPlaylistTrackList__item, .queueItemView, .listenEngagement, .sound';
+    const PLATE = '.playControls__inner, .soundList__item, .trackList__item, .compactTrackList__item, .systemPlaylistTrackList__item, .queueItemView, .listenEngagement, .sound';
     let chime: AudioContext | null = null;
     function audio(): AudioContext | null {
         try {
@@ -1267,41 +1383,50 @@ export function auroraPage(config: AuroraConfig): void {
         }, 1500);
         return out;
     }
+    // Лайк (2.8.1): короткий тихий «поп» без колокольчика и эха. Пик примерно в три раза тише прежнего пузыря:
+    // синус с быстрым спуском высоты плюс едва слышный мягкий щелчок
     function playLike(): void {
         const ctx = audio();
         if (!ctx) return;
         const at = ctx.currentTime + 0.01;
-        const out = bus(ctx, 0.9);
-        // Пузырь: синус с быстрым спуском высоты
+        const out = ctx.createGain();
+        out.gain.value = 1;
+        const tone = ctx.createBiquadFilter();
+        tone.type = 'lowpass';
+        tone.frequency.value = 2600;
+        out.connect(tone);
+        tone.connect(ctx.destination);
         const pop = ctx.createOscillator();
         const popGain = ctx.createGain();
         pop.type = 'sine';
-        pop.frequency.setValueAtTime(1100, at);
-        pop.frequency.exponentialRampToValueAtTime(380, at + 0.07);
+        pop.frequency.setValueAtTime(620, at);
+        pop.frequency.exponentialRampToValueAtTime(240, at + 0.06);
         popGain.gain.setValueAtTime(0.0001, at);
-        popGain.gain.exponentialRampToValueAtTime(0.05, at + 0.006);
-        popGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.09);
+        popGain.gain.exponentialRampToValueAtTime(0.014, at + 0.005);
+        popGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.075);
         pop.connect(popGain);
         popGain.connect(out);
         pop.start(at);
-        pop.stop(at + 0.1);
-        // Колокольчик: до-ми-соль шестой октавы с лёгкой раскладкой, у каждой ноты тихий обертон
-        [1046.5, 1318.5, 1568].forEach((freq, i) => {
-            const t = at + 0.05 + i * 0.035;
-            for (const [mult, level] of [[1, 0.028], [2.01, 0.008]] as const) {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq * mult;
-                gain.gain.setValueAtTime(0.0001, t);
-                gain.gain.exponentialRampToValueAtTime(level, t + 0.012);
-                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
-                osc.connect(gain);
-                gain.connect(out);
-                osc.start(t);
-                osc.stop(t + 0.6);
+        pop.stop(at + 0.09);
+        const click = ctx.createOscillator();
+        const clickGain = ctx.createGain();
+        click.type = 'triangle';
+        click.frequency.setValueAtTime(180, at);
+        clickGain.gain.setValueAtTime(0.0001, at);
+        clickGain.gain.exponentialRampToValueAtTime(0.006, at + 0.003);
+        clickGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.03);
+        click.connect(clickGain);
+        clickGain.connect(out);
+        click.start(at);
+        click.stop(at + 0.04);
+        setTimeout(() => {
+            try {
+                out.disconnect();
+                tone.disconnect();
+            } catch {
+                // уже снято
             }
-        });
+        }, 400);
     }
     // Дизлайк: мягкий «свайп», шум в полосе, которая уходит вниз, как будто карточку смахнули
     function playSwipe(): void {
@@ -1454,42 +1579,15 @@ export function auroraPage(config: AuroraConfig): void {
         document.documentElement.classList.toggle('sca-playing', playing);
     }
     // Подсветка за курсором: у карточки под мышью класс sc2-spot и координаты --mx, --my, раз в кадр
-    const SPOT = '.scw-card, .scw-tile, .scw-body, .scv-card, .sidebarModule, .scw-lib, .scw-mix';
+    const SPOT = '.scw-card, .scw-tile, .scv-card, .sidebarModule, .scw-lib, .scw-mix';
     let spotFrame = 0;
     let spotEvent: PointerEvent | null = null;
-    // Стекло карточки волны (2.7.1): карточка чуть наклоняется за курсором, по ней бежит блик, светлеет край ближе к мыши.
-    // Без мыши и в режиме «Выкл» карточка ровная
-    let tilted: HTMLElement | null = null;
-    function glassTilt(event: PointerEvent | null): void {
-        const card = event?.target instanceof Element ? event.target.closest<HTMLElement>('#sc-wave .scw-body') : null;
-        if (tilted && tilted !== card) {
-            tilted.style.removeProperty('--tx');
-            tilted.style.removeProperty('--ty');
-            tilted.classList.remove('sc2-glass-on');
-            tilted = null;
-        }
-        if (!card || !event || reducedGlass()) return;
-        const box = card.getBoundingClientRect();
-        const x = (event.clientX - box.left) / Math.max(1, box.width);
-        const y = (event.clientY - box.top) / Math.max(1, box.height);
-        card.style.setProperty('--tx', ((x - 0.5) * 5).toFixed(2) + 'deg');
-        card.style.setProperty('--ty', ((0.5 - y) * 4).toFixed(2) + 'deg');
-        card.style.setProperty('--gx', (x * 100).toFixed(1) + '%');
-        card.style.setProperty('--gy', (y * 100).toFixed(1) + '%');
-        card.classList.add('sc2-glass-on');
-        tilted = card;
-    }
-    const reducedGlass = (): boolean => fx === 'off' || document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const onSpotLeave = (event: PointerEvent): void => {
-        if (!event.relatedTarget) glassTilt(null);
-    };
-    document.addEventListener('pointerout', onSpotLeave, { passive: true });
+    // Карточка волны больше не наклоняется за мышью и не блестит (2.8.1): для съёмки она стоит ровно
     const onSpot = (event: PointerEvent): void => {
         spotEvent = event;
         if (spotFrame) return;
         spotFrame = requestAnimationFrame(() => {
             spotFrame = 0;
-            glassTilt(spotEvent);
             const target = spotEvent?.target instanceof Element ? spotEvent.target.closest<HTMLElement>(SPOT) : null;
             if (!target || !spotEvent) return;
             if (!target.classList.contains('sc2-spot')) target.classList.add('sc2-spot');
@@ -1551,7 +1649,6 @@ export function auroraPage(config: AuroraConfig): void {
             fxTip?.remove();
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
-            document.removeEventListener('pointerout', onSpotLeave);
             document.documentElement.classList.remove('sca-line', 'sca-playing');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);
@@ -1572,5 +1669,5 @@ export function auroraScript(input: unknown): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
     const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX };
-    return '(function(){\n' + glowPalette.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
+    return '(function(){\n' + glowPalette.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }

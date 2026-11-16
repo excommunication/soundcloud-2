@@ -1558,7 +1558,7 @@ it('лайк в блоке или в плеере сайта зажигает с
     section.querySelector<HTMLButtonElement>('.scw-play')!.click();
     await vi.advanceTimersByTimeAsync(100);
     // Подсказка при наведении у всех трёх кнопок ряда, у сердца её не было
-    expect(['like', 'later', 'more'].map((act) => section.querySelector<HTMLElement>('[data-act="' + act + '"]')?.title)).toEqual(['Like, Ctrl+L', 'Not now, Ctrl+D', 'More like this, Ctrl+M']);
+    expect(['like', 'later', 'more'].map((act) => section.querySelector<HTMLElement>('[data-act="' + act + '"]')?.title)).toEqual(['Like, Ctrl+L', 'Not now: hold, Ctrl+D', 'More like this, Ctrl+M']);
 
     section.querySelector<HTMLButtonElement>('[data-act="like"]')!.click();
     await vi.advanceTimersByTimeAsync(500);
