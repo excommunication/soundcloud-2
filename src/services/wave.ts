@@ -35,6 +35,7 @@ import * as vibeSectionModule from './wave/vibe';
 import * as dockSectionModule from './wave/dock';
 import * as volumeSectionModule from './wave/volume';
 import * as clipSectionModule from './wave/clip';
+import * as jamSectionModule from './wave/jam';
 import * as qrModule from './wave/qr';
 import { CLIP_FONT } from './wave/clipFont';
 import * as swapSectionModule from './wave/swap';
@@ -71,6 +72,7 @@ const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
 const { installVolume, volumeAt, volumeWheel } = volumeSectionModule;
 const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipOutputSize, clipCrop } = clipSectionModule;
+const { installJam, jamHelpers } = jamSectionModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
 const { installForYou } = forYouSectionModule;
@@ -223,6 +225,8 @@ export interface WaveWindow extends Window {
         // Текст играющего трека (LRCLIB, запасной Genius): ищет main
         lyrics?(query: { title: string; uploader: string; durationMs: number }): Promise<unknown>;
         clipRecord?: { arm(state: string): Promise<unknown>; save(data: ArrayBuffer, name: string, ext: string): Promise<unknown> };
+        // «Джем»: мост к комнате в main, разбирает раздел wave/jam.ts
+        jam?: object;
     };
 }
 interface WaveConfig {
@@ -880,6 +884,20 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // GitHub к регистру в пути не придирается
         qr: () => qrSvg(qrMatrix('HTTPS://GITHUB.COM/EXCOMMUNICATION/SOUNDCLOUD-2', 'H'), '#0b0c10', 9),
         disposed: () => disposed,
+    });
+    // «Джем» (2.12.0): общее прослушивание, раздел в wave/jam.ts; трек открывает __scOpenTrack, здесь только плеер сайта
+    const jamSection = installJam({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        disposed: () => disposed,
+        api: () => host.soundcloudAPI?.jam,
+        current: () => {
+            const sound = player?.getCurrentSound();
+            const track = sound?.attributes;
+            if (!sound || !track?.id || !track.permalink_url) return null;
+            return { track: { id: sound.id ?? track.id, url: track.permalink_url, title: track.title ?? '', artist: track.user?.username ?? '', artwork: artworkUrl(track, 't300x300'), durationMs: durationOf(sound) }, positionMs: positionOf(sound), playing: !!player?.isPlaying() };
+        },
+        seek: (ms) => player?.getCurrentSound()?.seek(Math.max(0, ms)),
+        setPlaying: (on) => (on ? player?.playCurrent({ userInitiated: true }) : player?.pauseCurrent({ userInitiated: true })),
     });
     // Автозамена отрывков Go+ и треков с неработающим защищённым потоком: раздел в wave/swap.ts
     const swapSection = installSwap({
@@ -5853,6 +5871,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                     tick();
                     volumeSection.sync();
                     clipSection.sync();
+                    jamSection.sync();
                 } catch (error) {
                     console.error('Волна: слежение за плеером', error);
                 }
@@ -5969,6 +5988,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         dockSection.dispose();
         volumeSection.dispose();
         clipSection.dispose();
+        jamSection.dispose();
         swapSection.dispose();
         forYouSection.dispose();
         document.getElementById('sc-vibe-style')?.remove();
@@ -6036,7 +6056,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipOutputSize, clipCrop, qrMatrix, qrSvg, installSwap, trackAccess, installForYou,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipOutputSize, clipCrop, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];

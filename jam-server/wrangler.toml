@@ -1,0 +1,12 @@
+name = "sc2-jam"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[durable_objects.bindings]]
+name = "JAM_ROOM"
+class_name = "JamRoom"
+
+# SQLite-хранилище Durable Objects доступно и на бесплатном тарифе
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["JamRoom"]

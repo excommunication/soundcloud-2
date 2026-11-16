@@ -13,3 +13,7 @@ it('разрешает обычные настройки и отклоняет �
     for (const input of [{ key: 'radarDay', value: 7 }, { key: 'radarDay', value: '5' }, { key: 'radarTime', value: '9:00' }, { key: 'radarTime', value: '24:00' }, { key: 'radarZone', value: 'Nowhere/Here' }, { key: 'radarZone', value: 3 }]) expect(validateSettingChange(input)).toBe(false);
     for (const input of [null, [], { key: '__proto__', value: {} }, { key: 'currentAccountId', value: '../other' }, { key: 'proxyEnabled', value: 'false' }, { key: 'webhookTriggerPercentage', value: NaN }, { key: 'proxyPort', value: '65536' }, { key: 'webhookUrl', value: 'file:///C:/file' }, { key: 'siteLanguage', value: 'de' }, { key: 'homeWave', value: 'false' }, { key: 'homeUnknown', value: true }, { key: 'reduceMotion', value: 'true' }, { key: 'theme', value: 'light' }, { key: 'crossfadeSeconds', value: 0 }, { key: 'crossfadeSeconds', value: 2.5 }, { key: 'crossfadeSeconds', value: 13 }, { key: 'softEnd', value: true }]) expect(validateSettingChange(input)).toBe(false);
 });
+it('сервер джемов: пусто или https-адрес, остальное нет', () => {
+    for (const value of ['', 'https://sc2-jam.a.workers.dev', 'http://localhost:8787']) expect(validateSettingChange({ key: 'jamServer', value })).toBe(true);
+    for (const value of ['http://evil.com', 'https://u:p@a.com', 'мусор', 5, null, 'https://a.com/?x=1']) expect(validateSettingChange({ key: 'jamServer', value })).toBe(false);
+});

@@ -3,10 +3,11 @@ import { isGpuCompatibilityMode, type GpuCompatibilityMode } from '../services/g
 import { isRadarDay, isRadarTime, isTimeZone } from '../services/radarSchedule';
 import { isMyMusicSetting, type MyMusicSetting } from '../services/libraryMix';
 import { isAppearance, type Appearance } from '../services/aurora';
+import { jamServerBase } from '../services/jam/client';
 
 const booleanKeys = new Set(['adBlocker', 'proxyEnabled', 'webhookEnabled', 'displaySCSmallIcon', 'displayGithubLink', 'discordRichPresence', 'displayButtons', 'minimizeToTray', 'navigationControlsEnabled', 'trackParserEnabled', 'richPresencePreviewEnabled', 'hidePromotions', 'hideEventsNearYou', 'hideArtistUpsells', 'hideHeaderExtras', 'fullShuffle', 'quietEdges', 'crossfade', 'autoUpdateEnabled', 'discordIncognito', 'reduceMotion', 'waveNoRussian', 'vibeWeb', ...HOME_BLOCK_KEYS]);
 type BooleanKey = 'adBlocker' | 'proxyEnabled' | 'webhookEnabled' | 'displaySCSmallIcon' | 'displayGithubLink' | 'discordRichPresence' | 'displayButtons' | 'minimizeToTray' | 'navigationControlsEnabled' | 'trackParserEnabled' | 'richPresencePreviewEnabled' | 'hidePromotions' | 'hideEventsNearYou' | 'hideArtistUpsells' | 'hideHeaderExtras' | 'fullShuffle' | 'quietEdges' | 'crossfade' | 'autoUpdateEnabled' | 'discordIncognito' | 'reduceMotion' | 'waveNoRussian' | 'vibeWeb' | HomeBlockKey;
-type StringKey = 'proxyHost' | 'proxyPort' | 'proxyUsername' | 'proxyPassword' | 'webhookUrl' | DiscordTextKey;
+type StringKey = 'proxyHost' | 'proxyPort' | 'proxyUsername' | 'proxyPassword' | 'webhookUrl' | 'jamServer' | DiscordTextKey;
 /** Шаблоны строк карточки Discord и стоп-листы артистов и жанров */
 export type DiscordTextKey = 'discordLine1' | 'discordLine2' | 'discordCoverText' | 'discordHiddenArtists' | 'discordHiddenGenres';
 export const DISCORD_TEXT_KEYS: ReadonlySet<string> = new Set<DiscordTextKey>(['discordLine1', 'discordLine2', 'discordCoverText', 'discordHiddenArtists', 'discordHiddenGenres']);
@@ -39,6 +40,8 @@ export function validateSettingChange(input: unknown): input is SettingChange {
     if (key === 'discordLine1' || key === 'discordLine2' || key === 'discordCoverText') return value.length <= 256 && !/[\r\n\0]/.test(value);
     if (key === 'discordHiddenArtists' || key === 'discordHiddenGenres') return value.length <= 4000 && !value.includes('\0');
     if (key === 'proxyPort') return /^\d{0,5}$/.test(value) && (!value || (Number(value) >= 1 && Number(value) <= 65535));
+    // Сервер джемов: пусто (вшитый адрес) или https-адрес без логина и пути запроса
+    if (key === 'jamServer') return !value.trim() || jamServerBase(value) !== null;
     if (key === 'webhookUrl') {
         if (!value) return true;
         if (value.length > 2048) return false;

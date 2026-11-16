@@ -734,6 +734,10 @@ async function initializeSettings() {
         ipcRenderer.send('setting-changed', { key: 'webhookUrl', value: e.target.value });
     });
 
+    document.getElementById('jamServer')?.addEventListener('change', (e) => {
+        ipcRenderer.send('setting-changed', { key: 'jamServer', value: e.target.value.trim() });
+    });
+
     document.getElementById('webhookTriggerPercentage')?.addEventListener('input', (e) => {
         let value = parseInt(e.target.value);
         if (value < 0) value = 0;

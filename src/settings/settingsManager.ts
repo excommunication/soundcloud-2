@@ -36,6 +36,7 @@ const defaults: Record<string, string | number | boolean> = {
     proxyUsername: '',
     webhookEnabled: false,
     webhookUrl: '',
+    jamServer: '',
     webhookTriggerPercentage: 50,
     discordRichPresence: true,
     displaySCSmallIcon: false,

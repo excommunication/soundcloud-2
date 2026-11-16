@@ -359,6 +359,19 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
         arm: (state: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state),
         save: (data: ArrayBuffer, name: string, ext: string): Promise<unknown> => ipcRenderer.invoke('clip:save', data, name, ext),
     },
+    // «Джем» (2.12.0): общие лобби; WebSocket живёт в main, страница получает только события. Ввод проверяет main
+    jam: {
+        create: (name: string, avatar: string): Promise<unknown> => ipcRenderer.invoke('jam:create', name, avatar),
+        join: (code: string, name: string, avatar: string): Promise<unknown> => ipcRenderer.invoke('jam:join', code, name, avatar),
+        leave: (): Promise<unknown> => ipcRenderer.invoke('jam:leave'),
+        send: (msg: unknown): Promise<unknown> => ipcRenderer.invoke('jam:send', msg),
+        snapshot: (): Promise<unknown> => ipcRenderer.invoke('jam:snapshot'),
+        onState: (callback: (event: unknown) => void): (() => void) => {
+            const listener = (_event: unknown, payload: unknown): void => callback(payload);
+            ipcRenderer.on('jam:event', listener);
+            return () => { ipcRenderer.removeListener('jam:event', listener); };
+        },
+    },
     // Настройки волны из блока на главной: «Без русского»; ввод проверяет main
     waveOptions: {
         set: (key: string, value: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:wave-option:set', key, value),
