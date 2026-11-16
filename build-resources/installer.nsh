@@ -17,8 +17,32 @@
   Var scFrame
 !endif
 
-; Установленная версия из записи «Программы и компоненты»: своя для пользователя, потом общая для компьютера
+; Установленная версия из записи «Программы и компоненты»: своя для пользователя, потом общая для компьютера.
+; Окно у установки одно, новое (setup/Setup.cs): если полный установщик запустили не тихо (двойной клик или обновление
+; из клиента с --updated), он кладёт вшитый SoundCloud-2-Setup.exe во временную папку, отдаёт ему себя через --file и
+; выходит. Тот ставит этот же файл тихо (/S) со своей анимацией и запускает клиент. Тихий запуск идёт как обычно.
+; Без SoundCloud-2-Setup.exe в build-resources (сборка без pnpm build-setup) остаются старые страницы ниже
 !macro customInit
+!if /FileExists "${BUILD_RESOURCES_DIR}\SoundCloud-2-Setup.exe"
+  ${ifNot} ${Silent}
+    CreateDirectory "$TEMP\SoundCloud2Setup"
+    SetOutPath "$TEMP\SoundCloud2Setup"
+    ; Файл может быть занят прошлым запуском: тогда остаётся старый, без окна ошибки
+    SetOverwrite try
+    File "/oname=$TEMP\SoundCloud2Setup\SoundCloud-2-Setup.exe" "${BUILD_RESOURCES_DIR}\SoundCloud-2-Setup.exe"
+    SetOverwrite on
+    ClearErrors
+    ${if} ${isUpdated}
+      Exec '"$TEMP\SoundCloud2Setup\SoundCloud-2-Setup.exe" --file "$EXEPATH" --updated'
+    ${else}
+      Exec '"$TEMP\SoundCloud2Setup\SoundCloud-2-Setup.exe" --file "$EXEPATH"'
+    ${endIf}
+    ${ifNot} ${Errors}
+      Quit
+    ${endIf}
+    ClearErrors
+  ${endIf}
+!endif
   StrCpy $scOld ""
   ReadRegStr $scOld HKCU "${UNINSTALL_REGISTRY_KEY}" "DisplayVersion"
   ${if} $scOld == ""

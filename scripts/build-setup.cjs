@@ -2,6 +2,7 @@
 // Маленький установщик build/SoundCloud-2-Setup.exe (~100 КБ) из setup/Setup.cs. Собирается csc.exe из .NET Framework 4,
 // который лежит в любой Windows, SDK не нужен. Репозиторий релизов, имя продукта и версия берутся из package.json,
 // поэтому после синхронизации с оригиналом загрузчик по-прежнему качает релизы форка. Только Windows.
+// Запускать до build-win: полный установщик вшивает копию из build-resources
 // Запуск: node scripts/build-setup.cjs
 const { execFileSync } = require('node:child_process');
 const crypto = require('node:crypto');
@@ -78,4 +79,6 @@ execFileSync(
     { stdio: 'inherit' },
 );
 fs.rmSync(gen, { force: true });
+// Копия для полного установщика: installer.nsh вшивает её и открывает вместо старых страниц
+fs.copyFileSync(out, path.join(root, 'build-resources', 'SoundCloud-2-Setup.exe'));
 console.log(`Установщик: ${path.relative(root, out)}, ${Math.round(fs.statSync(out).size / 1024)} КБ`);

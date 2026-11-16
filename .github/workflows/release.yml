@@ -57,13 +57,14 @@ jobs:
             Write-Output "Секретов EVS нет: сборка без VMP-подписи"
             "skip=true" >> $env:GITHUB_OUTPUT
           }
+      # Маленький установщик (~115 КБ) до полного: полный вшивает его и открывает вместо своих страниц.
+      # Сам он качает полный из этого же релиза, поэтому имя у него без версии
+      - run: npx --yes pnpm@12.15.0 build-setup
       - run: npx --yes pnpm@12.15.0 build-win
         env:
           SKIP_VMP_SIGNING: ${{ steps.evs.outputs.skip }}
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
-      # Маленький установщик (~100 КБ): качает полный из этого же релиза, поэтому имя у него без версии
-      - run: npx --yes pnpm@12.15.0 build-setup
       - name: Релиз на GitHub
         shell: pwsh
         env:
