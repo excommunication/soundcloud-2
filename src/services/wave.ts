@@ -706,6 +706,21 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         textButton,
         trackRow,
     });
+    // Тексты и состояние текста песни объявлены до меню и дока (2.8.6): док при установке сразу спрашивает меню
+    // о треке в баре, и пункт «Показать текст» читал их до объявления. Волна падала целиком, главная была пустой
+    const LYRICS_T = T.lang === 'ru'
+        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', chip: 'Текст', waveShort: 'По треку', none: 'Текста этой песни не нашлось', prev: 'Предыдущий трек', next: 'Следующий трек' }
+        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', chip: 'Lyrics', waveShort: 'From track', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
+    interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string; words?: CardLyricWord[] }> | null }
+    const lyricsFor = new Map<number, CardLyrics | null>();
+    const lyricsAsked = new Set<number>();
+    // Текст раскрыт сразу, как нашёлся (2.8.0): раньше кнопку среди значков не замечали. Выбор помнится
+    let lyricsOpen = true;
+    try {
+        lyricsOpen = localStorage.getItem('sc2-lyrics') !== 'off';
+    } catch {
+        // хранилище недоступно: текст раскрыт
+    }
     // Меню по правому клику и волна от трека, артиста, плейлиста: раздел в wave/menu.ts
     const menuSection = installMenu({
         texts: T,
@@ -4559,9 +4574,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     }
     // rowsAt: прокрутка списка подборки, когда секция вернулась на страницу и своя прокрутка списка потеряна
     // ===== Трек не из волны и текст песни (2.7.1) =====
-    const LYRICS_T = T.lang === 'ru'
-        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', chip: 'Текст', waveShort: 'По треку', none: 'Текста этой песни не нашлось', prev: 'Предыдущий трек', next: 'Следующий трек' }
-        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', chip: 'Lyrics', waveShort: 'From track', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
     // «Не сейчас» (2.8.1): мышью срабатывает только при удержании, чтобы на луну не попадали случайно
     const HOLD_T = T.lang === 'ru'
         ? { hint: 'Не сейчас: удерживай', tip: 'Удерживай «Не сейчас», трек вернётся в волну позже' }
@@ -4597,16 +4609,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (node && event.type === 'pointerup') showToast(HOLD_T.tip);
     }
     interface CardLyricWord { at: number; text: string }
-    interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string; words?: CardLyricWord[] }> | null }
-    const lyricsFor = new Map<number, CardLyrics | null>();
-    const lyricsAsked = new Set<number>();
-    // Текст раскрыт сразу, как нашёлся (2.8.0): раньше кнопку среди значков не замечали. Выбор помнится
-    let lyricsOpen = true;
-    try {
-        lyricsOpen = localStorage.getItem('sc2-lyrics') !== 'off';
-    } catch {
-        // хранилище недоступно: текст раскрыт
-    }
     let lyricsLine = -1;
     function outsideTrack(): WaveTrack | null {
         const sound = player?.getCurrentSound();
