@@ -2121,6 +2121,7 @@ it('ошибка подборок видна, повтор восстанавл�
     expect(document.querySelector('.scw-card .scw-t1')?.textContent).toBe('Techno');
 });
 
+// Долгая цепочка поддельных таймеров: ~2,9 с локально, на раннере GitHub бывало дольше 5 с
 it('полка после сбоя повторяет всё реже, при скрытой странице не собирается, при показе пробует сразу', async () => {
     fakeSite(relatedTracks);
     const load = vi.fn(async () => { throw new Error('Offline'); });
@@ -2141,7 +2142,7 @@ it('полка после сбоя повторяет всё реже, при с
     } finally {
         Reflect.deleteProperty(document, 'visibilityState');
     }
-});
+}, 30000);
 
 it('полка показывает все жанры одной сеткой, неполный ряд не прячется', async () => {
     fakeSite(relatedTracks);
@@ -2932,6 +2933,7 @@ it('ошибка включения из истории возвращает fai
     expect(site.player.getCurrentSound()).toBeNull();
 });
 
+// Долгая цепочка поддельных таймеров: ~4,7 с локально, на раннере GitHub бывало дольше 5 с
 it('распознанная ссылка помнится 10 минут, потом спрашивается снова', async () => {
     const site = fakeSite(relatedTracks, (name, _path, query) => {
         if (name === 'resolve') return { id: query.url === 'https://soundcloud.com/artist/first' ? 91 : 92, kind: 'track', title: 'Track' };
@@ -2951,7 +2953,7 @@ it('распознанная ссылка помнится 10 минут, пот
     await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
     await open('/artist/first', false);
     expect(asked()).toBe(2);
-});
+}, 30000);
 
 function savedLibrary(snapshot: PlaybackSnapshot | null = null) {
     const library = {
@@ -3322,6 +3324,7 @@ it('П4: подборки SoundCloud раз в сутки идут в найде
     expect(why(8802)).toBe('From SoundCloud’s Your Mix 1');
 });
 
+// Листает 250 лайков страницами на поддельных таймерах: ~2,6 с локально, на раннере GitHub бывало дольше 5 с
 it('обновление профиля раз в 30 минут не откатывает лайки к первой странице, снятый лайк уходит в конце листания', async () => {
     const likes = Array.from({ length: 250 }, (_, i) => ({ id: 20000 + i, title: 'Like ' + i, user_id: 30000 + i, duration: 200000 }));
     let unliked = false;
@@ -3359,7 +3362,7 @@ it('обновление профиля раз в 30 минут не откат�
     await vi.advanceTimersByTimeAsync(1000);
     await toggleList();
     expect(count()).toBe('249');
-});
+}, 30000);
 
 it('«Моя музыка»: число лайков в выборе появляется, когда список дочитан, а не растёт страницами', async () => {
     const likes = Array.from({ length: 250 }, (_, i) => libTrack(20000 + i));
