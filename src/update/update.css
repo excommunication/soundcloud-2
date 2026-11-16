@@ -246,11 +246,41 @@ button:focus-visible {
 button[hidden] {
     display: none;
 }
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+#action {
+    background: #fff;
+    color: #0b0c10;
+}
+#action:hover {
+    background: #fff;
+    filter: brightness(0.92);
+}
+/* Проверка: кольцо крутится неполной дугой, процентов ещё нет */
+.busy .dial {
+    animation: spin 1.1s linear infinite;
+}
+.busy .arc {
+    stroke-dashoffset: 250 !important;
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+/* Последняя версия или ошибка: полоса не нужна */
+.done .bar {
+    display: none;
+}
 @media (prefers-reduced-motion: reduce) {
     .blob,
     .card,
     .bars rect,
     .installing .ring,
+    .busy .dial,
     .fill::after {
         animation: none;
     }

@@ -48,6 +48,7 @@
     "incognitoOn": "Incognito: Discord doesn’t see what’s playing",
     "incognitoOff": "Discord shows the track again",
     "pageLoadFailed": "Couldn’t load SoundCloud. The client will retry when the connection is back, or press Ctrl+R.",
+    "googleSignInRejected": "Google blocked sign-in in the app window. Close it and try again, or sign in with email: “Forgot password?” on the sign-in page sets a password for your Google account",
     "shortLinkFailed": "Couldn’t open the link: SoundCloud didn’t find it or there’s no connection",
     "playerCrashed": "The player stopped with an error. The client will restart it in a minute, or press Ctrl+R.",
     "pageGaveUp": "SoundCloud didn’t load after several attempts. Open the client and press Ctrl+R.",
@@ -78,5 +79,13 @@
     "updateScreenTitle": "Updating to version {v}",
     "updateScreenDownloading": "Downloading: {p}%",
     "updateScreenInstalling": "Installing. The app will reopen in a few seconds",
-    "updateScreenLater": "Later"
+    "updateScreenLater": "Later",
+    "updateScreenChecking": "Checking for a new version",
+    "updateScreenCheckingTitle": "Update",
+    "updateScreenLatest": "You have the latest version, {v}",
+    "updateScreenFailed": "Couldn’t update. Check your connection and try again",
+    "updateScreenRetry": "Try again",
+    "updateScreenClose": "Close",
+    "updateScreenReleased": "Version {v} is out. The portable version doesn’t install it by itself: download it from the release page",
+    "updateScreenOpenRelease": "Open page"
 }

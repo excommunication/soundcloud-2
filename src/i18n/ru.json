@@ -48,6 +48,7 @@
     "incognitoOn": "Инкогнито: Discord не видит, что играет",
     "incognitoOff": "Discord снова показывает трек",
     "pageLoadFailed": "Не удалось загрузить SoundCloud. Клиент повторит сам, когда появится сеть, или нажми Ctrl+R.",
+    "googleSignInRejected": "Google не пустил вход в окне клиента. Закрой окно и попробуй ещё раз или войди по почте: «Забыли пароль?» на странице входа задаст пароль к аккаунту Google",
     "shortLinkFailed": "Ссылка не открылась: SoundCloud её не нашёл или нет сети",
     "playerCrashed": "Плеер завершился с ошибкой. Клиент перезапустит его через минуту, или нажми Ctrl+R.",
     "pageGaveUp": "SoundCloud не загрузился после нескольких попыток. Открой клиент и нажми Ctrl+R.",
@@ -78,5 +79,13 @@
     "updateScreenTitle": "Обновление до версии {v}",
     "updateScreenDownloading": "Загружаю: {p}%",
     "updateScreenInstalling": "Устанавливаю. Клиент откроется сам через несколько секунд",
-    "updateScreenLater": "Позже"
+    "updateScreenLater": "Позже",
+    "updateScreenChecking": "Проверяю, есть ли новая версия",
+    "updateScreenCheckingTitle": "Обновление",
+    "updateScreenLatest": "Установлена последняя версия {v}",
+    "updateScreenFailed": "Не удалось обновиться. Проверь интернет и попробуй ещё раз",
+    "updateScreenRetry": "Повторить",
+    "updateScreenClose": "Закрыть",
+    "updateScreenReleased": "Вышла версия {v}. Портативная версия не ставит её сама: скачай её со страницы релиза",
+    "updateScreenOpenRelease": "Открыть страницу"
 }

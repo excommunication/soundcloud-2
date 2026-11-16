@@ -10,7 +10,7 @@ export function installPlayerArea(): void {
     host.__disposePlayerArea?.();
     // На страницу уходит только текст функции, поэтому всё нужное объявлено внутри неё.
     // То, что выезжает из плеера вверх: очередь треков и ползунок громкости. Закрытая очередь прозрачная, ползунок нулевой высоты
-    const OVERLAYS = '.playControls__queue, .volume__sliderWrapper';
+    const OVERLAYS = '.playControls__queue, .volume__sliderWrapper, .scv-pop';
     let last = '';
     let timer: ReturnType<typeof setTimeout> | undefined;
     let observed: Element | null = null;

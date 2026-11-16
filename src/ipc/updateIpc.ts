@@ -10,6 +10,8 @@ export interface UpdateIpcDeps {
     screenOwns(sender: WebContents): boolean;
     /** «Позже» на экране обновления: экран закрывается и в этом запуске больше не открывается */
     later(): void;
+    /** Главная кнопка экрана обновления: «Повторить» после ошибки или «Открыть страницу» у портативной версии */
+    action(): void;
     openExternal(url: string): Promise<void>;
     /** Открыть папку; пустая строка, если открылась, иначе текст ошибки */
     openPath(path: string): Promise<string>;
@@ -21,6 +23,10 @@ export function registerUpdateIpc(ipc: IpcRegistry, deps: UpdateIpcDeps): void {
     ipc.on('update-screen-later', (event) => {
         if (!deps.screenOwns(event.sender) || !isTrustedLocalSender(event)) return;
         deps.later();
+    });
+    ipc.on('update-screen-action', (event) => {
+        if (!deps.screenOwns(event.sender) || !isTrustedLocalSender(event)) return;
+        deps.action();
     });
     ipc.handle('install-update-now', (event) => {
         if (!isTrustedLocalSender(event)) throw new Error('Недопустимый отправитель IPC');

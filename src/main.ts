@@ -33,6 +33,7 @@ import { detectNvidiaAdapter } from './services/gpuDetection';
 import { TimeoutError, withTimeout } from './utils/withTimeout';
 import { tintIcon } from './services/devIcon';
 import { revealWindow } from './services/revealWindow';
+import { WINDOW_MIN, contentLayout, fitWindowBounds } from './services/windowBounds';
 import { watchHiddenPage } from './services/hiddenPageWatchdog';
 import { registerWindowIpc } from './ipc/windowIpc';
 import { registerUpdateIpc } from './ipc/updateIpc';
@@ -79,7 +80,7 @@ import { taskbarCardScript, type TaskbarCard } from './services/taskbarCard';
 import { formatClock, trackSeconds } from './utils/trackParser';
 import { WebhookService } from './services/webhookService';
 import { UpdateService, type UpdateMode, type UpdateStatus } from './services/updateService';
-import { UpdateScreen } from './update/updateScreen';
+import { UpdateScreen, type UpdateScreenState } from './update/updateScreen';
 import { IntroScreen } from './intro/introScreen';
 import { findLyrics, type Lyrics } from './services/lyricsService';
 import { autoUpdater } from 'electron-updater';
@@ -202,6 +203,8 @@ let introScreen: IntroScreen | null = null;
 let updateScreenDismissed = false;
 // Обновление проверили кнопкой в настройках: экран загрузки открывается в любой момент, а не только в первые секунды
 let updateScreenRequested = false;
+// Что делает главная кнопка окна обновления: повторить проверку или открыть страницу релиза (портативная версия)
+let updateScreenAction: 'retry' | 'release' = 'retry';
 // Язык всего приложения это настройка «Язык» в F1; трей строится раньше остальных служб
 const appLanguage = (): AppLanguage => (store.get('siteLanguage', 'ru') === 'en' ? 'en' : 'ru');
 const translationService = new TranslationService(appLanguage);
@@ -603,11 +606,15 @@ function setDiscordIncognito(value: boolean, announce: boolean): void {
 
 // browser window config
 function createBrowserWindow(windowState: ReturnType<typeof windowStateManager>): BrowserWindow {
+    const work = screen.getDisplayMatching({ x: windowState.x ?? 0, y: windowState.y ?? 0, width: windowState.width, height: windowState.height }).workArea;
+    const bounds = fitWindowBounds({ x: windowState.x, y: windowState.y, width: windowState.width, height: windowState.height }, work);
     const window = new BrowserWindow({
-        width: windowState.width,
-        height: windowState.height,
-        x: windowState.x,
-        y: windowState.y,
+        ...bounds,
+        minWidth: Math.min(WINDOW_MIN.width, work.width),
+        minHeight: Math.min(WINDOW_MIN.height, work.height),
+        resizable: true,
+        maximizable: true,
+        fullscreenable: true,
         title: appTitle,
         icon: loadAppIcon('soundcloud.png'),
         frame: process.platform === 'darwin',
@@ -672,26 +679,25 @@ function isTrustedSoundCloudSender(event: Pick<IpcMainEvent, 'sender' | 'senderF
 
 // defer bounds adjustments if window frame cannot process rendering dimensions
 function adjustContentViews() {
-    if (!mainWindow || !contentView || !headerView) return;
-    if (!mainWindow.isVisible() || mainWindow.isMinimized()) return;
-
-    const { width, height } = mainWindow.getContentBounds();
-
-    headerView.setBounds({
-        x: 0,
-        y: 0,
-        width,
-        height: HEADER_HEIGHT,
-    });
-
-    contentView.setBounds({
-        x: 0,
-        y: HEADER_HEIGHT,
-        width,
-        height: height - HEADER_HEIGHT,
-    });
-
+    if (!mainWindow || mainWindow.isDestroyed() || !contentView || !headerView) return;
+    // Свёрнутое окно отдаёт нулевой размер: виды остаются, где были, и встают на место при разворачивании
+    if (mainWindow.isMinimized()) return;
+    // Полноэкранный режим «Для роликов» прячет шапку: страница на всё окно
+    const layout = contentLayout(mainWindow.getContentBounds(), mainWindow.isFullScreen() ? 0 : HEADER_HEIGHT);
+    headerView.setBounds(layout.header);
+    contentView.setBounds(layout.page);
     updateScreen?.layout();
+}
+// Смена состояния окна (развернуть, восстановить, полный экран): на Windows событие resize при этом приходит не всегда
+// или с прошлым размером. Виды и слои поверх страницы (настройки, история, заставка) пересчитываются сразу и ещё раз
+// после того, как система закончила анимацию
+function relayoutWindow(): void {
+    adjustContentViews();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.emit('resize');
+    setTimeout(() => {
+        adjustContentViews();
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.emit('resize');
+    }, 120);
 }
 
 function setupWindowControls() {
@@ -712,20 +718,28 @@ function setupWindowControls() {
     };
 
     mainWindow.on('maximize', () => {
-        adjustContentViews();
+        relayoutWindow();
         sendMaximizedState();
     });
 
     mainWindow.on('unmaximize', () => {
-        adjustContentViews();
+        relayoutWindow();
         sendMaximizedState();
     });
 
-    mainWindow.on('restore', sendMaximizedState);
+    mainWindow.on('restore', () => {
+        relayoutWindow();
+        sendMaximizedState();
+    });
+    mainWindow.on('show', adjustContentViews);
+    mainWindow.on('enter-full-screen', relayoutWindow);
+    mainWindow.on('leave-full-screen', relayoutWindow);
 
     mainWindow.on('resize', () => {
         adjustContentViews();
     });
+    // Конец перетаскивания края: окончательный размер
+    mainWindow.on('resized', adjustContentViews);
 
     adjustContentViews();
 }
@@ -738,27 +752,54 @@ function closeUpdateScreen(): void {
     updateScreen = null;
 }
 
+// Одно окно на всё обновление (2.9.0): «Проверить сейчас» открывает его сразу, и в нём же видно проверку, загрузку
+// с процентами, установку, «Установлена последняя версия» и ошибку с «Повторить». Версия, найденная сама в первые
+// секунды после запуска, тоже ставится через это окно. Позже и под играющую музыку окно само не открывается
 function handleUpdateStatus(status: UpdateStatus): void {
-    if (status.key === 'failedCheck' || status.key === 'failedUpdate' || status.key === 'failedDownload') {
-        closeUpdateScreen();
-        return;
+    const t = (key: TranslationKeys): string => translationService.translate(key);
+    const show = (state: Omit<UpdateScreenState, 'later'> & { later?: string }): void => {
+        if (!updateScreen) {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            updateScreen = new UpdateScreen(mainWindow, HEADER_HEIGHT);
+        }
+        updateScreen.show({ later: t('updateScreenLater'), ...state });
+    };
+    const version = status.version ?? '';
+    switch (status.key) {
+        case 'checking':
+            if (updateScreenRequested) show({ title: t('updateScreenCheckingTitle'), status: t('updateScreenChecking'), percent: 0, installing: false, busy: true });
+            return;
+        case 'latest':
+            if (updateScreenRequested) {
+                updateScreenRequested = false;
+                show({ title: t('updateScreenCheckingTitle'), status: t('updateScreenLatest').replace('{v}', app.getVersion()), percent: 100, installing: false, done: true, later: t('updateScreenClose') });
+            } else closeUpdateScreen();
+            return;
+        case 'released':
+            if (updateScreenRequested) {
+                updateScreenRequested = false;
+                updateScreenAction = 'release';
+                show({ title: t('updateScreenTitle').replace('{v}', version), status: t('updateScreenReleased').replace('{v}', version), percent: 100, installing: false, done: true, action: t('updateScreenOpenRelease'), later: t('updateScreenClose') });
+            }
+            return;
+        case 'failedCheck':
+        case 'failedUpdate':
+        case 'failedDownload':
+            if (updateScreen && updateScreenRequested) {
+                updateScreenAction = 'retry';
+                show({ title: t('updateScreenCheckingTitle'), status: t('updateScreenFailed'), percent: 0, installing: false, done: true, action: t('updateScreenRetry'), later: t('updateScreenClose') });
+            } else closeUpdateScreen();
+            return;
     }
     if (status.key !== 'downloading' && status.key !== 'progress' && status.key !== 'downloaded') return;
-    if (!updateScreen) {
-        // Позже первых секунд или под играющую музыку экран не открывается: версия поставится при выходе
-        if (!updateScreenRequested && (updateScreenDismissed || Date.now() - launchedAt > UPDATE_SCREEN_WINDOW_MS || playback.info.isPlaying)) return;
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        updateScreen = new UpdateScreen(mainWindow, HEADER_HEIGHT);
-    }
+    // Позже первых секунд или под играющую музыку экран не открывается: версия поставится при выходе
+    if (!updateScreen && !updateScreenRequested && (updateScreenDismissed || Date.now() - launchedAt > UPDATE_SCREEN_WINDOW_MS || playback.info.isPlaying)) return;
     const installing = status.key === 'downloaded';
     const percent = installing ? 100 : (status.percent ?? 0);
-    updateScreen.show({
-        title: translationService.translate('updateScreenTitle').replace('{v}', status.version ?? ''),
-        status: installing
-            ? translationService.translate('updateScreenInstalling')
-            : translationService.translate('updateScreenDownloading').replace('{p}', String(percent)),
+    show({
+        title: t('updateScreenTitle').replace('{v}', version),
+        status: installing ? t('updateScreenInstalling') : t('updateScreenDownloading').replace('{p}', String(percent)),
         percent,
-        later: translationService.translate('updateScreenLater'),
         installing,
     });
     if (installing && !updateService?.installNow()) closeUpdateScreen();
@@ -865,8 +906,9 @@ async function init() {
     // Тёмный фон видов с первого кадра: до загрузки страниц они были белыми и мигали при запуске
     headerView.setBackgroundColor('#070a12');
     mainWindow.addBrowserView(headerView);
-    headerView.setBounds({ x: 0, y: 0, width: mainWindow.getBounds().width, height: 32 });
-    headerView.setAutoResize({ width: true, height: false });
+    // Места видов считает adjustContentViews по размеру содержимого окна. setAutoResize больше не ставится: он двигал виды
+    // вдобавок к нему, и после «развернуть» и «восстановить» страница уезжала под край или оставляла пустую полосу
+    headerView.setBounds(contentLayout(mainWindow.getContentBounds(), HEADER_HEIGHT).header);
     headerView.webContents.loadFile(path.join(__dirname, 'header', 'header.html'));
     headerView.webContents.on('did-finish-load', () => {
         if (recapPending) headerView?.webContents.send('history-recap', true);
@@ -903,15 +945,15 @@ async function init() {
     watchHiddenPage(mainWindow, () =>
         contentView.webContents.isDestroyed() ? Promise.resolve('gone') : contentView.webContents.executeJavaScript('document.visibilityState'),
     );
-    contentView.setBounds({
-        x: 0,
-        y: 32,
-        width: mainWindow.getBounds().width,
-        height: mainWindow.getBounds().height - 32,
-    });
-    contentView.setAutoResize({ width: true, height: true });
+    contentView.setBounds(contentLayout(mainWindow.getContentBounds(), HEADER_HEIGHT).page);
 
-    protectContent(contentView.webContents, (url) => shell.openExternal(url));
+    protectContent(contentView.webContents, {
+        openExternal: (url) => shell.openExternal(url),
+        onAuthRejected: () => {
+            diagnostics.record('auth.google-rejected');
+            queueToastNotification(translationService.translate('googleSignInRejected'));
+        },
+    });
     // Ссылку из встроенных страниц новой вёрстки сайт иногда открывает полной загрузкой (window.location): музыка обрывается,
     // волна сбрасывается. Такой переход ведёт роутер сайта; если сайт тут же снова просит полную загрузку того же адреса, она проходит
     let softNavigation: { url: string; at: number } | null = null;
@@ -1011,6 +1053,18 @@ async function init() {
             updateScreenDismissed = true;
             updateScreenRequested = false;
             closeUpdateScreen();
+        },
+        action: () => {
+            const service = updateService;
+            if (!service) return;
+            if (updateScreenAction === 'release') {
+                closeUpdateScreen();
+                void shell.openExternal(service.getState().releaseUrl).catch(console.error);
+                return;
+            }
+            updateScreenRequested = true;
+            updateScreenDismissed = false;
+            void service.check();
         },
         openExternal: (url) => shell.openExternal(url),
         openPath: (folder) => shell.openPath(folder),
@@ -1242,6 +1296,9 @@ async function init() {
     contentView.webContents.on('did-navigate-in-page', () => {
         updateNavigationState();
     });
+    // Полный экран из режима «Для роликов» (requestFullscreen страницы): шапка прячется, страница на весь экран
+    contentView.webContents.on('enter-html-full-screen', relayoutWindow);
+    contentView.webContents.on('leave-html-full-screen', relayoutWindow);
 
     // Listen for page load events to manage refresh state
     contentView.webContents.on('did-start-loading', () => {

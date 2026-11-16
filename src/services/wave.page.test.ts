@@ -1217,7 +1217,8 @@ it('В7: «Не нравится» в блоке волны ставит сле�
     await vi.advanceTimersByTimeAsync(1100);
     const first = site.player.getCurrentSound()!.id;
     const labels = [...document.querySelectorAll<HTMLElement>('#sc-wave .scw-meta .scw-like')].map((node) => node.dataset.act);
-    expect(labels).toEqual(['vol-mute', 'later', 'dislike', 'more', 'like']);
+    expect(labels).toEqual(['later', 'dislike', 'more', 'like']);
+    expect(document.querySelector('#sc-wave .scw-meta .scv[data-kind="card"] [data-vol="mute"]')).not.toBeNull();
     document.querySelector<HTMLElement>('#sc-wave [data-act="dislike"]')!.click();
     await vi.advanceTimersByTimeAsync(100);
     expect(bridge.set).toHaveBeenCalledWith(77, 'track', expect.objectContaining({ id: first }), true);
@@ -4646,4 +4647,61 @@ it('2.8.6: трек в баре при запуске и текст песни �
     expect(() => window.eval(waveScript())).not.toThrow();
     await vi.advanceTimersByTimeAsync(100);
     expect(document.getElementById('sc-wave')).not.toBeNull();
+});
+
+it('громкость 2.9.0: ползунок карточки переживает пересборку, тянется, крутится колесом, значок выключает звук', async () => {
+    const site = fakeSite(relatedTracks);
+    let volume = 0.6;
+    const volumeApi = { getVolume: () => volume, setVolume: vi.fn((value: number) => { volume = value; }) };
+    (site.modules as Record<number, { exports: unknown }>)[4] = { exports: volumeApi };
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(100);
+    document.querySelector<HTMLButtonElement>('#sc-wave .scw-play')!.click();
+    await vi.advanceTimersByTimeAsync(1100);
+    const box = document.querySelector<HTMLElement>('#sc-wave .scv[data-kind="card"]')!;
+    const track = box.querySelector<HTMLElement>('.scv-track')!;
+    expect(track.getAttribute('aria-valuenow')).toBe('60');
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 100, width: 100, top: 0, height: 20, right: 200, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
+    track.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 125 }));
+    expect(box.classList.contains('drag')).toBe(true);
+    // Блок пересобирается каждую секунду: узел тот же, перетаскивание продолжается
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(document.querySelector('#sc-wave .scv[data-kind="card"]')).toBe(box);
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 190 }));
+    expect(volume).toBeCloseTo(0.9);
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+    expect(box.classList.contains('drag')).toBe(false);
+    box.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }));
+    expect(volume).toBeCloseTo(0.85);
+    box.querySelector<HTMLButtonElement>('[data-vol="mute"]')!.click();
+    expect(volume).toBe(0);
+    box.querySelector<HTMLButtonElement>('[data-vol="mute"]')!.click();
+    expect(volume).toBeCloseTo(0.85);
+});
+
+it('режим «Для роликов» 2.9.0: кнопка карточки открывает обложку на всё окно, V даёт кадр 9:16, Esc сворачивает', async () => {
+    fakeSite(relatedTracks);
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(100);
+    document.querySelector<HTMLButtonElement>('#sc-wave .scw-play')!.click();
+    await vi.advanceTimersByTimeAsync(1100);
+    const open = document.querySelector<HTMLButtonElement>('#sc-wave .scw-meta [data-clip="open"]')!;
+    expect(open).not.toBeNull();
+    open.click();
+    const layer = document.querySelector<HTMLElement>('.scc')!;
+    expect(layer).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(layer.querySelector('.scc-title')!.textContent).toMatch(/^Rel /);
+    expect(open.getAttribute('aria-pressed')).toBe('true');
+    // Пересборка блока не закрывает режим, кнопка та же
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(document.querySelector('#sc-wave .scw-meta [data-clip="open"]')).toBe(open);
+    const vertical = layer.classList.contains('vertical');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', bubbles: true }));
+    expect(layer.classList.contains('vertical')).toBe(!vertical);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', bubbles: true }));
+    expect(layer.classList.contains('bare')).toBe(true);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.querySelector('.scc')).toBeNull();
+    expect(open.getAttribute('aria-pressed')).toBe('false');
 });

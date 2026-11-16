@@ -7,9 +7,11 @@
     const arc = document.getElementById('arc');
     const ring = document.getElementById('ring');
     const later = document.getElementById('later');
+    const action = document.getElementById('action');
     // Длина окружности кольца, r = 54
     const LENGTH = 339.3;
     later.addEventListener('click', () => api.later());
+    action.addEventListener('click', () => api.action());
     api.onState((state) => {
         if (!state || typeof state !== 'object') return;
         title.textContent = String(state.title || '');
@@ -22,5 +24,10 @@
         // Когда установщик уже запущен, отказаться нельзя: клиент закрывается
         later.hidden = state.installing === true;
         document.body.classList.toggle('installing', state.installing === true);
+        // Одно окно на всё обновление (2.9.0): проверка крутит кольцо, после «последняя версия» или ошибки полосы нет
+        document.body.classList.toggle('busy', state.busy === true);
+        document.body.classList.toggle('done', state.done === true);
+        action.textContent = String(state.action || '');
+        action.hidden = !state.action;
     });
 })();

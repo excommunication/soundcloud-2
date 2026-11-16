@@ -16,7 +16,7 @@ const LISTENERS = [
     'refresh-page', 'setting-changed', 'soundcloud:early-blocks', 'soundcloud:open-history', 'soundcloud:playback', 'soundcloud:player-area',
     'soundcloud:profile-update', 'soundcloud:site-state', 'soundcloud:site-translation', 'soundcloud:track-meta', 'soundcloud:track-update', 'soundcloud:wave-crossfade', 'soundcloud:wave-empty', 'soundcloud:wave-filtered',
     'soundcloud:wave-journal:add', 'soundcloud:wave-signals:add', 'switch-account', 'title-bar-double-click', 'toggle-history', 'toggle-queue', 'toggle-settings',
-    'update-screen-later',
+    'update-screen-action', 'update-screen-later',
 ];
 const HANDLERS = [
     'backup-auto', 'backup-folder', 'backup-pick', 'backup-restore', 'backup-save', 'backup-state', 'check-updates', 'export-diagnostics', 'get-accounts',
@@ -47,6 +47,7 @@ describe('каналы обработчиков', () => {
         expect([...ipc.listeners.keys()].sort()).toEqual([...LISTENERS].sort());
         expect([...ipc.handlers.keys()].sort()).toEqual([...HANDLERS].sort());
         expect([...ipc.listeners.values()].every((list) => list.length === 1)).toBe(true);
-        expect(LISTENERS.length + HANDLERS.length).toBe(87);
+        // 88 с update-screen-action (2.9.0): главная кнопка окна обновления
+        expect(LISTENERS.length + HANDLERS.length).toBe(88);
     });
 });
