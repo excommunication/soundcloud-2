@@ -52,6 +52,8 @@ export interface ClipCore {
     /** Лайк играющего трека; null — кнопки лайка на странице нет */
     liked(): boolean | null;
     toggleLike(): void;
+    /** Следующий (1) или предыдущий (-1) трек очереди: кнопки сайта в нижнем баре */
+    skip?(direction: 1 | -1): void;
     disposed(): boolean;
     /** Звуковая цепочка сайта у играющего трека (анализатор волны, звук для записи); null — недоступна */
     audioTap?(): { context: BaseAudioContext; gain: AudioNode } | null;
@@ -201,8 +203,8 @@ export function clipCrop(frameW: number, frameH: number, viewW: number, viewH: n
 export function installClip(core: ClipCore): ClipSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub' }
-        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub' };
+        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub' }
+        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub' };
     const ICON: Record<string, string> = {
         clip: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11A1.5 1.5 0 0 1 4.5 1zm.2 1.5v11h6.6v-11zM6.9 5.6l3.2 2.1-3.2 2.1z"/></svg>',
         close: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg>',
@@ -214,6 +216,9 @@ export function installClip(core: ClipCore): ClipSection {
         // Нижняя панель (2.11.0): перемотка на 10 с — круговая стрелка с цифрой внутри, как в подкастах
         back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2.2a.5.5 0 0 0-.82-.38L7.1 5.12a.5.5 0 0 0 0 .76l4.08 3.3A.5.5 0 0 0 12 8.8V7a6 6 0 1 1-6 6 1 1 0 0 0-2 0 8 8 0 1 0 8-8z"/><text x="12" y="16" text-anchor="middle" font-size="6.6" font-weight="800" font-family="system-ui,sans-serif">10</text></svg>',
         forward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2.2a.5.5 0 0 1 .82-.38l4.08 3.3a.5.5 0 0 1 0 .76l-4.08 3.3A.5.5 0 0 1 12 8.8V7a6 6 0 1 0 6 6 1 1 0 0 1 2 0 8 8 0 1 1-8-8z"/><text x="12" y="16" text-anchor="middle" font-size="6.6" font-weight="800" font-family="system-ui,sans-serif">10</text></svg>',
+        // Соседние треки (2.11.1): треугольник с чертой, назад — то же зеркально
+        next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 5.6v12.8a1.1 1.1 0 0 0 1.73.9l9.1-6.4a1.1 1.1 0 0 0 0-1.8l-9.1-6.4a1.1 1.1 0 0 0-1.73.9zM17.3 5h1.9c.5 0 .8.36.8.8v12.4c0 .44-.3.8-.8.8h-1.9c-.44 0-.8-.36-.8-.8V5.8c0-.44.36-.8.8-.8z"/></svg>',
+        prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path transform="matrix(-1 0 0 1 24 0)" d="M5.5 5.6v12.8a1.1 1.1 0 0 0 1.73.9l9.1-6.4a1.1 1.1 0 0 0 0-1.8l-9.1-6.4a1.1 1.1 0 0 0-1.73.9zM17.3 5h1.9c.5 0 .8.36.8.8v12.4c0 .44-.3.8-.8.8h-1.9c-.44 0-.8-.36-.8-.8V5.8c0-.44.36-.8.8-.8z"/></svg>',
         play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1.2 1.2 0 0 0 1.84 1.01l10.06-6.4a1.2 1.2 0 0 0 0-2.02L9.84 4.59A1.2 1.2 0 0 0 8 5.6z"/></svg>',
         pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 4.5h2.6c.66 0 1.2.54 1.2 1.2v12.6c0 .66-.54 1.2-1.2 1.2H7.2c-.66 0-1.2-.54-1.2-1.2V5.7c0-.66.54-1.2 1.2-1.2zm7 0h2.6c.66 0 1.2.54 1.2 1.2v12.6c0 .66-.54 1.2-1.2 1.2h-2.6c-.66 0-1.2-.54-1.2-1.2V5.7c0-.66.54-1.2 1.2-1.2z"/></svg>',
         vol: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.47 4.47 0 0 0 2.5-4zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/></svg>',
@@ -403,9 +408,18 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc.fx .scc-art::after{background-color:#00f;transform:translate3d(calc(var(--fxk,0) * 8px),0,0)}',
             '.scc.fx .scc-art>.scc-lyr{z-index:1}',
             // ===== Значок sc2 и QR (2.11.0): внутри кадра, в правом нижнем углу, под подписями и текстом =====
-            '.scc-qr{position:absolute;right:calc(var(--scc-w) * .035);bottom:calc(var(--scc-h) * .02);z-index:1;display:flex;flex-direction:column;align-items:center;gap:calc(var(--scc-h) * .005);padding:calc(var(--scc-h) * .006);border-radius:calc(var(--scc-h) * .012);background:rgba(10,11,16,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);pointer-events:none}',
-            '.scc-qr>b{font:800 clamp(9px,calc(var(--scc-h) * .0145),17px)/1 system-ui,sans-serif;letter-spacing:.14em;color:rgba(255,255,255,.9)}',
-            '.scc-qr>svg{display:block;width:clamp(64px,calc(var(--scc-h) * .1),150px);height:auto;border-radius:calc(var(--scc-h) * .008)}',
+            // Значок (2.11.1): белая карточка как у визитки Telegram — точечный QR со скруглёнными метками, в центре значок клиента,
+            // полоски которого играют эквалайзером и подпрыгивают на ударе; снизу подпись sc2. Карточка слегка светится оранжевым в такт
+            '.scc-qr{position:absolute;right:calc(var(--scc-w) * .035);bottom:calc(var(--scc-h) * .022);z-index:1;display:flex;flex-direction:column;align-items:center;gap:calc(var(--scc-h) * .002);padding:calc(var(--scc-h) * .005) calc(var(--scc-h) * .005) calc(var(--scc-h) * .006);border-radius:calc(var(--scc-h) * .016);background:#fff;pointer-events:none;' +
+                'box-shadow:0 10px 30px -10px rgba(0,0,0,.75),0 0 0 calc(1px + var(--k) * 2px) rgba(255,85,0,calc(.15 + var(--k) * .5)),0 0 calc(var(--k) * 26px) rgba(255,85,0,calc(var(--k) * .45));transition:box-shadow 90ms ease-out;animation:scq-in .6s cubic-bezier(.2,1.3,.4,1) both}',
+            '@keyframes scq-in{from{opacity:0;transform:translateY(10px) scale(.85)}}',
+            '.scc-qr>svg{display:block;width:clamp(58px,calc(var(--scc-h) * .082),118px);height:auto}',
+            '.scc-qr>b{display:block;padding-bottom:.08em;font:900 clamp(9px,calc(var(--scc-h) * .0125),15px)/1 "SC2 Montserrat",Montserrat,system-ui,sans-serif;letter-spacing:.02em;color:#101114}',
+            '.scc-qr>b>i{font-style:normal;color:#ff5500}',
+            '.scc-qr .scq-eq{transform-box:fill-box;transform-origin:50% 50%;transform:scaleY(calc(1 + var(--k) * .28));transition:transform 80ms ease-out}',
+            '.scc-qr .scq-b{transform-box:fill-box;transform-origin:50% 50%;animation:scq-eq 1.2s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.17s)}',
+            '@keyframes scq-eq{0%{transform:scaleY(.42)}50%{transform:scaleY(1)}100%{transform:scaleY(.66)}}',
+            '.scc:not(.playing) .scc-qr .scq-b{animation-play-state:paused}',
             '.scc-empty{font-size:18px;color:rgba(255,255,255,.7)}',
             // Кнопка режима в карточке и в баре
             '.scc-open{all:unset;box-sizing:border-box;width:32px;height:32px;border-radius:999px;display:inline-grid;place-items:center;flex:none;cursor:pointer;color:rgba(255,255,255,.75);transition:background-color .15s,color .15s,transform .15s}',
@@ -1081,7 +1095,7 @@ export function installClip(core: ClipCore): ClipSection {
         box.className = 'scc-qr';
         box.setAttribute('role', 'img');
         box.setAttribute('aria-label', T.qrTitle);
-        box.innerHTML = '<b>sc2</b>' + qrHtml;
+        box.innerHTML = qrHtml + '<b>sc<i>2</i></b>';
         frame.append(box);
     }
     /** Один шаг картинки (до 30 раз в секунду, пока играет): спектр, бит, уровни волны, огибающая эффектов */
@@ -1439,12 +1453,14 @@ export function installClip(core: ClipCore): ClipSection {
         const like = dockButton('like', T.like, 'heart');
         like.setAttribute('aria-pressed', 'false');
         like.append(document.createElement('i'));
-        dock.append(time('at'), dockButton('back', T.back, 'back'), dockButton('play', T.play, 'play'), dockButton('forward', T.forward, 'forward'), time('total'), sep(), vol, sep(), like);
+        dock.append(time('at'), dockButton('prev', T.prevTrack, 'prev'), dockButton('back', T.back, 'back'), dockButton('play', T.play, 'play'), dockButton('forward', T.forward, 'forward'), dockButton('next', T.nextTrack, 'next'), time('total'), sep(), vol, sep(), like);
         dock.addEventListener('click', (event) => {
             const control = (event.target as Element | null)?.closest<HTMLElement>('button[data-clip]');
             switch (control?.dataset.clip) {
                 case 'back': seekBy(-10000); break;
                 case 'forward': seekBy(10000); break;
+                case 'prev': skipTrack(-1); break;
+                case 'next': skipTrack(1); break;
                 case 'play': core.togglePlay(); setTimeout(poll, 80); break;
                 case 'mute': toggleMute(); break;
                 case 'like': toggleLike(); break;
@@ -1507,6 +1523,14 @@ export function installClip(core: ClipCore): ClipSection {
         setTimeout(() => {
             if (!volDrag) paintVolume(core.volume());
         }, 90);
+    }
+    /** Соседний трек очереди; текст и волна пересобираются, когда плеер сменит трек */
+    function skipTrack(direction: 1 | -1): void {
+        if (!core.skip) return;
+        core.skip(direction);
+        lyrLine = -2;
+        setTimeout(poll, 120);
+        setTimeout(poll, 500);
     }
     function toggleLike(): void {
         const was = likeWant ?? core.liked();
@@ -1655,7 +1679,9 @@ export function installClip(core: ClipCore): ClipSection {
         else if (key === 'p' || key === 'з') toggleSide();
         else if (key === 'f' || key === 'а') void toggleFull();
         else if (key === 'm' || key === 'ь') toggleMute();
-        else if (key === 'r' || key === 'к') {
+        else if (key === 'n' || key === 'т') {
+            if (!event.repeat) skipTrack(event.shiftKey ? -1 : 1);
+        } else if (key === 'r' || key === 'к') {
             if (!event.repeat) toggleRecord(event.shiftKey);
         } else if (key === 'b' || key === 'и') {
             if (!event.repeat) toggleFx();

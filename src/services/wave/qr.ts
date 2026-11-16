@@ -1,30 +1,38 @@
 // QR-код для значка «sc2» в режиме «Для роликов» (2.11.0): ссылка на репозиторий клиента, чтобы по скриншоту ролика его находили.
-// Библиотек в клиенте нет, поэтому кодировщик свой и маленький: байтовый режим, уровень исправления M, версии 1–6 (до 106 байт),
-// все восемь масок с выбором по штрафам. Обе функции уходят на страницу текстом (pageHelpers в wave.ts): внутри только свои
-// объявления, ничего снаружи.
+// Библиотек в клиенте нет, поэтому кодировщик свой и маленький: буквенно-цифровой режим (заглавные, цифры, « $%*+-./:») или
+// байтовый, уровни исправления M, Q и H, версии 1–6, все восемь масок с выбором по штрафам. 2.11.1: уровень H держит значок
+// клиента посередине кода, а ссылка заглавными идёт буквенно-цифровым режимом и влезает в версию 4 (33×33) даже с ним.
+// Обе функции уходят на страницу текстом (pageHelpers в wave.ts): внутри только свои объявления, ничего снаружи.
 
-/** Матрица модулей QR-кода: true — тёмный. Строка за строкой, сверху вниз. Текст длиннее 106 байт даёт пустую матрицу */
-export function qrMatrix(text: string): boolean[][] {
-    const bytes = Array.from(new TextEncoder().encode(text));
-    // Уровень M: всего слов данных, слов исправления на блок и число блоков (блоки в этих версиях равные)
-    const SPEC = [
-        { data: 16, ec: 10, blocks: 1 },
-        { data: 28, ec: 16, blocks: 1 },
-        { data: 44, ec: 26, blocks: 1 },
-        { data: 64, ec: 18, blocks: 2 },
-        { data: 86, ec: 24, blocks: 2 },
-        { data: 108, ec: 16, blocks: 4 },
-    ];
+/** Матрица модулей QR-кода: true — тёмный. Строка за строкой, сверху вниз. Текст, который не влезает в версию 6, даёт пустую матрицу */
+export function qrMatrix(text: string, level: 'M' | 'Q' | 'H' = 'M'): boolean[][] {
+    const ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+    const alnum = text.length > 0 && Array.from(text).every((ch) => ALNUM.includes(ch));
+    const bytes = alnum ? [] : Array.from(new TextEncoder().encode(text));
+    // Слов исправления на блок, затем пары «число блоков, слов данных в блоке» (у версии 5 при Q и H блоки двух размеров)
+    const TABLE: Record<'M' | 'Q' | 'H', number[][]> = {
+        M: [[10, 1, 16], [16, 1, 28], [26, 1, 44], [18, 2, 32], [24, 2, 43], [16, 4, 27]],
+        Q: [[13, 1, 13], [22, 1, 22], [18, 2, 17], [26, 2, 24], [18, 2, 15, 2, 16], [24, 4, 19]],
+        H: [[17, 1, 9], [28, 1, 16], [22, 2, 13], [16, 4, 9], [22, 2, 11, 2, 12], [28, 4, 15]],
+    };
+    const need = alnum ? 4 + 9 + Math.floor(text.length / 2) * 11 + (text.length % 2) * 6 : 4 + 8 + bytes.length * 8;
     let version = 0;
-    for (let i = 0; i < SPEC.length; i++) {
-        // 4 бита режима, 8 бит длины и сами байты
-        if (12 + bytes.length * 8 <= SPEC[i].data * 8) {
+    let row: number[] = [];
+    for (let i = 0; i < 6; i++) {
+        const spec = TABLE[level][i];
+        let words = 0;
+        for (let j = 1; j < spec.length; j += 2) words += spec[j] * spec[j + 1];
+        if (need <= words * 8 && (alnum || bytes.length < 256)) {
             version = i + 1;
+            row = spec;
             break;
         }
     }
     if (!version) return [];
-    const spec = SPEC[version - 1];
+    const ec = row[0];
+    const sizes: number[] = [];
+    for (let j = 1; j < row.length; j += 2) for (let b = 0; b < row[j]; b++) sizes.push(row[j + 1]);
+    const dataWords = sizes.reduce((sum, n) => sum + n, 0);
     const size = 17 + 4 * version;
 
     // Поток битов данных
@@ -32,10 +40,17 @@ export function qrMatrix(text: string): boolean[][] {
     const put = (value: number, count: number): void => {
         for (let i = count - 1; i >= 0; i--) bits.push((value >>> i) & 1);
     };
-    put(4, 4);
-    put(bytes.length, 8);
-    for (const byte of bytes) put(byte, 8);
-    const capacity = spec.data * 8;
+    if (alnum) {
+        put(2, 4);
+        put(text.length, 9);
+        for (let i = 0; i + 1 < text.length; i += 2) put(ALNUM.indexOf(text[i]) * 45 + ALNUM.indexOf(text[i + 1]), 11);
+        if (text.length % 2) put(ALNUM.indexOf(text[text.length - 1]), 6);
+    } else {
+        put(4, 4);
+        put(bytes.length, 8);
+        for (const byte of bytes) put(byte, 8);
+    }
+    const capacity = dataWords * 8;
     for (let i = 0; i < 4 && bits.length < capacity; i++) bits.push(0);
     while (bits.length % 8) bits.push(0);
     const words: number[] = [];
@@ -44,7 +59,7 @@ export function qrMatrix(text: string): boolean[][] {
         for (let j = 0; j < 8; j++) word = (word << 1) | bits[i + j];
         words.push(word);
     }
-    for (let pad = 0xec; words.length < spec.data; pad ^= 0xec ^ 0x11) words.push(pad);
+    for (let pad = 0xec; words.length < dataWords; pad ^= 0xec ^ 0x11) words.push(pad);
 
     // Поле GF(256) с многочленом 0x11D и слова исправления Рида-Соломона
     const exp: number[] = new Array(512).fill(0);
@@ -59,7 +74,7 @@ export function qrMatrix(text: string): boolean[][] {
     for (let i = 255; i < 512; i++) exp[i] = exp[i - 255];
     const mul = (a: number, b: number): number => (a && b ? exp[log[a] + log[b]] : 0);
     let gen = [1];
-    for (let i = 0; i < spec.ec; i++) {
+    for (let i = 0; i < ec; i++) {
         const next: number[] = new Array(gen.length + 1).fill(0);
         for (let j = 0; j < gen.length; j++) {
             next[j] ^= gen[j];
@@ -67,24 +82,26 @@ export function qrMatrix(text: string): boolean[][] {
         }
         gen = next;
     }
-    const per = spec.data / spec.blocks;
     const blocks: number[][] = [];
     const checks: number[][] = [];
-    for (let b = 0; b < spec.blocks; b++) {
-        const block = words.slice(b * per, (b + 1) * per);
-        const rem: number[] = new Array(spec.ec).fill(0);
+    let from = 0;
+    for (const count of sizes) {
+        const block = words.slice(from, from + count);
+        from += count;
+        const rem: number[] = new Array(ec).fill(0);
         for (const word of block) {
             const factor = word ^ (rem.shift() as number);
             rem.push(0);
-            for (let j = 0; j < spec.ec; j++) rem[j] ^= mul(gen[j + 1], factor);
+            for (let j = 0; j < ec; j++) rem[j] ^= mul(gen[j + 1], factor);
         }
         blocks.push(block);
         checks.push(rem);
     }
-    // Слова блоков вперемешку: сначала данные по очереди из каждого блока, потом исправление
+    // Слова блоков вперемешку: сначала данные по очереди из каждого блока (короткие блоки кончаются раньше), потом исправление
     const stream: number[] = [];
-    for (let i = 0; i < per; i++) for (const block of blocks) stream.push(block[i]);
-    for (let i = 0; i < spec.ec; i++) for (const check of checks) stream.push(check[i]);
+    const longest = Math.max(...sizes);
+    for (let i = 0; i < longest; i++) for (const block of blocks) if (i < block.length) stream.push(block[i]);
+    for (let i = 0; i < ec; i++) for (const check of checks) stream.push(check[i]);
     const data: number[] = [];
     for (const word of stream) for (let i = 7; i >= 0; i--) data.push((word >>> i) & 1);
     // Остаточные биты у версий 2–6 (у первой их нет)
@@ -93,10 +110,10 @@ export function qrMatrix(text: string): boolean[][] {
     // Служебные узоры
     const cells: boolean[][] = Array.from({ length: size }, () => new Array(size).fill(false));
     const taken: boolean[][] = Array.from({ length: size }, () => new Array(size).fill(false));
-    const set = (col: number, row: number, dark: boolean): void => {
-        if (col < 0 || row < 0 || col >= size || row >= size) return;
-        cells[row][col] = dark;
-        taken[row][col] = true;
+    const set = (col: number, r: number, dark: boolean): void => {
+        if (col < 0 || r < 0 || col >= size || r >= size) return;
+        cells[r][col] = dark;
+        taken[r][col] = true;
     };
     for (let i = 8; i < size - 8; i++) {
         set(i, 6, i % 2 === 0);
@@ -135,10 +152,10 @@ export function qrMatrix(text: string): boolean[][] {
     for (let right = size - 1, up = true; right >= 1; right -= 2, up = !up) {
         if (right === 6) right = 5;
         for (let step = 0; step < size; step++) {
-            const row = up ? size - 1 - step : step;
+            const r = up ? size - 1 - step : step;
             for (let j = 0; j < 2; j++) {
                 const col = right - j;
-                if (!taken[row][col]) place.push([row, col]);
+                if (!taken[r][col]) place.push([r, col]);
             }
         }
     }
@@ -152,18 +169,21 @@ export function qrMatrix(text: string): boolean[][] {
         (i, j) => (((i * j) % 2) + ((i * j) % 3)) % 2 === 0,
         (i, j) => (((i + j) % 2) + ((i * j) % 3)) % 2 === 0,
     ];
+    // Уровень в формате: M 00, Q 11, H 10
+    const levelBits = level === 'M' ? 0 : level === 'Q' ? 3 : 2;
     const build = (mask: number): boolean[][] => {
-        const out = cells.map((row) => row.slice());
-        place.forEach(([row, col], n) => {
-            out[row][col] = (data[n] === 1) !== MASKS[mask](row, col);
+        const out = cells.map((line) => line.slice());
+        place.forEach(([r, col], n) => {
+            out[r][col] = (data[n] === 1) !== MASKS[mask](r, col);
         });
-        // Формат: уровень M (00) и номер маски, код БЧХ(15,5) и маска 0x5412
-        let rem = mask;
+        // Формат: уровень и номер маски, код БЧХ(15,5) и маска 0x5412
+        const head = (levelBits << 3) | mask;
+        let rem = head;
         for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
-        const format = ((mask << 10) | rem) ^ 0x5412;
+        const format = ((head << 10) | rem) ^ 0x5412;
         const bit = (i: number): boolean => ((format >>> i) & 1) === 1;
-        const at = (col: number, row: number, dark: boolean): void => {
-            out[row][col] = dark;
+        const at = (col: number, r: number, dark: boolean): void => {
+            out[r][col] = dark;
         };
         for (let i = 0; i <= 5; i++) at(8, i, bit(i));
         at(8, 7, bit(6));
@@ -223,20 +243,81 @@ export function qrMatrix(text: string): boolean[][] {
     return best;
 }
 
-/** Готовый SVG значка: светлая плашка с тихой зоной в 4 модуля, тёмные модули с лёгким скруглением. Обычная полярность
- * (тёмное на светлом), чтобы код читали любые сканеры, в том числе со скриншота */
-export function qrSvg(grid: boolean[][], dark: string): string {
+/** Готовый SVG значка в духе визитки Telegram: обычная полярность (тёмное на светлом, так код читают любые сканеры, в том
+ * числе со скриншота), тихая зона в 3 модуля, модули сливаются в капли со скруглёнными свободными углами, метки — скруглённые
+ * квадраты. hole > 0 — посередине пустой квадрат hole×hole модулей под значок клиента: облако и полоски, полоски с классом
+ * scq-b и номером --i (их анимирует страница). Дыру держит только уровень H, тест считает испорченные слова по блокам */
+export function qrSvg(grid: boolean[][], dark: string, hole = 0): string {
     const size = grid.length;
     if (!size) return '';
-    const quiet = 4;
+    const quiet = 3;
     const total = size + quiet * 2;
-    const r = 0.2;
-    const s = 1 - 2 * r;
-    const mod = (c: number, rw: number): string =>
-        'M' + (c + r) + ' ' + rw + 'h' + s + 'a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r + 'v' + s + 'a' + r + ' ' + r + ' 0 0 1 -' + r + ' ' + r + 'h-' + s + 'a' + r + ' ' + r + ' 0 0 1 -' + r + ' -' + r + 'v-' + s + 'a' + r + ' ' + r + ' 0 0 1 ' + r + ' -' + r + 'z';
+    const lo = hole > 0 ? (size - hole) / 2 : -1;
+    const inHole = (r: number, c: number): boolean => hole > 0 && r >= lo && r < lo + hole && c >= lo && c < lo + hole;
+    const inFinder = (r: number, c: number): boolean => (r < 7 && c < 7) || (r < 7 && c >= size - 7) || (r >= size - 7 && c < 7);
+    const on = (r: number, c: number): boolean => r >= 0 && c >= 0 && r < size && c < size && grid[r][c] && !inFinder(r, c) && !inHole(r, c);
+    const n = (v: number): string => String(Math.round(v * 1000) / 1000);
+    const R = 0.5;
+    // Модуль — квадрат; угол скругляется, только когда обе соседние по нему стороны пусты. Со стороны соседа квадрат чуть
+    // заходит на него, чтобы между слитыми модулями не светились швы сглаживания
     let path = '';
-    for (let row = 0; row < size; row++) {
-        for (let col = 0; col < size; col++) if (grid[row][col]) path += mod(col + quiet, row + quiet);
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (!on(r, c)) continue;
+            const up = on(r - 1, c);
+            const down = on(r + 1, c);
+            const left = on(r, c - 1);
+            const right = on(r, c + 1);
+            const x0 = c + quiet - (left ? 0.02 : 0);
+            const x1 = c + quiet + 1 + (right ? 0.02 : 0);
+            const y0 = r + quiet - (up ? 0.02 : 0);
+            const y1 = r + quiet + 1 + (down ? 0.02 : 0);
+            const tl = !up && !left ? R : 0;
+            const tr = !up && !right ? R : 0;
+            const br = !down && !right ? R : 0;
+            const bl = !down && !left ? R : 0;
+            path += 'M' + n(x0 + tl) + ' ' + n(y0) + 'H' + n(x1 - tr);
+            if (tr) path += 'A' + R + ' ' + R + ' 0 0 1 ' + n(x1) + ' ' + n(y0 + tr);
+            path += 'V' + n(y1 - br);
+            if (br) path += 'A' + R + ' ' + R + ' 0 0 1 ' + n(x1 - br) + ' ' + n(y1);
+            path += 'H' + n(x0 + bl);
+            if (bl) path += 'A' + R + ' ' + R + ' 0 0 1 ' + n(x0) + ' ' + n(y1 - bl);
+            path += 'V' + n(y0 + tl);
+            if (tl) path += 'A' + R + ' ' + R + ' 0 0 1 ' + n(x0 + tl) + ' ' + n(y0);
+            path += 'Z';
+        }
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" aria-hidden="true"><rect width="' + total + '" height="' + total + '" rx="3" fill="#fff"/><path fill="' + dark + '" d="' + path + '"/></svg>';
+    // Метки: кольцо 7×7 со скруглением и «глаз» 3×3
+    const rrect = (x: number, y: number, w: number, rad: number): string =>
+        'M' + n(x + rad) + ' ' + n(y) + 'H' + n(x + w - rad) + 'A' + rad + ' ' + rad + ' 0 0 1 ' + n(x + w) + ' ' + n(y + rad) + 'V' + n(y + w - rad) + 'A' + rad + ' ' + rad + ' 0 0 1 ' + n(x + w - rad) + ' ' + n(y + w) +
+        'H' + n(x + rad) + 'A' + rad + ' ' + rad + ' 0 0 1 ' + n(x) + ' ' + n(y + w - rad) + 'V' + n(y + rad) + 'A' + rad + ' ' + rad + ' 0 0 1 ' + n(x + rad) + ' ' + n(y) + 'Z';
+    let eyes = '';
+    for (const [r, c] of [[0, 0], [0, size - 7], [size - 7, 0]]) {
+        const x = c + quiet;
+        const y = r + quiet;
+        eyes += rrect(x, y, 7, 2.1) + rrect(x + 1, y + 1, 5, 1.35) + rrect(x + 2, y + 2, 3, 0.95);
+    }
+    let logo = '';
+    if (hole > 0) {
+        // Значок клиента: тёмный скруглённый квадрат, белое облако и семь оранжевых полосок, как на иконке. Рисунок в поле 30×26
+        const side = hole - 1;
+        const at = quiet + lo + 0.5;
+        const k = (side * 0.8) / 23;
+        const ox = at + side / 2 - 14.9 * k;
+        const oy = at + side / 2 - 13 * k;
+        const HEIGHTS = [3.4, 5.6, 5.2, 7.2, 8.4, 7.8, 9.4];
+        let bars = '';
+        HEIGHTS.forEach((h, i) => {
+            bars += '<rect class="scq-b" style="--i:' + i + '" x="' + n(4.2 + i * 1.3) + '" y="' + n(13.1 - h / 2) + '" width=".8" height="' + n(h) + '" rx=".4"/>';
+        });
+        logo =
+            '<defs><linearGradient id="scq-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a00"/><stop offset="1" stop-color="#ff3d00"/></linearGradient></defs>' +
+            '<rect x="' + n(at) + '" y="' + n(at) + '" width="' + n(side) + '" height="' + n(side) + '" rx="' + n(side * 0.26) + '" fill="#111214"/>' +
+            '<g transform="translate(' + n(ox) + ' ' + n(oy) + ') scale(' + n(k) + ')">' +
+            '<g class="scq-eq" fill="url(#scq-o)">' + bars + '</g>' +
+            '<path fill="#fff" d="M13.9 17.7Q13.3 17.7 13.3 17.1V9C14.2 8.6 15.2 8.4 16.2 8.4 18.7 8.4 20.7 10.1 21.3 12.3 21.8 12.1 22.3 12 22.8 12 24.6 12 25.6 13.3 25.6 14.85 25.6 16.4 24.6 17.7 22.8 17.7Z"/>' +
+            '</g>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" aria-hidden="true"><rect width="' + total + '" height="' + total + '" rx="2" fill="#fff"/>' +
+        '<path fill="' + dark + '" d="' + eyes + '" fill-rule="evenodd"/><path fill="' + dark + '" d="' + path + '"/>' + logo + '</svg>';
 }

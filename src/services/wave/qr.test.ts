@@ -5,7 +5,45 @@ const QR_URL = 'https://github.com/excommunication/soundcloud-2';
 
 // Независимый разбор матрицы «с другой стороны»: формат, маска, чтение змейкой, проверка кода Рида-Соломона по синдромам,
 // разбор байтового режима. Шаблоны служебных мест здесь считаются заново, не из кодировщика
-function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero: boolean } {
+// Таблица стандарта: слов исправления на блок и размеры блоков данных, отдельно от кодировщика
+const BLOCKS: Record<'M' | 'Q' | 'H', Array<{ ec: number; sizes: number[] }>> = {
+    M: [{ ec: 10, sizes: [16] }, { ec: 16, sizes: [28] }, { ec: 26, sizes: [44] }, { ec: 18, sizes: [32, 32] }, { ec: 24, sizes: [43, 43] }, { ec: 16, sizes: [27, 27, 27, 27] }],
+    Q: [{ ec: 13, sizes: [13] }, { ec: 22, sizes: [22] }, { ec: 18, sizes: [17, 17] }, { ec: 26, sizes: [24, 24] }, { ec: 18, sizes: [15, 15, 16, 16] }, { ec: 24, sizes: [19, 19, 19, 19] }],
+    H: [{ ec: 17, sizes: [9] }, { ec: 28, sizes: [16] }, { ec: 22, sizes: [13, 13] }, { ec: 16, sizes: [9, 9, 9, 9] }, { ec: 22, sizes: [11, 11, 12, 12] }, { ec: 28, sizes: [15, 15, 15, 15] }],
+};
+const LEVEL_OF: Record<number, 'M' | 'Q' | 'H'> = { 0: 'M', 3: 'Q', 2: 'H' };
+
+/** Порядок ячеек данных змейкой (строка, столбец) и для каждой ячейки — блок и номер слова в нём */
+function layout(size: number, level: 'M' | 'Q' | 'H'): { cells: Array<[number, number]>; owner: Array<{ block: number; word: number }> } {
+    const version = (size - 17) / 4;
+    const reserved = (row: number, col: number): boolean => {
+        if (row < 9 && col < 9) return true;
+        if (row < 9 && col >= size - 8) return true;
+        if (row >= size - 8 && col < 9) return true;
+        if (row === 6 || col === 6) return true;
+        if (version > 1 && Math.abs(row - (size - 7)) <= 2 && Math.abs(col - (size - 7)) <= 2) return true;
+        return false;
+    };
+    const cells: Array<[number, number]> = [];
+    let upward = true;
+    for (let col = size - 1; col > 0; col -= 2) {
+        if (col === 6) col = 5;
+        for (let n = 0; n < size; n++) {
+            const row = upward ? size - 1 - n : n;
+            for (const c of [col, col - 1]) if (!reserved(row, c)) cells.push([row, c]);
+        }
+        upward = !upward;
+    }
+    const spec = BLOCKS[level][version - 1];
+    const order: Array<{ block: number; word: number }> = [];
+    const longest = Math.max(...spec.sizes);
+    for (let i = 0; i < longest; i++) spec.sizes.forEach((count, b) => i < count && order.push({ block: b, word: i }));
+    for (let i = 0; i < spec.ec; i++) spec.sizes.forEach((count, b) => order.push({ block: b, word: count + i }));
+    const owner = cells.map((_, n) => order[Math.floor(n / 8)] ?? { block: -1, word: -1 });
+    return { cells, owner };
+}
+
+function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero: boolean; level: 'M' | 'Q' | 'H' } {
     const size = grid.length;
     const version = (size - 17) / 4;
     // Формат из первой копии, по порядку битов с 14-го к 0-му
@@ -18,16 +56,9 @@ function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero:
         if (grid[row][col]) format |= 1 << i;
     });
     format ^= 0x5412;
-    expect(format >> 13).toBe(0); // уровень M = 00
+    const level = LEVEL_OF[format >> 13];
+    expect(level).toBeDefined();
     const mask = (format >> 10) & 7;
-    const reserved = (row: number, col: number): boolean => {
-        if (row < 9 && col < 9) return true;
-        if (row < 9 && col >= size - 8) return true;
-        if (row >= size - 8 && col < 9) return true;
-        if (row === 6 || col === 6) return true;
-        if (version > 1 && Math.abs(row - (size - 7)) <= 2 && Math.abs(col - (size - 7)) <= 2) return true;
-        return false;
-    };
     const maskOn = [
         (i: number, j: number) => (i + j) % 2 === 0,
         (i: number) => i % 2 === 0,
@@ -38,25 +69,16 @@ function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero:
         (i: number, j: number) => (((i * j) % 2) + ((i * j) % 3)) % 2 === 0,
         (i: number, j: number) => (((i + j) % 2) + ((i * j) % 3)) % 2 === 0,
     ][mask];
-    const bits: number[] = [];
-    let upward = true;
-    for (let col = size - 1; col > 0; col -= 2) {
-        if (col === 6) col = 5;
-        for (let n = 0; n < size; n++) {
-            const row = upward ? size - 1 - n : n;
-            for (const c of [col, col - 1]) {
-                if (!reserved(row, c)) bits.push(grid[row][c] !== maskOn(row, c) ? 1 : 0);
-            }
-        }
-        upward = !upward;
-    }
+    const { cells } = layout(size, level);
+    const bits = cells.map(([row, c]) => (grid[row][c] !== maskOn(row, c) ? 1 : 0));
     const words: number[] = [];
     for (let i = 0; i + 8 <= bits.length; i += 8) words.push(parseInt(bits.slice(i, i + 8).join(''), 2));
-    const spec = [null, { blocks: 1, ec: 10 }, { blocks: 1, ec: 16 }, { blocks: 1, ec: 26 }, { blocks: 2, ec: 18 }, { blocks: 2, ec: 24 }, { blocks: 4, ec: 16 }][version]!;
-    const total = Math.floor((bits.length - (version > 1 ? 7 : 0)) / 8);
-    expect(words.length).toBeGreaterThanOrEqual(total);
-    const perData = total / spec.blocks - spec.ec;
-    const perBlock = perData + spec.ec;
+    const spec = BLOCKS[level][version - 1];
+    const blocks: number[][] = spec.sizes.map(() => []);
+    let next = 0;
+    const longest = Math.max(...spec.sizes);
+    for (let i = 0; i < longest; i++) spec.sizes.forEach((count, b) => i < count && blocks[b].push(words[next++]));
+    for (let i = 0; i < spec.ec; i++) spec.sizes.forEach((_count, b) => blocks[b].push(words[next++]));
     // GF(256)
     const exp: number[] = [];
     const log: number[] = [];
@@ -67,15 +89,11 @@ function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero:
         v = v << 1 ^ (v & 128 ? 0x11d : 0);
     }
     const mul = (a: number, b: number): number => (a && b ? exp[(log[a] + log[b]) % 255] : 0);
-    const blocks: number[][] = Array.from({ length: spec.blocks }, () => []);
-    for (let i = 0; i < total; i++) {
-        const b = i < perData * spec.blocks ? i % spec.blocks : (i - perData * spec.blocks) % spec.blocks;
-        blocks[b].push(words[i]);
-    }
     let syndromesZero = true;
     const dataOut: number[] = [];
-    for (const block of blocks) {
-        expect(block.length).toBe(perBlock);
+    for (const [b, block] of blocks.entries()) {
+        const perData = spec.sizes[b];
+        expect(block.length).toBe(perData + spec.ec);
         for (let k = 0; k < spec.ec; k++) {
             // значение многочлена блока в точке α^k по схеме Горнера
             let acc = 0;
@@ -85,11 +103,25 @@ function decode(grid: boolean[][]): { mask: number; text: string; syndromesZero:
         dataOut.push(...block.slice(0, perData));
     }
     const stream = dataOut.map((w) => w.toString(2).padStart(8, '0')).join('');
-    expect(stream.slice(0, 4)).toBe('0100'); // байтовый режим
+    const mode = stream.slice(0, 4);
+    if (mode === '0010') {
+        // буквенно-цифровой режим: пары знаков по 11 бит, хвост 6 бит
+        const ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+        const length = parseInt(stream.slice(4, 13), 2);
+        let text = '';
+        let at = 13;
+        for (let i = 0; i + 1 < length; i += 2, at += 11) {
+            const v = parseInt(stream.slice(at, at + 11), 2);
+            text += ALNUM[Math.floor(v / 45)] + ALNUM[v % 45];
+        }
+        if (length % 2) text += ALNUM[parseInt(stream.slice(at, at + 6), 2)];
+        return { mask, text, syndromesZero, level };
+    }
+    expect(mode).toBe('0100'); // байтовый режим
     const length = parseInt(stream.slice(4, 12), 2);
     const out: number[] = [];
     for (let i = 0; i < length; i++) out.push(parseInt(stream.slice(12 + i * 8, 20 + i * 8), 2));
-    return { mask, text: new TextDecoder().decode(new Uint8Array(out)), syndromesZero };
+    return { mask, text: new TextDecoder().decode(new Uint8Array(out)), syndromesZero, level };
 }
 
 describe('QR-код значка', () => {
@@ -163,11 +195,63 @@ describe('QR-код значка', () => {
         for (let i = 0; i < 10; i++) rem1 = (rem1 << 1) ^ ((rem1 >>> 9) * 0x537);
         expect((((1 << 10) | rem1) ^ 0x5412).toString(2).padStart(15, '0')).toBe('101000100100101');
     });
-    it('SVG с тихой зоной в 4 модуля и светлой плашкой', () => {
+    it('SVG с тихой зоной в 3 модуля и светлой плашкой', () => {
         const svg = qrSvg(grid, '#0b0c10');
         expect(svg.startsWith('<svg')).toBe(true);
-        expect(svg).toContain('viewBox="0 0 41 41"');
+        expect(svg).toContain('viewBox="0 0 39 39"');
+        expect(svg).not.toContain('scq-b');
         expect(svg).toContain('fill="#fff"');
         expect(qrSvg([], '#000')).toBe('');
+    });
+});
+
+// Значок в режиме роликов (2.11.1): ссылка заглавными, уровень H и значок клиента посередине
+describe('QR-код значка со значком клиента', () => {
+    const BADGE = 'HTTPS://GITHUB.COM/EXCOMMUNICATION/SOUNDCLOUD-2';
+    const HOLE = 9;
+    const grid = qrMatrix(BADGE, 'H');
+    it('буквенно-цифровой режим на уровне H влезает в версию 4, 33×33', () => {
+        expect(grid.length).toBe(33);
+        const result = decode(grid);
+        expect(result.level).toBe('H');
+        expect(result.text).toBe(BADGE);
+        expect(result.syndromesZero).toBe(true);
+    });
+    it('уровни Q и H, блоки разного размера у версии 5 тоже разбираются', () => {
+        for (const level of ['Q', 'H'] as const) {
+            for (const text of ['A', 'HELLO WORLD', 'x'.repeat(40), 'HTTPS://EXAMPLE.TEST/' + 'A'.repeat(40)]) {
+                const matrix = qrMatrix(text, level);
+                const result = decode(matrix);
+                expect(result.level).toBe(level);
+                expect(result.text).toBe(text);
+                expect(result.syndromesZero).toBe(true);
+            }
+        }
+        expect((qrMatrix('x'.repeat(40), 'H').length - 17) / 4).toBe(5);
+    });
+    it('дыра под значок портит в каждом блоке меньше половины запаса исправления, с запасом в 3 слова', () => {
+        const size = grid.length;
+        const lo = (size - HOLE) / 2;
+        const { cells, owner } = layout(size, 'H');
+        const spec = BLOCKS.H[3];
+        const hit = spec.sizes.map(() => new Set<number>());
+        cells.forEach(([row, col], n) => {
+            if (row >= lo && row < lo + HOLE && col >= lo && col < lo + HOLE && owner[n].block >= 0) hit[owner[n].block].add(owner[n].word);
+        });
+        // H версии 4: 16 слов исправления на блок, то есть до 8 ошибочных слов в блоке
+        for (const words of hit) expect(words.size).toBeLessThanOrEqual(spec.ec / 2 - 3);
+        expect(hit.reduce((sum, words) => sum + words.size, 0)).toBeGreaterThan(0);
+    });
+    it('SVG: скруглённые метки, дыра пуста, значок с семью полосками', () => {
+        const svg = qrSvg(grid, '#0b0c10', HOLE);
+        expect(svg).toContain('viewBox="0 0 39 39"');
+        expect(svg.match(/class="scq-b"/g)?.length).toBe(7);
+        expect(svg).toContain('fill-rule="evenodd"');
+        // ни один модуль данных не начинается внутри дыры (в координатах SVG дыра 15..24)
+        const data = svg.match(/<path fill="#0b0c10" d="([^"]*)"\/>/g)?.[1] ?? '';
+        for (const [, x, y] of data.matchAll(/M([\d.]+) ([\d.]+)/g)) {
+            const inside = Number(x) > 15.1 && Number(x) < 23.9 && Number(y) > 15.1 && Number(y) < 23.9;
+            expect(inside).toBe(false);
+        }
     });
 });
