@@ -59,6 +59,7 @@ import {
     shell,
     components,
     dialog,
+    clipboard,
     powerMonitor,
     net,
     safeStorage,
@@ -89,6 +90,7 @@ import { audioMonitorScript } from './services/audioMonitorService';
 import path from 'path';
 import { platform, release, totalmem } from 'os';
 import { memoryVerdict } from './services/memoryGuard';
+import { importBrowserSession, runBrowserLogin } from './services/browserLogin';
 
 import Store from 'electron-store';
 import windowStateManager from 'electron-window-state';
@@ -417,6 +419,53 @@ function showMainWindow(): void {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     revealWindow(mainWindow, pagePainted);
     adjustContentViews();
+}
+
+// Вход через обычный браузер (services/browserLogin.ts): диалог живёт, пока человек не вошёл или не отменил
+let browserLoginOpen = false;
+/** Окна входа Google, оставшиеся после отказа: на странице отказа остаётся только «Повторить», толку от неё нет */
+function closeGoogleWindows(): void {
+    for (const window of BrowserWindow.getAllWindows()) {
+        if (window === mainWindow || window.isDestroyed()) continue;
+        let host = '';
+        try { host = new URL(window.webContents.getURL()).hostname; } catch { /* пустое окно */ }
+        if (/(^|\.)google\.com$/.test(host)) window.close();
+    }
+}
+async function startBrowserLogin(): Promise<void> {
+    if (browserLoginOpen || !mainWindow || mainWindow.isDestroyed()) return;
+    browserLoginOpen = true;
+    closeGoogleWindows();
+    showMainWindow();
+    const t = (key: TranslationKeys): string => translationService.translate(key);
+    try {
+        await runBrowserLogin({
+            texts: {
+                title: t('browserLoginTitle'), message: t('browserLoginMessage'), detail: t('browserLoginDetail'), open: t('browserLoginOpen'),
+                extension: t('browserLoginExtension'), paste: t('browserLoginPaste'), cancel: t('browserLoginCancel'), badTitle: t('browserLoginBadTitle'),
+                bad: { empty: t('browserLoginBadEmpty'), format: t('browserLoginBadFormat'), 'no-token': t('browserLoginBadNoToken'), 'bad-value': t('browserLoginBadValue') },
+                noRefresh: t('browserLoginNoRefresh'),
+            },
+            openExternal: (url) => shell.openExternal(url),
+            readClipboard: () => clipboard.readText(),
+            ask: async ({ title, message, detail, buttons }) => {
+                const options = { type: 'info' as const, title, message, detail, buttons, defaultId: 0, cancelId: buttons.length - 1, noLink: true };
+                const result = mainWindow && !mainWindow.isDestroyed() ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
+                return result.response;
+            },
+            importSession: (text) => importBrowserSession(contentView.webContents.session, text),
+            done: (result) => {
+                closeGoogleWindows();
+                queueToastNotification(t(result.ok && !result.refresh ? 'browserLoginNoRefresh' : 'browserLoginDone'));
+                if (!contentView.webContents.isDestroyed()) contentView.webContents.reload();
+            },
+            record: (step, data) => diagnostics.record('auth.' + step, data),
+        });
+    } catch (error) {
+        console.error('Вход через браузер:', error);
+    } finally {
+        browserLoginOpen = false;
+    }
 }
 
 function setupTray() {
@@ -972,7 +1021,8 @@ async function init() {
         onAuthStep: (step, data) => diagnostics.record('auth.' + step, data),
         onAuthRejected: () => {
             diagnostics.record('auth.google-rejected');
-            queueToastNotification(translationService.translate('googleSignInRejected'));
+            // Google не пускает во встроенные браузеры: предлагаем войти в обычном браузере и забрать оттуда сессию (2.10.2)
+            void startBrowserLogin();
         },
     });
     // Ссылку из встроенных страниц новой вёрстки сайт иногда открывает полной загрузкой (window.location): музыка обрывается,
@@ -1626,6 +1676,8 @@ function initializeShortcuts() {
             contentView.webContents.navigationHistory.goForward();
         }
     });
+
+    shortcutService.register('browserLogin', 'CommandOrControl+Shift+L', 'Sign in via browser', () => void startBrowserLogin());
 
     shortcutService.register('refresh', 'CommandOrControl+R', 'Refresh Page', () => {
         if (contentView) {

@@ -164,7 +164,9 @@ export function protectContent(contents: WebContents, options: ProtectOptions | 
         popup.on('will-navigate', (event, url) => { if (!isWebUrl(url)) event.preventDefault(); });
         popup.on('will-redirect', (event, url) => { if (!isWebUrl(url)) event.preventDefault(); });
         let rejected = false;
-        popup.on('did-navigate', (_event, url) => {
+        // Страница Google переходит на «rejected» внутри себя (история без полной загрузки), поэтому слушаем оба события:
+        // до 2.10.2 клиент ждал только did-navigate и об отказе не узнавал вовсе
+        const onNavigate = (_event: unknown, url: string): void => {
             if (isGoogleUrl(url)) opts.onAuthStep?.('google-page', { url: authStepUrl(url) });
             if (rejected || !isGoogleRejection(url)) return;
             rejected = true;
@@ -173,7 +175,9 @@ export function protectContent(contents: WebContents, options: ProtectOptions | 
                 .then((info: string) => opts.onAuthStep?.('rejected-page', { url: authStepUrl(url), info }))
                 .catch(() => opts.onAuthStep?.('rejected-page', { url: authStepUrl(url) }));
             opts.onAuthRejected?.();
-        });
+        };
+        popup.on('did-navigate', onNavigate);
+        popup.on('did-navigate-in-page', onNavigate);
         popup.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
             if (isMainFrame) opts.onAuthStep?.('load-failed', { code, description, url: authStepUrl(url) });
         });
