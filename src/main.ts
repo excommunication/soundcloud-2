@@ -41,6 +41,8 @@ import { registerPageIpc, type PlaybackState } from './ipc/pageIpc';
 import { registerWaveIpc } from './ipc/waveIpc';
 import { registerVibeIpc } from './ipc/vibeIpc';
 import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
+import { registerJamIpc } from './ipc/jamIpc';
+import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import type { FetchLike } from './services/vibeSearch';
@@ -142,6 +144,7 @@ const store = new Store<Record<string, unknown>>({
         proxyPasswordEncrypted: '',
         webhookEnabled: false,
         webhookUrl: '',
+        jamServer: '',
         webhookTriggerPercentage: 50,
         displaySCSmallIcon: false,
         displayGithubLink: true,
@@ -1229,6 +1232,21 @@ async function init() {
         },
         now: () => Date.now(),
     });
+    // «Джем» (2.12.0): клиент комнаты живёт в main, страница сайта получает события через webContents.send
+    const jamClient = new JamClient({
+        connect: (url) => new WebSocket(url) as unknown as JamSocket,
+        post: async (url) => {
+            const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(10000) });
+            return { status: response.status, body: await response.json().catch(() => null) };
+        },
+        now: () => Date.now(),
+        random: () => Math.random(),
+        timers: { set: (fn, ms) => setTimeout(fn, ms), clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>) },
+    }, (event) => {
+        if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.send('jam:event', event);
+    });
+    app.once('before-quit', () => jamClient.leave());
+    registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', '') });
     // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
     // длительность; ответы помнятся до перезапуска
     const lyricsCache = new Map<string, Lyrics | null>();

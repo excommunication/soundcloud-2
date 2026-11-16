@@ -1,0 +1,17 @@
+{
+    "name": "sc2-jam-server",
+    "private": true,
+    "version": "1.0.0",
+    "description": "Сервер «Джемов» для SoundCloud 2: Cloudflare Worker и Durable Objects",
+    "license": "MIT",
+    "scripts": {
+        "dev": "wrangler dev",
+        "deploy": "wrangler deploy",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20250101.0",
+        "typescript": "^5.6.0",
+        "wrangler": "^4.0.0"
+    }
+}
