@@ -5,13 +5,13 @@ import { trustLocalFile } from '../trustedViews';
 import type { LibraryService } from '../services/libraryService';
 import { trackPathOf } from '../services/waveSignals';
 import { withTimeout } from '../utils/withTimeout';
-import { lastWeek, recapImage, recapName, recapPeople, withRecapInsights } from './recap';
+import { lastWeek, recapDaily, recapImage, recapKind, recapName, recapPeople, recapPeriod, recapPieces, withRecapInsights } from './recap';
 
 const HEADER = 32;
 const DAY = 86400000;
 const RECAP_KEEP = 6 * 3600000;
 const ARTIST_PATH = /^\/[a-z0-9_-]{1,100}$/;
-const INVOKE = ['history:init', 'history:overview', 'history:wave', 'history:day', 'history:search', 'history:play', 'history:taste', 'history:taste-remove', 'history:people', 'history:recap-copy', 'history:recap-save'] as const;
+const INVOKE = ['history:init', 'history:overview', 'history:recap', 'history:wave', 'history:day', 'history:search', 'history:play', 'history:taste', 'history:taste-remove', 'history:people', 'history:recap-copy', 'history:recap-save'] as const;
 const SEND = ['history:ready', 'history:close', 'history:artist', 'history:recap-seen'] as const;
 
 export interface HistoryHost {
@@ -105,6 +105,28 @@ export class HistoryManager {
             if ((from !== null && !isBound(from)) || !isBound(to)) return null;
             return withRecapInsights(await this.index.request('overview', this.userId, from, to));
         });
+        // Итоги недели, месяца или года (2.12.0): границы считает main, страница называет только период и прошлый он или нынешний.
+        // Год длиннее 200 дней: волна обзора идёт полосами по двое суток, поэтому дни добираются обзорами кусков
+        ipcMain.handle('history:recap', async (event, period: unknown, span: unknown) => {
+            this.guard(event);
+            const range = recapPeriod(period, span, new Date());
+            const overview = await this.index.request('overview', this.userId, range.from, range.to);
+            if (!overview) return null;
+            const pieces = recapPieces(range.from, range.to);
+            let daily: number[] | undefined;
+            if (overview.heard > 0 && pieces.length > 1) {
+                daily = [];
+                for (const piece of pieces) {
+                    const days = recapDaily(await this.index.request('overview', this.userId, piece.from, piece.to), piece.days);
+                    if (!days) {
+                        daily = undefined;
+                        break;
+                    }
+                    daily.push(...days);
+                }
+            }
+            return { ...withRecapInsights(daily ? { ...overview, daily } : overview), recap: range };
+        });
         // Как попадает волна за тот же период
         ipcMain.handle('history:wave', (event, from: unknown, to: unknown) => {
             this.guard(event);
@@ -162,14 +184,16 @@ export class HistoryManager {
             clipboard.writeImage(picture);
             return true;
         });
-        ipcMain.handle('history:recap-save', async (event, image: unknown, year: unknown, week: unknown, card?: unknown) => {
+        ipcMain.handle('history:recap-save', async (event, image: unknown, year: unknown, number: unknown, card?: unknown, period?: unknown) => {
             this.guard(event);
             const buffer = recapImage(image);
             if (!buffer || this.parentWindow.isDestroyed()) return 'failed';
             const ru = this.host.language() === 'ru';
+            const kind = recapKind(period);
+            const title = { week: ru ? 'Сохранить итоги недели' : 'Save weekly recap', month: ru ? 'Сохранить итоги месяца' : 'Save monthly recap', year: ru ? 'Сохранить итоги года' : 'Save yearly recap' };
             const { canceled, filePath } = await dialog.showSaveDialog(this.parentWindow, {
-                title: ru ? 'Сохранить сводку недели' : 'Save weekly recap',
-                defaultPath: join(app.getPath('pictures'), recapName(year, week, new Date(), card)),
+                title: title[kind],
+                defaultPath: join(app.getPath('pictures'), recapName(year, number, new Date(), card, kind)),
                 filters: [{ name: ru ? 'Картинка PNG' : 'PNG image', extensions: ['png'] }],
             });
             if (canceled || !filePath) return 'canceled';

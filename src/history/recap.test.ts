@@ -1,5 +1,8 @@
 import { expect, it } from 'vitest';
-import { lastWeek, recapArchetype, recapDays, recapHue, recapImage, recapInsights, recapName, recapPalette, recapPeakHour, recapPeople, recapStreak, withRecapInsights, type RecapFacts } from './recap';
+import {
+    lastWeek, recapArchetype, recapDaily, recapDays, recapHue, recapImage, recapInsights, recapMonths, recapName, recapPalette, recapPeakHour, recapPeople, recapPeriod, recapPieces, recapStreak, withRecapInsights,
+    type RecapFacts,
+} from './recap';
 
 // Однопиксельный PNG
 const PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==';
@@ -25,6 +28,70 @@ it('recapName: по неделе ISO, без недели по местной д
     // Карточка сводки: хвост к имени, чужое имя карточки отбрасывается
     expect(recapName(2026, 40, new Date(2026, 9, 2), 'artist')).toBe('soundcloud-week-2026-40-artist.png');
     expect(recapName(2026, 40, new Date(2026, 9, 2), '../x')).toBe('soundcloud-week-2026-40.png');
+});
+
+it('recapName: месяц и год в имени, чужое отбрасывается', () => {
+    const at = new Date(2026, 10, 16);
+    expect(recapName(2026, 11, at, 'artist', 'month')).toBe('soundcloud-month-2026-11-artist.png');
+    expect(recapName(2026, 3, at, undefined, 'month')).toBe('soundcloud-month-2026-03.png');
+    // Месяц вне 1..12 или год строкой: по сегодняшней дате
+    expect(recapName(2026, 13, at, 'track', 'month')).toBe('soundcloud-month-2026-11-track.png');
+    expect(recapName('2026', 11, at, 'track', 'month')).toBe('soundcloud-month-2026-11-track.png');
+    expect(recapName(2026, 2026, at, 'week', 'year')).toBe('soundcloud-year-2026-week.png');
+    expect(recapName(2025, null, at, 'vibe', 'year')).toBe('soundcloud-year-2025-vibe.png');
+    expect(recapName(1999, null, at, '../../x', 'year')).toBe('soundcloud-year-2026.png');
+    // Чужой период — неделя
+    expect(recapName(2026, 40, at, 'artist', '../decade')).toBe('soundcloud-week-2026-40-artist.png');
+    expect(recapName(2026, 40, at, 'artist', 7)).toBe('soundcloud-week-2026-40-artist.png');
+});
+
+it('recapPeriod: неделя, календарный месяц и год по местному времени', () => {
+    // Понедельник 16 ноября 2026, вечер
+    const now = new Date(2026, 10, 16, 21, 0);
+    expect(recapPeriod('week', 'last', now)).toEqual({
+        period: 'week', span: 'last', from: new Date(2026, 10, 9).getTime(), to: new Date(2026, 10, 16).getTime(), last: new Date(2026, 10, 15).getTime(), year: 2026, number: 46, days: 7,
+    });
+    expect(recapPeriod('week', 'this', now)).toMatchObject({ from: new Date(2026, 10, 16).getTime(), to: new Date(2026, 10, 17).getTime(), number: 47, days: 1 });
+    expect(recapPeriod('month', 'this', now)).toMatchObject({ from: new Date(2026, 10, 1).getTime(), to: new Date(2026, 10, 17).getTime(), last: new Date(2026, 10, 16).getTime(), year: 2026, number: 11, days: 16 });
+    expect(recapPeriod('month', 'last', now)).toMatchObject({ from: new Date(2026, 9, 1).getTime(), to: new Date(2026, 10, 1).getTime(), last: new Date(2026, 9, 31).getTime(), number: 10, days: 31 });
+    expect(recapPeriod('year', 'this', now)).toMatchObject({ from: new Date(2026, 0, 1).getTime(), to: new Date(2026, 10, 17).getTime(), year: 2026, number: 2026, days: 320 });
+    expect(recapPeriod('year', 'last', now)).toMatchObject({ from: new Date(2025, 0, 1).getTime(), to: new Date(2026, 0, 1).getTime(), year: 2025, days: 365 });
+    // Прошлый месяц в январе — декабрь прошлого года; прошлая неделя через границу месяца
+    expect(recapPeriod('month', 'last', new Date(2027, 0, 3))).toMatchObject({ from: new Date(2026, 11, 1).getTime(), year: 2026, number: 12 });
+    expect(recapPeriod('week', 'last', new Date(2026, 11, 2))).toMatchObject({ from: new Date(2026, 10, 23).getTime(), to: new Date(2026, 10, 30).getTime() });
+});
+
+it('recapPeriod: без выбора берёт период, где уже есть что показать; мусор не ломает', () => {
+    expect(recapPeriod('week', undefined, new Date(2026, 10, 16)).span).toBe('last');
+    expect(recapPeriod('month', 'auto', new Date(2026, 10, 16)).span).toBe('this');
+    expect(recapPeriod('month', null, new Date(2026, 10, 3)).span).toBe('last');
+    expect(recapPeriod('year', undefined, new Date(2026, 10, 16)).span).toBe('this');
+    expect(recapPeriod('year', undefined, new Date(2027, 0, 20))).toMatchObject({ span: 'last', year: 2026 });
+    expect(recapPeriod({ evil: true }, 'this', new Date(2026, 10, 16))).toMatchObject({ period: 'week', span: 'this' });
+});
+
+it('recapPieces: длинный период кусками до 200 дней по местным полуночам, короткий целиком', () => {
+    const from = new Date(2026, 0, 1).getTime();
+    const to = new Date(2027, 0, 1).getTime();
+    const pieces = recapPieces(from, to);
+    expect(pieces).toHaveLength(2);
+    expect(pieces[0]).toEqual({ from, to: new Date(2026, 0, 184).getTime(), days: 183 });
+    expect(pieces[1]).toEqual({ from: new Date(2026, 0, 184).getTime(), to, days: 182 });
+    expect(pieces.every((piece) => piece.days <= 200)).toBe(true);
+    const month = recapPieces(new Date(2026, 10, 1).getTime(), new Date(2026, 11, 1).getTime());
+    expect(month).toEqual([{ from: new Date(2026, 10, 1).getTime(), to: new Date(2026, 11, 1).getTime(), days: 30 }]);
+});
+
+it('recapDaily и recapMonths: дни куска ровно по счёту, месяцы от начала периода', () => {
+    // Полосы по 12 часов: 2 на сутки; лишняя полоса от перехода на зимнее время отрезается
+    expect(recapDaily({ wave: { binHours: 12, bins: [1, 2, 0, 0, 5, 5, 9] } }, 3)).toEqual([3, 0, 10]);
+    expect(recapDaily({ wave: { binHours: 24, bins: [4] } }, 3)).toEqual([4, 0, 0]);
+    expect(recapDaily({ wave: { binHours: 48, bins: [4] } }, 3)).toBeNull();
+    expect(recapDaily(null, 3)).toBeNull();
+    // 30 и 31 января, 1 февраля
+    expect(recapMonths(new Date(2026, 0, 30).getTime(), [10, 20, 5])).toEqual([30, 5]);
+    expect(recapMonths(new Date(2026, 11, 31).getTime(), [1, 2])).toEqual([1, 2]);
+    expect(recapMonths(new Date(2026, 0, 1).getTime(), [])).toEqual([]);
 });
 
 it('lastWeek: прошлая неделя с понедельника по местному времени, номер по ISO', () => {
@@ -125,4 +192,23 @@ it('recapInsights: личное по ответу обзора, мусор не 
     expect(recapInsights({ heat: 'x' })).toBeNull();
     expect(withRecapInsights({ heard: 1 })).toEqual({ heard: 1 });
     expect(withRecapInsights(overview)).toHaveProperty('insights.archetype', 'nightOwl');
+});
+
+it('recapInsights: дни периода из кусков или из волны ровно по календарю, без дней — пусто', () => {
+    const base = {
+        heard: 3 * 3600000, counted: 30, artistCount: 5, fresh: 0, firstAt: null,
+        artists: [{ name: 'Burial', ms: 3600000 }], tracks: [{ plays: 3 }], genres: [], heat: new Array(168).fill(0),
+    };
+    // Дни, собранные по кускам: серия и число дней по ним, месяцы от месяца начала (30-31 января, 1-3 февраля)
+    const from = new Date(2026, 0, 30).getTime();
+    const year = recapInsights({ ...base, from, to: new Date(2026, 1, 4).getTime(), wave: { binHours: 48, bins: [1] }, daily: [0, 10, 20, 30, 0] })!;
+    expect(year).toMatchObject({ days: 3, streak: 3, daily: [0, 10, 20, 30, 0], months: [10, 50] });
+    // Волна по суткам на день длиннее периода (переход времени): лишний день отрезан
+    const month = recapInsights({ ...base, from: new Date(2026, 10, 1).getTime(), to: new Date(2026, 10, 3).getTime(), wave: { binHours: 24, bins: [1, 0, 7] } })!;
+    expect(month.daily).toEqual([1, 0]);
+    expect(month.days).toBe(1);
+    // Полосы по двое суток: дней нет, серия по дням недели, как раньше
+    const long = recapInsights({ ...base, from, to: from + 400 * 86400000, wave: { binHours: 48, bins: [1] } })!;
+    expect(long.daily).toEqual([]);
+    expect(long.months).toEqual([]);
 });

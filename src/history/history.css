@@ -866,11 +866,92 @@ h2 {
 }
 
 /* Сводка недели: окно поверх истории, картинка карточки рисуется на холсте */
+/* Вход в итоги (2.12.0): заметная плашка с градиентной кромкой, подпись по периоду страницы */
 .rc-open {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     flex: none;
+    padding: 5px 14px 5px 11px;
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--text);
+    background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        linear-gradient(120deg, var(--orange), #ff3d7f 55%, #8a5cff) border-box;
+    border: 1px solid transparent;
+    box-shadow: 0 6px 22px -12px var(--orange);
+    transition:
+        box-shadow 160ms ease,
+        background 160ms ease;
+}
+.rc-open:hover {
+    background:
+        linear-gradient(rgba(255, 85, 0, 0.12), rgba(138, 92, 255, 0.12)) padding-box,
+        linear-gradient(120deg, var(--orange), #ff3d7f 55%, #8a5cff) border-box;
+    box-shadow: 0 8px 26px -10px var(--orange);
+}
+.rc-open svg {
+    color: var(--orange);
+}
+/* Переключатель периода итогов: три равных сегмента, под выбранным едет подложка */
+.rc-period {
+    --at: 0;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--film);
+    box-shadow: inset 0 0 0 1px var(--line);
+}
+.rc-period::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc((100% - 6px) / 3);
+    border-radius: 999px;
+    background: var(--text);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    transform: translateX(calc(var(--at) * 100%));
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rc-period button {
+    position: relative;
+    z-index: 1;
+    min-width: 76px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--muted);
+    transition: color 200ms ease;
+}
+.rc-period button:hover {
+    color: var(--text);
+}
+.rc-period button[aria-pressed='true'] {
+    color: var(--bg);
+}
+.rc-period button:focus-visible {
+    outline-offset: 3px;
+}
+.rc-span {
+    margin-left: 4px;
+}
+/* Пустые итоги: одна карточка, выбирать и копировать нечего */
+.rc-card.rc-solo {
+    cursor: default;
+    opacity: 1;
+    transform: none;
+}
+.rc-card.rc-solo::after {
+    display: none;
 }
 .rc {
     position: fixed;
@@ -1131,4 +1212,15 @@ h2 {
     .rc-wait::after {
         animation: none !important;
     }
+    /* Подложка переключателя — псевдоэлемент, общее правило на * её не ловит */
+    .rc-period::before,
+    .rc-card::after {
+        transition: none !important;
+    }
+}
+.reduce-motion .rc-period::before,
+.reduce-motion .rc-card::after,
+.reduce-motion .rc-wait::after {
+    transition: none !important;
+    animation: none !important;
 }

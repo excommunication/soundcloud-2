@@ -74,10 +74,26 @@
             drop: 'Убрать из вкуса',
             removed: 'Убрано из вкуса:',
             restore: 'Вернуть во вкус волны',
-            recap: 'Сводка недели',
-            recapTip: 'Неделя музыки одной картинкой',
+            recap: 'Итоги',
+            recapTip: 'Твоя музыка карточками для сторис',
+            // Итоги по периодам (2.12.0): неделя, календарный месяц, календарный год
+            recapOpen: { week: 'Итоги недели', month: 'Итоги месяца', year: 'Итоги года' },
+            recapPeriods: { week: 'Неделя', month: 'Месяц', year: 'Год' },
+            recapPeriodGroup: 'Период итогов',
             recapWeeks: { last: 'Прошлая неделя', this: 'Эта неделя' },
-            recapWeekGroup: 'Какая неделя',
+            recapSpanGroup: 'Прошлый или нынешний',
+            monthNames: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
+            monthIn: ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'],
+            monthLetters: ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'],
+            recapNone: (p, span, month, year) =>
+                (p === 'week' ? (span === 'this' ? 'На этой неделе' : 'На прошлой неделе') : p === 'month' ? 'В ' + TEXTS.ru.monthIn[month] : 'В ' + year + ' году') +
+                ' музыки ' + (span === 'this' ? 'пока не было' : 'не было'),
+            recapQuiet: 'Здесь пока тихо',
+            recapThinTitle: 'Пока маловато музыки',
+            recapThin: (days, need) => 'Музыка была ' + days + ' ' + plural(days, ['день', 'дня', 'дней']) + ', итоги собираются от ' + need + ' дней с музыкой',
+            recapThinHint: { last: 'Загляни в другой период', this: 'Загляни позже, итоги соберутся сами' },
+            recapBestDay: (day, time) => 'Лучший день: ' + day + ' · ' + time,
+            recapBestMonth: (month, time) => 'Лучший месяц: ' + month + ' · ' + time,
             recapWeek: (n, range) => 'Неделя ' + n + ', ' + range,
             // 21-27 сентября 2026, 28 сентября - 4 октября 2026, 28 декабря 2026 - 3 января 2027
             recapRange: (a, b) => {
@@ -91,12 +107,11 @@
             recapGenres: 'Любимые жанры',
             dayParts: ['Утро', 'День', 'Вечер', 'Ночь'],
             recapPeak: (day, hour) => 'Пик: ' + day + ', ' + hour,
-            recapLoading: 'Собираю сводку',
-            recapEmpty: { last: 'На прошлой неделе музыки не было', this: 'На этой неделе музыки пока не было' },
-            recapFailed: 'Сводка не собралась',
+            recapLoading: 'Собираю итоги',
+            recapFailed: 'Итоги не собрались',
             recapColors: 'Цвет карточки',
             recapPresets: ['Полночь', 'Фиолет', 'Бордо', 'Океан', 'Закат', 'Мята', 'Персик', 'Иней'],
-            recapLabel: (time, plays) => 'Сводка недели: ' + time + ' музыки, ' + plays,
+            recapLabel: (title, time, plays) => title + ': ' + time + ' музыки, ' + plays,
             copy: 'Скопировать',
             copied: 'Скопировано',
             copyFailed: 'Не удалось скопировать',
@@ -109,14 +124,15 @@
             personaTip: 'Твой музыкальный характер за этот период',
             recapCards: { week: 'Неделя', artist: 'Артист', track: 'Трек', vibe: 'Характер' },
             recapCardOf: (name, n, total) => name + ', карточка ' + n + ' из ' + total,
-            recapKicker: { last: 'Твоя неделя', this: 'Твоя неделя пока' },
+            // name: месяц в именительном («ноябрь») или год
+            recapKicker: (p, span, name) => (p === 'week' ? 'Твоя неделя' : 'Твой ' + name) + (span === 'this' ? ' пока' : ''),
             recapPerDay: (time) => 'в среднем ' + time + ' в день',
             recapStreak: ['день подряд', 'дня подряд', 'дней подряд'],
             recapDaysWith: ['день с музыкой', 'дня с музыкой', 'дней с музыкой'],
-            recapTopArtist: 'Артист недели',
-            recapTopTrack: 'Трек недели',
-            recapShareOfWeek: (share) => share + '% твоей недели',
-            recapCharacter: 'Твой характер недели',
+            recapTopArtist: { week: 'Артист недели', month: 'Артист месяца', year: 'Артист года' },
+            recapTopTrack: { week: 'Трек недели', month: 'Трек месяца', year: 'Трек года' },
+            recapShareOf: (share, p) => share + '% ' + { week: 'твоей недели', month: 'твоего месяца', year: 'твоего года' }[p],
+            recapCharacter: { week: 'Твой характер недели', month: 'Твой характер месяца', year: 'Твой характер года' },
             recapPeakAt: (hour) => 'Пик в ' + hour,
             recapHourLabel: 'Музыка по часам суток',
             archetypes: {
@@ -124,15 +140,15 @@
                 earlyBird: 'Ранняя пташка', marathon: 'Марафонец', eclectic: 'Меломан без границ', steady: 'Свой ритм',
             },
             archetypeLines: {
-                starter: () => 'Неделя только разгоняется, дальше больше',
+                starter: (i, m) => ({ week: 'Неделя', month: 'Месяц', year: 'Год' })[m.period] + ' только разгоняется, дальше больше',
                 nightOwl: (i) => i.nightShare + '% музыки с полуночи до пяти утра',
                 loyal: (i, m) => i.topShare + '% времени с ' + m.topArtist,
                 repeat: (i, m) => '«' + m.topTrack + '»: ' + m.topPlays + ' ' + plural(m.topPlays, ['раз', 'раза', 'раз']),
-                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.ru.fresh) + ' за неделю',
+                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.ru.fresh) + ' за ' + { week: 'неделю', month: 'месяц', year: 'год' }[m.period],
                 earlyBird: (i) => i.morningShare + '% музыки до десяти утра',
                 marathon: (i, m) => 'В среднем ' + m.perDay + ' музыки в день',
                 eclectic: (i, m) => m.genreCount + ' ' + plural(m.genreCount, ['жанр', 'жанра', 'жанров']) + ', и ни один не главный',
-                steady: (i) => 'Музыка ' + i.days + ' ' + plural(i.days, ['день', 'дня', 'дней']) + ' из семи, в своём темпе',
+                steady: (i, m) => 'Музыка ' + i.days + ' ' + plural(i.days, ['день', 'дня', 'дней']) + ' из ' + m.spanDays + ', в своём темпе',
             },
             waveTitle: 'Как попадает волна',
             waveCount: (n, p) => n + ' ' + plural(n, ['трек', 'трека', 'треков']) + ' волны ' + TEXTS.ru.periodText(p),
@@ -246,10 +262,25 @@
             drop: 'Remove from taste',
             removed: 'Removed from taste:',
             restore: 'Put back into the wave’s taste',
-            recap: 'Weekly recap',
-            recapTip: 'Your week in music as one image',
+            recap: 'Recap',
+            recapTip: 'Your music as story cards',
+            // Period recaps (2.12.0): week, calendar month, calendar year
+            recapOpen: { week: 'Weekly recap', month: 'Monthly recap', year: 'Yearly recap' },
+            recapPeriods: { week: 'Week', month: 'Month', year: 'Year' },
+            recapPeriodGroup: 'Recap period',
             recapWeeks: { last: 'Last week', this: 'This week' },
-            recapWeekGroup: 'Which week',
+            recapSpanGroup: 'Previous or current',
+            monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            monthIn: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            monthLetters: ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'],
+            recapNone: (p, span, month, year) =>
+                'No music ' + (p === 'week' ? (span === 'this' ? 'this week' : 'last week') : 'in ' + (p === 'month' ? TEXTS.en.monthIn[month] : year)) + (span === 'this' ? ' yet' : ''),
+            recapQuiet: 'All quiet here',
+            recapThinTitle: 'Not enough music yet',
+            recapThin: (days, need) => 'Music on ' + days + ' ' + plural(days, ['day', 'days']) + ' so far, a recap needs ' + need + ' days with music',
+            recapThinHint: { last: 'Try another period', this: 'Check back later, it will fill up' },
+            recapBestDay: (day, time) => 'Best day: ' + day + ' · ' + time,
+            recapBestMonth: (month, time) => 'Top month: ' + month + ' · ' + time,
             recapWeek: (n, range) => 'Week ' + n + ', ' + range,
             // September 21-27, 2026, September 28 - October 4, 2026, December 28, 2026 - January 3, 2027
             recapRange: (a, b) => {
@@ -263,12 +294,11 @@
             recapGenres: 'Favourite genres',
             dayParts: ['Morning', 'Afternoon', 'Evening', 'Night'],
             recapPeak: (day, hour) => 'Peak: ' + day + ', ' + hour,
-            recapLoading: 'Putting the recap together',
-            recapEmpty: { last: 'No music last week', this: 'No music this week yet' },
+            recapLoading: 'Putting your recap together',
             recapFailed: 'Could not build the recap',
             recapColors: 'Card colour',
             recapPresets: ['Midnight', 'Violet', 'Burgundy', 'Ocean', 'Sunset', 'Mint', 'Peach', 'Frost'],
-            recapLabel: (time, plays) => 'Weekly recap: ' + time + ' of music, ' + plays,
+            recapLabel: (title, time, plays) => title + ': ' + time + ' of music, ' + plays,
             copy: 'Copy',
             copied: 'Copied',
             copyFailed: 'Could not copy',
@@ -281,14 +311,15 @@
             personaTip: 'Your listening personality for this period',
             recapCards: { week: 'Week', artist: 'Artist', track: 'Track', vibe: 'Personality' },
             recapCardOf: (name, n, total) => name + ', card ' + n + ' of ' + total,
-            recapKicker: { last: 'Your week', this: 'Your week so far' },
+            // name: month (November) or year
+            recapKicker: (p, span, name) => 'Your ' + (p === 'week' ? 'week' : name) + (span === 'this' ? ' so far' : ''),
             recapPerDay: (time) => 'about ' + time + ' a day',
             recapStreak: ['day in a row', 'days in a row'],
             recapDaysWith: ['day with music', 'days with music'],
-            recapTopArtist: 'Artist of the week',
-            recapTopTrack: 'Track of the week',
-            recapShareOfWeek: (share) => share + '% of your week',
-            recapCharacter: 'Your listening personality',
+            recapTopArtist: { week: 'Artist of the week', month: 'Artist of the month', year: 'Artist of the year' },
+            recapTopTrack: { week: 'Track of the week', month: 'Track of the month', year: 'Track of the year' },
+            recapShareOf: (share, p) => share + '% of your ' + p,
+            recapCharacter: { week: 'Your listening personality', month: 'Your listening personality', year: 'Your listening personality' },
             recapPeakAt: (hour) => 'Peak at ' + hour,
             recapHourLabel: 'Music by hour of day',
             archetypes: {
@@ -296,15 +327,15 @@
                 earlyBird: 'Early bird', marathon: 'Marathoner', eclectic: 'Genre-hopper', steady: 'Own groove',
             },
             archetypeLines: {
-                starter: () => 'The week is just getting going',
+                starter: (i, m) => 'The ' + m.period + ' is just getting going',
                 nightOwl: (i) => i.nightShare + '% of your music between midnight and 5 am',
                 loyal: (i, m) => i.topShare + '% of your time with ' + m.topArtist,
                 repeat: (i, m) => '“' + m.topTrack + '”: ' + m.topPlays + ' ' + plural(m.topPlays, ['play', 'plays']),
-                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.en.fresh) + ' this week',
+                explorer: (i, m) => m.fresh + ' ' + plural(m.fresh, TEXTS.en.fresh) + ' in a ' + m.period,
                 earlyBird: (i) => i.morningShare + '% of your music before 10 am',
                 marathon: (i, m) => 'About ' + m.perDay + ' of music a day',
                 eclectic: (i, m) => m.genreCount + ' ' + plural(m.genreCount, ['genre', 'genres']) + ', none of them on top',
-                steady: (i) => 'Music on ' + i.days + ' ' + plural(i.days, ['day', 'days']) + ' of seven, at your own pace',
+                steady: (i, m) => 'Music on ' + i.days + ' ' + plural(i.days, ['day', 'days']) + ' of ' + m.spanDays + ', at your own pace',
             },
             waveTitle: 'How well the wave fits',
             waveCount: (n, p) => n + ' wave ' + plural(n, ['track', 'tracks']) + ' ' + (p === 'all' ? 'in total' : TEXTS.en.periodText(p)),
@@ -451,7 +482,9 @@
     const head = (extra) =>
         '<div class="ph"><button class="back" data-act="close" aria-label="' + esc(T.closeLabel) + '" data-tip="' + esc(T.close) + '">' + ICON.back + '</button><h1>' + esc(T.title) + '</h1>' + extra +
         '<label class="search"><input type="search" id="q" placeholder="' + esc(T.search) + '" value="' + esc(state.query) + '" aria-label="' + esc(T.searchLabel) + '" spellcheck="false" autocomplete="off">' + ICON.search + '</label></div>';
-    const recapButton = () => '<button class="link rc-open" data-act="recap" data-tip="' + esc(T.recapTip) + '">' + ICON.recap + esc(T.recap) + '</button>';
+    // Период страницы подсказывает период итогов: 7 дней — неделя, 30 дней — месяц, год — год, всё время — неделя
+    const recapKindOf = (period) => (period === 30 ? 'month' : period === 365 ? 'year' : 'week');
+    const recapButton = () => '<button class="rc-open" data-act="recap" data-tip="' + esc(T.recapTip) + '">' + ICON.recap + esc(T.recapOpen[recapKindOf(state.period)]) + '</button>';
     const art = (url, cls) => (url ? '<img class="' + cls + '" src="' + esc(url) + '" alt="" loading="lazy">' : '<span class="' + cls + '" aria-hidden="true"></span>');
     const keyOf = (r) => r.at + ':' + r.id;
     // Откуда играло: радар, «Моя музыка» и подборки называются своими именами, остальное волна
@@ -948,7 +981,16 @@
             console.warn('Сводка недели: цвет карточки не сохранён', error);
         }
     }
-    const recap = { open: false, week: 'last', data: null, people: undefined, failed: false, busy: false, canvas: null, cards: [], selected: 0, model: null, request: 0, draw: 0, status: '', statusTimer: 0, preset: readPreset() };
+    // period: неделя, месяц или год; span: прошлый или нынешний, пусто — выберет main (recapPeriod);
+    // fallback: открыто на периоде страницы, и если там пусто, итоги переходят на неделю
+    const recap = {
+        open: false, period: 'week', span: '', fallback: false, data: null, people: undefined, failed: false, busy: false, canvas: null, cards: [], selected: 0, model: null,
+        request: 0, draw: 0, status: '', statusTimer: 0, preset: readPreset(),
+    };
+    const RECAP_KINDS = ['week', 'month', 'year'];
+    // Меньше стольких дней с музыкой итоги не рисуются: месяц из двух дней — это не итоги. Неделе хватает одного
+    const RECAP_MIN_DAYS = { week: 1, month: 3, year: 3 };
+    const recapEnough = (s) => s.heard > 0 && (s.recap.period === 'week' || (s.insights ? s.insights.days : 0) >= RECAP_MIN_DAYS[s.recap.period]);
     const modal = document.createElement('div');
     modal.className = 'rc';
     modal.hidden = true;
@@ -958,17 +1000,27 @@
     document.body.append(modal);
     const reducedMotion = () => document.documentElement.classList.contains('reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Неделя с понедельника: прошлая целиком или эта до сегодняшнего дня
+    // Границы итогов считает main (recapPeriod в recap.ts), здесь только подписи
     const mondayOf = (at) => addDays(dayStart(at), -((new Date(at).getDay() + 6) % 7));
-    function recapRange(week) {
-        const monday = mondayOf(Date.now());
-        return week === 'this' ? { from: monday, to: addDays(today(), 1), last: today() } : { from: addDays(monday, -7), to: monday, last: addDays(monday, -1) };
+    // Кнопки «прошлый / нынешний»: неделя словами, месяц по имени, год числом
+    function spanLabel(period, span) {
+        const now = new Date();
+        if (period === 'week') return T.recapWeeks[span];
+        if (period === 'year') return String(now.getFullYear() - (span === 'last' ? 1 : 0));
+        const month = new Date(now.getFullYear(), now.getMonth() - (span === 'last' ? 1 : 0), 1);
+        return cap(T.monthNames[month.getMonth()]) + (month.getFullYear() !== now.getFullYear() ? ' ' + month.getFullYear() : '');
     }
-    // Номер недели по ISO: первая неделя та, где есть 4 января, год берётся по четвергу недели
-    function isoWeek(monday) {
-        const year = new Date(addDays(monday, 3)).getFullYear();
-        return { year, week: 1 + Math.round((monday - mondayOf(new Date(year, 0, 4).getTime())) / WEEK) };
+    // Шапка карточки: неделя с номером, месяц или год; нынешний период — диапазоном до сегодняшнего дня
+    function periodRange(r) {
+        const range = r.from === r.last ? fmtDayMonth.format(r.from) + ' ' + new Date(r.from).getFullYear() : T.recapRange(r.from, r.last);
+        if (r.period === 'week') return T.recapWeek(r.number, range);
+        if (r.span === 'this') return range;
+        return r.period === 'month' ? cap(T.monthNames[r.number - 1]) + ' ' + r.year : String(r.year);
     }
+    // Как назвать период в «Твой ноябрь» и «Твой 2026»
+    const periodName = (r) => (r.period === 'month' ? T.monthNames[new Date(r.from).getMonth()] : String(r.year));
+    // Дней в календарном месяце периода: нынешний месяц рисуется целиком, будущие дни точками
+    const monthDays = (r) => new Date(new Date(r.from).getFullYear(), new Date(r.from).getMonth() + 1, 0).getDate();
 
     const pictures = new Map();
     function picture(url) {
@@ -1092,9 +1144,36 @@
         };
     }
 
+    // Период карточек: подписи, дни и месяцы для графика, лучший день месяца или месяц года
+    function periodFacts(r, insights) {
+        const daily = insights.daily || [];
+        const months = insights.months || [];
+        let best = '';
+        const values = r.period === 'year' ? months : r.period === 'month' ? daily : [];
+        const top = values.length ? Math.max(...values) : 0;
+        if (top > 0) {
+            const at = values.indexOf(top);
+            const label = r.period === 'year' ? T.monthNames[(new Date(r.from).getMonth() + at) % 12] : fmtDayMonth.format(addDays(r.from, at));
+            best = (r.period === 'year' ? T.recapBestMonth : T.recapBestDay)(label, span(top * 60000));
+        }
+        return {
+            period: r.period,
+            span: r.span,
+            year: r.year,
+            number: r.number,
+            spanDays: r.days,
+            monthDays: monthDays(r),
+            range: periodRange(r),
+            kicker: T.recapKicker(r.period, r.span, periodName(r)),
+            daily,
+            months,
+            best,
+        };
+    }
+
     // Всё, что нарисовано: смена цвета перерисовывает без новых запросов
-    async function recapModel(s, people, week) {
-        const { last } = recapRange(week);
+    async function recapModel(s, people) {
+        const r = s.recap;
         const tracks = s.tracks.slice(0, 5);
         const artists = s.artists.slice(0, 5);
         const me = people && people.me;
@@ -1105,7 +1184,7 @@
             Promise.all(artists.map((a, i) => picture(sized(avatars[artistPath(a.path)] || a.artwork, i ? 't120x120' : 't500x500')))),
         ]);
         // main считает личное по обзору; нет его (старый main) — спокойный характер и цвет полуночи
-        const insights = s.insights || { archetype: 'steady', days: 0, streak: 0, peakHour: -1, topShare: 0, nightShare: 0, morningShare: 0, trackShare: 0, freshShare: -1, palette: paletteOf(240, 0.4) };
+        const insights = s.insights || { archetype: 'steady', days: 0, streak: 0, peakHour: -1, topShare: 0, nightShare: 0, morningShare: 0, trackShare: 0, freshShare: -1, palette: paletteOf(240, 0.4), daily: [], months: [] };
         const named = insights.palette;
         const tone = (img) => {
             const found = toneOf(img);
@@ -1122,12 +1201,8 @@
         });
         const days = Array.from({ length: 7 }, (_, day) => s.heat.slice(day * 24, day * 24 + 24).reduce((sum, minutes) => sum + minutes, 0));
         const busiest = Math.max(...days);
-        const { year, week: number } = isoWeek(s.from);
         return {
-            year,
-            number,
-            week,
-            range: T.recapWeek(number, T.recapRange(s.from, last)),
+            ...periodFacts(r, insights),
             name: me ? me.username : '',
             link: me && me.permalink ? 'soundcloud.com/' + me.permalink : '',
             avatar,
@@ -1140,8 +1215,8 @@
             artists: artists.map((a, i) => ({ name: a.name || T.loading, time: span(a.ms), share: pct(a.ms, s.heard), face: faces[i] })),
             genres: s.genres.slice(0, 3).map((g) => ({ name: cap(g.name), share: pct(g.plays, s.counted) })),
             hours,
-            // Самый музыкальный день недели: теплокарта идёт с понедельника, как и неделя сводки
-            peakDay: busiest > 0 ? fmtWeekday.format(addDays(s.from, days.indexOf(busiest))) : '',
+            // Самый музыкальный день недели: теплокарта идёт с понедельника, месяц и год начинаются с любого дня
+            peakDay: busiest > 0 ? fmtWeekday.format(addDays(mondayOf(Date.now()), days.indexOf(busiest))) : '',
             // Неделя и артист — цвет лица недели, трек — его обложка, характер — дополнительный тон к обложке
             palettes: {
                 week: artistTone || trackTone || named,
@@ -1359,16 +1434,56 @@
         p.text(value, align === 'center' ? p.W / 2 : 36, y, p.ink.soft, align);
     };
 
+    // График периода под плашкой характера: месяц по дням, год по месяцам; ещё не наступившие — точкой
+    function periodChart(ctx, p, m, top) {
+        const { W, ink } = p;
+        const year = m.period === 'year';
+        const values = year ? m.months : m.daily;
+        if (m.period === 'week' || !values.length) return;
+        const total = year ? 12 : m.monthDays;
+        const peak = Math.max(...values);
+        const max = Math.max(1, peak);
+        const room = W - 72;
+        const step = room / total;
+        const gap = year ? 10 : Math.max(2, step * 0.3);
+        const chartH = 60;
+        if (m.best) {
+            p.font(17, 700);
+            p.text(p.fit(m.best, room), 36, top, ink.ink);
+        }
+        const base = top + 16 + chartH;
+        for (let n = 0; n < total; n++) {
+            const value = values[n];
+            const x = 36 + n * step + gap / 2;
+            const w = step - gap;
+            if (value === undefined) {
+                ctx.beginPath();
+                ctx.arc(x + w / 2, base - 2, Math.min(2.5, w / 2), 0, Math.PI * 2);
+                ctx.fillStyle = ink.edge;
+                ctx.fill();
+                continue;
+            }
+            const h = value ? Math.max(4, (value / max) * chartH) : 2;
+            p.roundRect(x, base - h, w, h, Math.min(year ? 6 : 3, w / 2));
+            ctx.fillStyle = value && value === peak ? ink.ink : ink.faint;
+            ctx.fill();
+        }
+        p.font(12, 500);
+        if (year) T.monthLetters.forEach((letter, n) => p.text(letter, 36 + n * step + step / 2, base + 18, ink.soft, 'center'));
+        else [1, 10, 20, total].forEach((day) => p.text(String(day), 36 + (day - 1) * step + step / 2, base + 18, ink.soft, 'center'));
+    }
+
     function paintWeek(ctx, p, m) {
         const { W, ink } = p;
-        kicker(ctx, p, T.recapKicker[m.week], 170);
+        kicker(ctx, p, m.kicker, 170);
         // Огромное число часов, рядом единица; меньше часа — минуты
         const minutes = Math.round(m.heard / 60000);
         const h = Math.floor(minutes / 60);
         const big = String(h || minutes);
         const unit = h ? T.h : T.min;
         const sub = h && minutes % 60 ? minutes % 60 + ' ' + T.min + ' ' + T.recapMusic : T.recapMusic;
-        let size = 250;
+        // У месяца и года под характером график: число чуть скромнее, чтобы всё встало над плитками
+        let size = m.period === 'week' ? 250 : 200;
         p.font(size, 800);
         ctx.letterSpacing = '-12px';
         while (size > 120 && ctx.measureText(big).width > W - 170) {
@@ -1399,6 +1514,7 @@
         ctx.textBaseline = 'middle';
         p.text(persona, 82, base + 137, ink.ink);
         ctx.textBaseline = 'alphabetic';
+        periodChart(ctx, p, m, base + 196);
         // Три плитки: прослушивания, артисты, серия дней
         const i = m.insights;
         const tiles = [
@@ -1411,8 +1527,11 @@
         tiles.forEach(([value, label], n) => {
             const x = 36 + n * (tw + gap);
             p.glass(x, 690, tw, 150, 22);
-            p.font(48, 800);
+            // За год прослушиваний бывают тысячи: число мельчит кегль, а не режется
             ctx.letterSpacing = '-1.5px';
+            let digits = 48;
+            p.font(digits, 800);
+            while (digits > 26 && ctx.measureText(String(value)).width > tw - 32) p.font((digits -= 2), 800);
             p.text(p.fit(String(value), tw - 32), x + 16, 752, ink.ink);
             ctx.letterSpacing = '0px';
             // Длинное слово подписи («прослушиваний») мельчит кегль, а не режется многоточием
@@ -1458,7 +1577,7 @@
     function paintArtist(ctx, p, m) {
         const { W, ink } = p;
         const top = m.artists[0];
-        kicker(ctx, p, T.recapTopArtist, 128, 'center');
+        kicker(ctx, p, T.recapTopArtist[m.period], 128, 'center');
         // Фото в кольце на мягкой тени
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
@@ -1480,14 +1599,14 @@
         title.lines.forEach((line, n) => p.text(line, W / 2, 540 + n * title.size * 1.05, ink.ink, 'center'));
         const after = 540 + (title.lines.length - 1) * title.size * 1.05;
         p.font(20, 500);
-        p.text(top.time + ' · ' + T.recapShareOfWeek(top.share), W / 2, after + 40, ink.soft, 'center');
+        p.text(top.time + ' · ' + T.recapShareOf(top.share, m.period), W / 2, after + 40, ink.soft, 'center');
         runners(ctx, p, m.artists.slice(1, 5).map((a) => ({ name: a.name, value: a.time, img: a.face })), Math.max(after + 72, 650), true);
     }
 
     function paintTrack(ctx, p, m) {
         const { W, ink } = p;
         const top = m.tracks[0];
-        kicker(ctx, p, T.recapTopTrack, 128, 'center');
+        kicker(ctx, p, T.recapTopTrack[m.period], 128, 'center');
         const side = 290;
         const x = (W - side) / 2;
         ctx.save();
@@ -1529,7 +1648,7 @@
     function paintVibe(ctx, p, m) {
         const { W, ink } = p;
         const i = m.insights;
-        kicker(ctx, p, T.recapCharacter, 128, 'center');
+        kicker(ctx, p, T.recapCharacter[m.period], 128, 'center');
         // Значок характера в светящемся круге
         ctx.save();
         ctx.shadowColor = ink.edge;
@@ -1603,20 +1722,97 @@
     // Подпись карточки для чтения с экрана
     function cardLabel(kind, m, n) {
         const what =
-            kind === 'week' ? T.recapLabel(span(m.heard), m.counted + ' ' + plural(m.counted, T.counted))
-            : kind === 'artist' ? T.recapTopArtist + ': ' + (m.topArtist || T.nothing)
-            : kind === 'track' ? T.recapTopTrack + ': ' + (m.topTrack || T.nothing)
-            : T.recapCharacter + ': ' + T.archetypes[m.insights.archetype];
-        return T.recapCardOf(T.recapCards[kind], n + 1, RECAP_CARDS.length) + '. ' + what;
+            kind === 'week' ? T.recapLabel(T.recapOpen[m.period], span(m.heard), m.counted + ' ' + plural(m.counted, T.counted))
+            : kind === 'artist' ? T.recapTopArtist[m.period] + ': ' + (m.topArtist || T.nothing)
+            : kind === 'track' ? T.recapTopTrack[m.period] + ': ' + (m.topTrack || T.nothing)
+            : T.recapCharacter[m.period] + ': ' + T.archetypes[m.insights.archetype];
+        return T.recapCardOf(kind === 'week' ? T.recapPeriods[m.period] : T.recapCards[kind], n + 1, RECAP_CARDS.length) + '. ' + what;
     }
 
-    // Окно сводки: шапка строится при открытии и смене языка, дальше меняются только отметки и карточки
+    // Пустые итоги: музыки не было или дней слишком мало. Одна карточка в тех же цветах с календарём периода,
+    // где дни (у года месяцы) с музыкой горят; копировать и сохранять её нечего
+    function emptyModel(s) {
+        const r = s.recap;
+        const insights = s.insights || { days: 0, daily: [], months: [] };
+        const facts = periodFacts(r, insights);
+        const need = RECAP_MIN_DAYS[r.period];
+        return {
+            ...facts,
+            name: '',
+            link: '',
+            avatar: null,
+            title: s.heard ? T.recapThinTitle : T.recapQuiet,
+            line: s.heard ? T.recapThin(insights.days, need) : T.recapNone(r.period, r.span, new Date(r.from).getMonth(), r.year),
+            hint: T.recapThinHint[r.span],
+        };
+    }
+    function drawEmpty(m) {
+        const canvas = document.createElement('canvas');
+        canvas.width = RECAP.width * RECAP.scale;
+        canvas.height = RECAP.height * RECAP.scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(RECAP.scale, RECAP.scale);
+        const pal = recap.preset >= 0 ? presetPalette(RECAP_PRESETS[recap.preset]) : paletteOf(m.period === 'year' ? 280 : m.period === 'month' ? 205 : 240, 0.5);
+        backdrop(ctx, 'vibe', pal);
+        const p = painter(ctx, pal);
+        const { W, ink } = p;
+        chrome(ctx, p, m);
+        kicker(ctx, p, m.kicker, 150);
+        const year = m.period === 'year';
+        const values = year ? m.months : m.daily;
+        const total = year ? 12 : m.period === 'month' ? m.monthDays : 7;
+        const cols = year ? 4 : 7;
+        const size = year ? 74 : 46;
+        const gap = year ? 18 : 12;
+        const left = (W - (cols * size + (cols - 1) * gap)) / 2;
+        // Неделя в один ряд: ниже, чтобы карточка не была пустой снизу
+        const top = m.period === 'week' ? 300 : 200;
+        const rows = Math.ceil(total / cols);
+        for (let n = 0; n < total; n++) {
+            const cx = left + (n % cols) * (size + gap) + size / 2;
+            const cy = top + Math.floor(n / cols) * (size + gap) + size / 2;
+            const value = values[n];
+            ctx.beginPath();
+            ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+            if (value > 0) {
+                ctx.fillStyle = ink.ink;
+                ctx.fill();
+            } else if (value !== undefined) {
+                ctx.fillStyle = ink.glass;
+                ctx.fill();
+            }
+            ctx.strokeStyle = ink.edge;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // В кружке месяц буквой, день числом, день недели сокращением
+            const label = year ? T.monthLetters[n] : m.period === 'month' ? String(n + 1) : T.week[n];
+            p.font(year ? 22 : 14, 700);
+            ctx.textBaseline = 'middle';
+            p.text(label, cx, cy + 1, value > 0 ? pal.c : value === undefined ? ink.faint : ink.soft, 'center');
+            ctx.textBaseline = 'alphabetic';
+        }
+        let y = top + rows * (size + gap) - gap + 92;
+        const title = p.headline(m.title, W - 72, 2, 50, 32, 800);
+        title.lines.forEach((line, n) => p.text(line, W / 2, y + n * title.size * 1.05, ink.ink, 'center'));
+        y += (title.lines.length - 1) * title.size * 1.05;
+        p.font(19, 500);
+        const lines = p.wrap(m.line, W - 96, 3);
+        lines.forEach((line, n) => p.text(line, W / 2, y + 44 + n * 26, ink.soft, 'center'));
+        p.pill(m.hint, W / 2, y + 44 + lines.length * 26 + 8, 15, 600);
+        canvas.setAttribute('aria-hidden', 'true');
+        return canvas;
+    }
+
+    // Окно итогов: шапка строится при открытии и смене языка, дальше меняются только отметки и карточки.
+    // Переключатель периода — сегменты с бегущей подложкой, рядом «прошлый / нынешний»
     function buildRecapModal() {
         const button = (act, label, solid) => '<button class="rc-btn' + (solid ? ' solid' : '') + '" data-rc="' + act + '">' + esc(label) + '</button>';
         modal.innerHTML =
             '<div class="rc-bar"><h2 id="rc-title">' + esc(T.recap) + '</h2>' +
-            '<div class="seg" role="group" aria-label="' + esc(T.recapWeekGroup) + '">' +
-            ['last', 'this'].map((week) => '<button data-rc="week" data-week="' + week + '">' + esc(T.recapWeeks[week]) + '</button>').join('') +
+            '<div class="rc-period" role="group" aria-label="' + esc(T.recapPeriodGroup) + '">' +
+            RECAP_KINDS.map((kind) => '<button data-rc="period" data-period="' + kind + '">' + esc(T.recapPeriods[kind]) + '</button>').join('') +
+            '</div><div class="seg rc-span" role="group" aria-label="' + esc(T.recapSpanGroup) + '">' +
+            ['last', 'this'].map((span) => '<button data-rc="span" data-span="' + span + '"></button>').join('') +
             '</div><div class="rc-colors" role="group" aria-label="' + esc(T.recapColors) + '">' +
             '<button class="rc-swatch auto" data-rc="preset" data-index="-1" aria-label="' + esc(T.recapAuto) + '" data-tip="' + esc(T.recapAuto) + '"></button>' +
             RECAP_PRESETS.map((preset, i) =>
@@ -1629,7 +1825,13 @@
         updateRecapBar();
     }
     function updateRecapBar() {
-        modal.querySelectorAll('[data-rc="week"]').forEach((node) => node.setAttribute('aria-pressed', String(node.dataset.week === recap.week)));
+        const switcher = modal.querySelector('.rc-period');
+        if (switcher) switcher.style.setProperty('--at', String(RECAP_KINDS.indexOf(recap.period)));
+        modal.querySelectorAll('[data-rc="period"]').forEach((node) => node.setAttribute('aria-pressed', String(node.dataset.period === recap.period)));
+        modal.querySelectorAll('[data-rc="span"]').forEach((node) => {
+            node.textContent = spanLabel(recap.period, node.dataset.span);
+            node.setAttribute('aria-pressed', String(node.dataset.span === recap.span));
+        });
         modal.querySelectorAll('[data-rc="preset"]').forEach((node) => node.setAttribute('aria-pressed', String(Number(node.dataset.index) === recap.preset)));
         modal.querySelectorAll('[data-rc="copy"], [data-rc="save"]').forEach((node) => (node.disabled = !recap.canvas || recap.busy));
         const status = document.getElementById('rc-status');
@@ -1653,8 +1855,7 @@
         const draw = ++recap.draw;
         let note = '';
         if (recap.failed) note = T.recapFailed;
-        else if (!s || (s.heard > 0 && recap.people === undefined)) note = T.recapLoading;
-        else if (!s.heard) note = T.recapEmpty[recap.week];
+        else if (!s || (recapEnough(s) && recap.people === undefined)) note = T.recapLoading;
         if (note) {
             recap.canvas = null;
             recap.cards = [];
@@ -1663,8 +1864,35 @@
             updateRecapBar();
             return;
         }
+        if (!recapEnough(s)) {
+            try {
+                await recapFonts();
+                if (draw !== recap.draw || !recap.open) return;
+                const model = emptyModel(s);
+                recap.canvas = null;
+                recap.cards = [];
+                recap.model = null;
+                const deck = document.createElement('div');
+                // Смена цвета перерисовывает на месте, без выезда
+                deck.className = 'rc-deck' + (body.querySelector('.rc-solo') ? '' : ' enter');
+                const node = document.createElement('div');
+                node.className = 'rc-card rc-solo';
+                node.style.setProperty('--i', '1.5');
+                node.setAttribute('role', 'img');
+                node.setAttribute('aria-label', model.title + '. ' + model.line);
+                node.append(drawEmpty(model));
+                deck.append(node);
+                body.replaceChildren(deck);
+            } catch (error) {
+                console.error('Пустые итоги не нарисованы:', error);
+                if (draw !== recap.draw || !recap.open) return;
+                body.innerHTML = '<p class="empty">' + esc(T.recapFailed) + '</p>';
+            }
+            updateRecapBar();
+            return;
+        }
         try {
-            const [model] = await Promise.all([recapModel(s, recap.people, recap.week), recapFonts()]);
+            const [model] = await Promise.all([recapModel(s, recap.people), recapFonts()]);
             if (draw !== recap.draw || !recap.open) return;
             const cards = RECAP_CARDS.map((kind) => drawCard(kind, model));
             const first = !recap.cards.length;
@@ -1701,17 +1929,25 @@
     }
     async function loadRecap() {
         const request = ++recap.request;
-        const week = recap.week;
+        const { period, span } = recap;
         const current = () => request === recap.request && recap.open;
         Object.assign(recap, { data: null, people: undefined, failed: false, cards: [], canvas: null, selected: 0 });
         refreshRecapBody();
         try {
-            const { from, to } = recapRange(week);
-            const data = await api.invoke('history:overview', from, to);
-            if (!data) throw new Error('Пустой ответ обзора недели');
+            const data = await api.invoke('history:recap', period, span || 'auto');
+            if (!data || !data.recap) throw new Error('Пустой ответ итогов');
             if (!current()) return;
+            // Открыто на месяце или годе со страницы, а там музыки нет: итоги недели
+            if (recap.fallback && period !== 'week' && !data.heard) {
+                Object.assign(recap, { period: 'week', span: '', fallback: false });
+                updateRecapBar();
+                return loadRecap();
+            }
+            recap.fallback = false;
+            recap.span = data.recap.span;
             recap.data = data;
-            if (!data.heard) return refreshRecapBody();
+            updateRecapBar();
+            if (!recapEnough(data)) return refreshRecapBody();
             refreshRecapBody();
             let people = null;
             try {
@@ -1723,9 +1959,9 @@
             recap.people = people;
             await refreshRecapBody();
             // Прошлая неделя показана: точка у кнопки истории гаснет
-            if (current() && week === 'last' && recap.model) api.send('history:recap-seen', recap.model.year, recap.model.number);
+            if (current() && data.recap.period === 'week' && data.recap.span === 'last' && recap.model) api.send('history:recap-seen', data.recap.year, data.recap.number);
         } catch (error) {
-            console.error('Сводка недели не собрана:', error);
+            console.error('Итоги не собраны:', error);
             if (!current()) return;
             recap.failed = true;
             refreshRecapBody();
@@ -1737,8 +1973,9 @@
         window.clearTimeout(recap.statusTimer);
         if (text) recap.statusTimer = window.setTimeout(() => setRecapStatus(''), 4000);
     }
-    function openRecap() {
-        Object.assign(recap, { open: true, week: 'last', canvas: null, cards: [], selected: 0, model: null, busy: false, status: '' });
+    // period: с кнопки страницы — по периоду страницы, с точки у кнопки истории — прошлая неделя
+    function openRecap(period, fallback) {
+        Object.assign(recap, { open: true, period: RECAP_KINDS.includes(period) ? period : 'week', span: '', fallback: fallback === true, canvas: null, cards: [], selected: 0, model: null, busy: false, status: '' });
         modal.hidden = false;
         view.inert = true;
         tip.hidden = true;
@@ -1776,7 +2013,7 @@
         try {
             if (kind === 'copy') status = (await api.invoke('history:recap-copy', image)) === true ? T.copied : T.copyFailed;
             else {
-                const result = await api.invoke('history:recap-save', image, model ? model.year : null, model ? model.number : null, card);
+                const result = await api.invoke('history:recap-save', image, model ? model.year : null, model ? model.number : null, card, model ? model.period : null);
                 status = result === 'saved' ? T.saved : result === 'canceled' ? '' : T.saveFailed;
             }
         } catch (error) {
@@ -1793,10 +2030,11 @@
         const act = target.dataset.rc;
         if (act === 'close') return closeRecap();
         if (act === 'card') return selectCard(Number(target.dataset.index), false);
-        if (act === 'week') {
-            if (target.dataset.week === recap.week) return;
-            recap.week = target.dataset.week === 'this' ? 'this' : 'last';
-            recap.canvas = null;
+        if (act === 'period' || act === 'span') {
+            const period = act === 'period' ? target.dataset.period : recap.period;
+            const span = act === 'span' ? (target.dataset.span === 'this' ? 'this' : 'last') : '';
+            if (!RECAP_KINDS.includes(period) || (period === recap.period && (act === 'period' || span === recap.span))) return;
+            Object.assign(recap, { period, span, fallback: false, canvas: null });
             updateRecapBar();
             return loadRecap();
         }
@@ -1833,7 +2071,7 @@
         if (!target) return;
         const data = target.dataset;
         if (data.act === 'close') return api.send('history:close');
-        if (data.act === 'recap') return openRecap();
+        if (data.act === 'recap') return openRecap(recapKindOf(state.period), true);
         if (data.act === 'retry') {
             await reload(true);
             return render(false);
@@ -2018,7 +2256,7 @@
         render(false);
         api.send('history:ready');
         // История открыта нажатием на кнопку с точкой: сразу сводка прошлой недели
-        if (initRecap && state.signedIn && !state.failed) openRecap();
+        if (initRecap && state.signedIn && !state.failed) openRecap('week', false);
     }
     start();
 })();
