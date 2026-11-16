@@ -524,14 +524,36 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-cover.lyr{width:320px;height:320px}`,
         `${w} .scw-cover.lyr .scw-img{filter:brightness(.62) saturate(1.1)}`,
         `${w} .scw-lyrics-note{position:absolute;left:0;right:0;bottom:12px;z-index:3;margin:0;text-align:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.78);text-shadow:0 1px 8px rgba(0,0,0,.7);pointer-events:none}`,
-        `${w} .scw-lyrics{position:absolute;inset:0;z-index:3;margin:0;border-radius:inherit;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.42));box-shadow:none}`,
-        `${w} .scw-lyrics-rows{position:absolute;inset:0;max-height:none;overflow:auto;padding:130px 18px;box-sizing:border-box;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 24%,#000 76%,transparent);mask-image:linear-gradient(transparent,#000 24%,#000 76%,transparent)}`,
+        `${w} .scw-lyrics{position:absolute;inset:0;z-index:3;margin:0;border-radius:inherit;overflow:hidden;background:radial-gradient(120% 80% at 50% 50%,rgba(0,0,0,.12),rgba(0,0,0,.5));box-shadow:none}`,
+        // Текст в такт (2.8.3), для роликов: строки едут лентой, текущая крупно посередине, слова загораются по одному
+        // с пружинкой и свечением цвета обложки, вся строка чуть набухает на ударе баса. Соседние строки размыты
+        `${w} .scw-lyrics-rows{position:absolute;inset:0;max-height:none;overflow:auto;padding:130px 18px;box-sizing:border-box;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}`,
+        `${w} .scw-lyrics[data-synced] .scw-lyrics-rows{overflow:hidden;padding:0 20px}`,
+        `${w} .scw-lyrics-track{position:relative;will-change:transform;transition:transform .75s cubic-bezier(.22,1,.36,1)}`,
+        `${w} .scw-lyrics-track.calm{transition:none}`,
         `${w} .scw-lyrics-rows::-webkit-scrollbar{display:none}`,
-        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:4px 0;font-size:22px;line-height:1.18;font-weight:900;letter-spacing:-.4px;text-align:center;color:rgba(255,255,255,.4);text-shadow:0 2px 14px rgba(0,0,0,.65);cursor:pointer;transition:color .35s ease,transform .4s cubic-bezier(.2,.8,.2,1),filter .35s ease;transform-origin:center;filter:blur(.4px)}`,
-        `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:16px;font-weight:800;color:rgba(255,255,255,.88);filter:none}`,
-        `${w} .scw-lyric.past{color:rgba(255,255,255,.55)}`,
-        `${w} .scw-lyric.now{color:#fff;transform:scale(1.07);filter:none;text-shadow:0 0 26px color-mix(in srgb,var(--sca-c1,#fff) 60%,transparent),0 2px 14px rgba(0,0,0,.7)}`,
-        `${w} .scw-lyric:hover{color:rgba(255,255,255,.9)}`,
+        `${w} .scw-lyric{all:unset;display:block;box-sizing:border-box;width:100%;padding:6px 0;font-size:23px;line-height:1.16;font-weight:900;letter-spacing:-.5px;text-align:center;color:rgba(255,255,255,.3);text-shadow:0 2px 14px rgba(0,0,0,.6);cursor:pointer;` +
+            `transform:scale(.92);transform-origin:center;filter:blur(1.6px);opacity:.75;transition:color .45s ease,transform .6s cubic-bezier(.22,1,.36,1),filter .5s ease,opacity .5s ease}`,
+        `${w} .scw-lyric.near{filter:blur(.7px);opacity:.9}`,
+        `${w} .scw-lyric.past{color:rgba(255,255,255,.45)}`,
+        `${w} .scw-lyric.now{color:rgba(255,255,255,.38);transform:scale(1.04);filter:none;opacity:1}`,
+        `${w} .scw-lyric:hover{filter:none;opacity:1}`,
+        `${w} .scw-ln{display:inline-block;transform:scale(1);transition:transform 80ms ease-out}`,
+        `html.sca-playing:not(.sca-fx-off) ${w} .scw-lyric.now .scw-ln{transform:scale(calc(1 + var(--sca-kick,0) * .07)) translateY(calc(var(--sca-kick,0) * -2px))}`,
+        `${w} .scw-w{display:inline-block;transition:color .22s ease,text-shadow .4s ease,transform .5s cubic-bezier(.34,1.56,.64,1),filter .3s ease}`,
+        `${w} .scw-lyric.now .scw-w{transform:translateY(.12em) scale(.96)}`,
+        `${w} .scw-lyric.now .scw-w.on{color:#fff;transform:none;text-shadow:0 0 22px color-mix(in srgb,var(--sca-c1,#fff) 75%,transparent),0 0 2px rgba(255,255,255,.6),0 2px 14px rgba(0,0,0,.7);animation:scw-word .5s cubic-bezier(.34,1.56,.64,1) both}`,
+        `${w} .scw-lyric.past .scw-w{color:rgba(255,255,255,.5)}`,
+        '@keyframes scw-word{0%{transform:translateY(.3em) scale(.86);filter:blur(5px);opacity:.4}55%{transform:translateY(-.04em) scale(1.1);filter:blur(0);opacity:1}100%{transform:none;filter:none;opacity:1}}',
+        `html.scm-reduce ${w} .scw-w,html.scm-reduce ${w} .scw-lyrics-track,html.scm-reduce ${w} .scw-ln{animation:none!important;transition:none!important}`,
+        `@media (prefers-reduced-motion:reduce){${w} .scw-w,${w} .scw-lyrics-track,${w} .scw-ln{animation:none!important;transition:none!important}}`,
+        `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:16px;font-weight:800;color:rgba(255,255,255,.88);filter:none;opacity:1;transform:none}`,
+        // Выключить текст прямо с обложки: круглая кнопка в углу, видна на наведении
+        `${w} .scw-lyrics-hide{position:absolute;top:10px;right:10px;z-index:4;width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,.38);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#fff;opacity:0;transition:opacity .2s ease,transform .15s ease}`,
+        `${w} .scw-lyrics-hide svg{width:16px;height:16px;fill:currentColor}`,
+        `${w} .scw-cover:hover .scw-lyrics-hide,${w} .scw-lyrics-hide:focus-visible{opacity:1}`,
+        `${w} .scw-lyrics-hide:hover{transform:scale(1.08);background:rgba(0,0,0,.55)}`,
+        `${w} .scw-lyrics-toggle[aria-pressed="true"] svg{fill:var(--sc2-accent,#fff)}`,
         `${w} .scw-lyrics-src{position:absolute;left:0;right:0;bottom:8px;padding:0;text-align:center;font-size:10px;color:rgba(255,255,255,.55);pointer-events:none}`,
         `${w} .scw-up-h{font-size:13px;font-weight:700;color:var(--sc2-text-2);margin:26px 0 10px}`,
         // «Далее»: карточки-обложки в полный рост, название под ними, подъём и увеличение обложки на наведении
@@ -586,6 +608,17 @@ export function appearanceCss(appearance: Appearance): string {
         // Фон на ударе: холст чуть увеличен, чтобы края не показывались, и дёргается в ту же сторону
         'html.sca-playing:not(.sca-fx-soft):not(.sca-fx-off) #sca-bg{transform:translate3d(calc(var(--sca-sx,0) * 12px),calc(var(--sca-sy,0) * 12px),0) scale(calc(1.05 + var(--sca-kick,0) * .04));transition:opacity 1.2s ease,transform 70ms ease-out}',
         'html.scm-reduce #sca-club,html.scm-reduce #sca-thump{display:none}',
+        // Стекло карточки волны (вернули в 2.8.3): лёгкий наклон за курсором, бегущий блик и светлый край ближе к мыши.
+        // Наклон мягче, чем в 2.7.1, чтобы карточка не плыла на съёмке; в режиме «Выкл» и при «меньше движения» карточка ровная
+        'html body #sc-wave .scw-body{transform:perspective(1600px) rotateX(var(--ty,0deg)) rotateY(var(--tx,0deg));transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .4s ease}',
+        'html body #sc-wave .scw-body.sc2-glass-on{transition:transform .14s linear,box-shadow .4s ease;box-shadow:0 34px 70px -28px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.16)}',
+        'html body #sc-wave .scw-body::after{content:"";position:absolute;inset:0;z-index:4;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .4s ease;' +
+            'background:radial-gradient(520px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.12),rgba(255,255,255,.03) 35%,transparent 60%),' +
+            'linear-gradient(115deg,transparent 30%,rgba(255,255,255,.06) 45%,transparent 60%) calc(var(--gx,50%) * 1.4 - 20%) 0/200% 100% no-repeat;mix-blend-mode:screen}',
+        'html body #sc-wave .scw-body.sc2-glass-on::after{opacity:1}',
+        // Пустые модули справа, которые скрипт пометил: блокировщик спрятал содержимое, а плашка с отступами осталась полоской
+        // Плашка сжимается в ноль, а не прячется: так скрипт видит, когда содержимое вернётся
+        '.sidebarModule.sc2-void{padding:0!important;margin:0!important;min-height:0!important;background:none!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:0!important;overflow:hidden}',
         // Уровни эффектов (2.7.1): «мягкие» без затемнения краёв и толчка обложки, «выкл» без клуба вовсе
         'html.sca-fx-soft #sca-thump,html.sca-fx-off #sca-thump,html.sca-fx-off #sca-club{display:none}',
         'html.sca-fx-soft #sca-club .beam{opacity:calc(.02 + var(--sca-energy,0) * .12)}',
@@ -649,6 +682,19 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} .playControls__soundBadge .playbackSoundBadge{flex:1 1 0;width:auto!important;min-width:0}`,
         `${bar} .playControls__timeline{flex:1 1 0!important;min-width:160px}`,
         `${bar} .scd-dock{flex:none;margin-left:0;padding:0;gap:6px;background:none;box-shadow:none}`,
+        // Кнопки справа по смыслу (2.8.3): док растворяется в ряду кнопок сайта, порядок задаётся order.
+        // Оценка: лайк, «Не нравится», «Больше такого» · очередь: «Следующим», «Волна от трека», очередь сайта · подписка · «К дропу»
+        `${bar} .playbackSoundBadge__actions{flex-wrap:nowrap}`,
+        `${bar} .playbackSoundBadge__actions>.scd-dock{display:contents}`,
+        `${bar} .playbackSoundBadge__actions>*{order:60}`,
+        `${bar} .playbackSoundBadge__actions .playbackSoundBadge__like,${bar} .playbackSoundBadge__actions .sc-button-like{order:10}`,
+        `${bar} .playbackSoundBadge__actions .scd-dock>[data-act="dislike"]{order:11}`,
+        `${bar} .playbackSoundBadge__actions .scd-dock>[data-act="more"]{order:12}`,
+        `${bar} .playbackSoundBadge__actions .scd-dock>[data-act="next"]{order:20;margin-left:8px}`,
+        `${bar} .playbackSoundBadge__actions .scd-dock>[data-act="wave"]{order:21}`,
+        `${bar} .playbackSoundBadge__actions [class*="showQueue"],${bar} .playbackSoundBadge__actions [class*="queue"]{order:22}`,
+        `${bar} .playbackSoundBadge__actions .sc-button-follow,${bar} .playbackSoundBadge__actions [class*="follow"]{order:30;margin-left:8px!important}`,
+        `${bar} .playbackSoundBadge__actions .scd-dock>[data-act="drop"]{order:40;margin-left:8px}`,
         `${bar} .scd-dock button{width:32px;height:32px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75)}`,
         `${bar} .scd-dock button:hover{background:rgba(255,255,255,.12);color:#fff}`,
         `${bar} .scd-dock svg{width:16px;height:16px}`,
@@ -1582,12 +1628,53 @@ export function auroraPage(config: AuroraConfig): void {
     const SPOT = '.scw-card, .scw-tile, .scv-card, .sidebarModule, .scw-lib, .scw-mix';
     let spotFrame = 0;
     let spotEvent: PointerEvent | null = null;
-    // Карточка волны больше не наклоняется за мышью и не блестит (2.8.1): для съёмки она стоит ровно
+    // Стекло карточки волны: координаты курсора в --gx, --gy и наклон в --tx, --ty, раз в кадр вместе с подсветкой
+    let tilted: HTMLElement | null = null;
+    const reducedGlass = (): boolean => fx === 'off' || document.documentElement.classList.contains('scm-reduce') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function glassTilt(event: PointerEvent | null): void {
+        const card = event?.target instanceof Element ? event.target.closest<HTMLElement>('#sc-wave .scw-body') : null;
+        if (tilted && tilted !== card) {
+            tilted.style.removeProperty('--tx');
+            tilted.style.removeProperty('--ty');
+            tilted.classList.remove('sc2-glass-on');
+            tilted = null;
+        }
+        if (!card || !event || reducedGlass()) return;
+        const box = card.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+        const y = Math.max(0, Math.min(1, (event.clientY - box.top) / Math.max(1, box.height)));
+        card.style.setProperty('--tx', ((x - 0.5) * 3).toFixed(2) + 'deg');
+        card.style.setProperty('--ty', ((0.5 - y) * 2.4).toFixed(2) + 'deg');
+        card.style.setProperty('--gx', (x * 100).toFixed(1) + '%');
+        card.style.setProperty('--gy', (y * 100).toFixed(1) + '%');
+        card.classList.add('sc2-glass-on');
+        tilted = card;
+    }
+    const onSpotLeave = (event: PointerEvent): void => {
+        if (!event.relatedTarget) glassTilt(null);
+    };
+    document.addEventListener('pointerout', onSpotLeave, { passive: true });
+    // Пустая полоса справа: модуль, у которого всё содержимое спрятано (display:none от блокировщика или сайта),
+    // CSS по :has не ловит, потому что спрятанные заголовки и ссылки в нём остаются. Видимое содержимое меряется раз в 1,5 с
+    function hideVoidModules(): void {
+        for (const module of document.querySelectorAll<HTMLElement>('.sidebarModule')) {
+            let visible = false;
+            for (const child of module.children) {
+                const rect = child.getBoundingClientRect();
+                if (rect.height > 2 && rect.width > 2) {
+                    visible = true;
+                    break;
+                }
+            }
+            if (module.classList.contains('sc2-void') === visible) module.classList.toggle('sc2-void', !visible);
+        }
+    }
     const onSpot = (event: PointerEvent): void => {
         spotEvent = event;
         if (spotFrame) return;
         spotFrame = requestAnimationFrame(() => {
             spotFrame = 0;
+            glassTilt(spotEvent);
             const target = spotEvent?.target instanceof Element ? spotEvent.target.closest<HTMLElement>(SPOT) : null;
             if (!target || !spotEvent) return;
             if (!target.classList.contains('sc2-spot')) target.classList.add('sc2-spot');
@@ -1629,7 +1716,10 @@ export function auroraPage(config: AuroraConfig): void {
     apply(cfg);
     frame = requestAnimationFrame(draw);
     window.addEventListener('pointermove', onMove, { passive: true });
-    const coverTimer = setInterval(sampleCover, 1500);
+    const coverTimer = setInterval(() => {
+        sampleCover();
+        hideVoidModules();
+    }, 1500);
     host.__scAuroraPalette = (colors: string[]) => {
         if (!Array.isArray(colors) || !colors.length) return;
         coverColors = colors.slice(0, 3);
@@ -1649,6 +1739,7 @@ export function auroraPage(config: AuroraConfig): void {
             fxTip?.remove();
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
+            document.removeEventListener('pointerout', onSpotLeave);
             document.documentElement.classList.remove('sca-line', 'sca-playing');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);

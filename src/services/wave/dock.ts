@@ -64,7 +64,9 @@ export function installDock(core: DockCore): DockSection {
     const dock = document.createElement('span');
     dock.className = 'scd-dock';
     dock.setAttribute('role', 'group');
-    dock.append(button('dislike', T.dislike), button('drop', T.drop), button('more', T.more), button('wave', T.wave), button('next', T.next));
+    // Порядок по смыслу (2.8.3): оценка трека (лайк сайта, «Не нравится», «Больше такого»), потом очередь
+    // («Следующим», «Волна от трека», очередь сайта), потом «К дропу». Кнопки встают в ряд к кнопкам сайта, порядок задаёт CSS
+    dock.append(button('dislike', T.dislike), button('more', T.more), button('next', T.next), button('wave', T.wave), button('drop', T.drop));
     const badgeLink = (): Element | null => document.querySelector('.playControls a.playbackSoundBadge__titleLink');
     const ACTS: Record<string, [string, string]> = { dislike: ['dislike', 'undislike'], more: ['more', 'unmore'] };
     dock.addEventListener('click', (event) => {
@@ -98,7 +100,11 @@ export function installDock(core: DockCore): DockSection {
             dock.remove();
             return;
         }
-        if (dock.parentElement !== badge.parentElement || dock.previousElementSibling !== badge) badge.after(dock);
+        // Док внутри ряда кнопок сайта: тогда лайк, «Не нравится» и очередь стоят одной группой, а не вперемешку
+        const actions = badge.querySelector('.playbackSoundBadge__actions');
+        if (actions) {
+            if (dock.parentElement !== actions) actions.append(dock);
+        } else if (dock.parentElement !== badge.parentElement || dock.previousElementSibling !== badge) badge.after(dock);
         const link = badgeLink();
         const key = (link?.getAttribute('href') ?? '') + '|' + Date.now().toString().slice(0, -3);
         if (key === shownFor) return;

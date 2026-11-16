@@ -3626,7 +3626,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 excludedTracks.delete(entry.id);
                 laterTracks.delete(entry.id);
             } else {
-                maps[kind].set(entry.id, kind === 'later-track' || kind === 'later-artist' ? { ...entry, until: Date.now() + 7 * 86400000 } : entry);
+                maps[kind].set(entry.id, kind === 'later-track' || kind === 'later-artist' ? { ...entry, until: Date.now() + 86400000 } : entry);
                 if (kind === 'track' || kind === 'later-track') moreTracks.delete(entry.id);
                 if (kind === 'track') laterTracks.delete(entry.id);
             }
@@ -3723,7 +3723,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
         seed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h2.5v4H4zM8.5 6h2.5v12H8.5zM13 3h2.5v18H13zM17.5 8H20v8h-2.5z"/></svg>',
         dislike: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>',
-        // Месяц: трек уснёт на неделю
+        // Месяц: трек уснёт на сутки
         later: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z"/></svg>',
         // Те же часы, что у кнопки истории в шапке
         history: '<svg class="scw-line" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8"/><path d="M2.4 2.6v2.5h2.5"/><path d="M8 5v3.2l2.2 1.4"/></svg>',
@@ -4388,8 +4388,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // rowsAt: прокрутка списка подборки, когда секция вернулась на страницу и своя прокрутка списка потеряна
     // ===== Трек не из волны и текст песни (2.7.1) =====
     const LYRICS_T = T.lang === 'ru'
-        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', none: 'Текст этой песни не нашёлся', prev: 'Предыдущий трек', next: 'Следующий трек' }
-        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
+        ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', prev: 'Предыдущий трек', next: 'Следующий трек' }
+        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', prev: 'Previous track', next: 'Next track' };
     // «Не сейчас» (2.8.1): мышью срабатывает только при удержании, чтобы на луну не попадали случайно
     const HOLD_T = T.lang === 'ru'
         ? { hint: 'Не сейчас: удерживай', tip: 'Удерживай «Не сейчас», трек вернётся в волну позже' }
@@ -4424,7 +4424,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // Отпущено раньше времени: подсказка вместо действия
         if (node && event.type === 'pointerup') showToast(HOLD_T.tip);
     }
-    interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string }> | null }
+    interface CardLyricWord { at: number; text: string }
+    interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string; words?: CardLyricWord[] }> | null }
     const lyricsFor = new Map<number, CardLyrics | null>();
     const lyricsAsked = new Set<number>();
     // Текст раскрыт сразу, как нашёлся (2.8.0): раньше кнопку среди значков не замечали. Выбор помнится
@@ -4463,7 +4464,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const data = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
             const plain = typeof data?.plain === 'string' ? data.plain : '';
             const synced = Array.isArray(data?.synced)
-                ? (data.synced as unknown[]).filter((line): line is { at: number; text: string } => !!line && typeof line === 'object' && typeof (line as { at?: unknown }).at === 'number' && typeof (line as { text?: unknown }).text === 'string')
+                ? (data.synced as unknown[])
+                      .filter((line): line is { at: number; text: string; words?: unknown } => !!line && typeof line === 'object' && typeof (line as { at?: unknown }).at === 'number' && typeof (line as { text?: unknown }).text === 'string')
+                      .map((line) => {
+                          const words = Array.isArray(line.words)
+                              ? (line.words as unknown[]).filter((word): word is CardLyricWord => !!word && typeof word === 'object' && typeof (word as { at?: unknown }).at === 'number' && typeof (word as { text?: unknown }).text === 'string')
+                              : [];
+                          return words.length >= 2 ? { at: line.at, text: line.text, words } : { at: line.at, text: line.text };
+                      })
                 : null;
             lyricsFor.set(track.id, plain ? { source: data?.source === 'genius' ? 'Genius' : 'LRCLIB', plain, synced: synced && synced.length ? synced : null } : null);
             if (lyricsFor.size > 200) lyricsFor.delete(lyricsFor.keys().next().value as number);
@@ -4471,41 +4479,111 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (shown === track.id && !disposed && lyricsOpen) render();
         }, (error: unknown) => console.warn('Волна: текст песни не загружен', error));
     }
+    // Слова строки во времени (2.8.3): из расширенного LRC, если там есть слова, иначе раскладка по длине слова внутри
+    // строки. Строка «поётся» не дольше, чем до следующей, и не растягивается на проигрыш: так слова попадают в голос
+    function wordTimes(line: { at: number; text: string; words?: CardLyricWord[] }, nextAt: number): CardLyricWord[] {
+        if (line.words && line.words.length >= 2) return line.words;
+        const parts = line.text.split(/\s+/).filter(Boolean);
+        if (!parts.length) return [];
+        const span = Math.max(400, Math.min((Number.isFinite(nextAt) ? nextAt : line.at + 5000) - line.at - 120, 500 + line.text.length * 80));
+        const weights = parts.map((part) => part.length + 2);
+        const total = weights.reduce((sum, value) => sum + value, 0);
+        let at = line.at;
+        return parts.map((part, i) => {
+            const word = { at: Math.round(at), text: part };
+            at += (span * weights[i]) / total;
+            return word;
+        });
+    }
     function renderLyrics(lyrics: CardLyrics): HTMLElement {
         const box = el('div', 'scw-lyrics');
         const rows = el('div', 'scw-lyrics-rows');
         if (lyrics.synced) {
             box.dataset.synced = 'true';
-            for (const line of lyrics.synced) {
-                const row = el('button', 'scw-lyric', line.text || '♪');
+            const track = el('div', 'scw-lyrics-track');
+            const lines = lyrics.synced;
+            lines.forEach((line, i) => {
+                const row = el('button', 'scw-lyric');
                 row.type = 'button';
                 row.dataset.act = 'lyric-seek';
                 row.dataset.at = String(line.at);
-                rows.append(row);
-            }
+                const inner = el('span', 'scw-ln');
+                const words = wordTimes(line, lines[i + 1]?.at ?? Infinity);
+                if (!words.length) inner.append(el('span', 'scw-w gap', '♪'));
+                words.forEach((word, n) => {
+                    const node = el('span', 'scw-w', word.text);
+                    node.dataset.at = String(word.at);
+                    inner.append(node);
+                    if (n < words.length - 1) inner.append(' ');
+                });
+                row.append(inner);
+                track.append(row);
+            });
+            rows.append(track);
         } else {
-            for (const line of lyrics.plain.split('\n')) rows.append(el('div', 'scw-lyric plain', line || '\u00a0'));
+            for (const line of lyrics.plain.split('\n')) rows.append(el('div', 'scw-lyric plain', line || ' '));
         }
         lyricsLine = -1;
-        box.append(rows, el('div', 'scw-lyrics-src', fillText(LYRICS_T.source, { source: lyrics.source }) + (lyrics.synced ? ' · ' + LYRICS_T.synced : '')));
+        lyricsWord = -1;
+        // Выключить текст можно и прямо с обложки, не только кнопкой в ряду значков
+        const hide = button('scw-lyrics-hide', 'lyrics', LYRICS_T.hide, 'x');
+        hide.title = LYRICS_T.hide;
+        box.append(rows, hide, el('div', 'scw-lyrics-src', fillText(LYRICS_T.source, { source: lyrics.source }) + (lyrics.synced ? ' · ' + LYRICS_T.synced : '')));
         return box;
     }
-    // Подсветка строки в такт: последняя строка, которая уже началась; список плавно держит её посередине
+    // Подсветка в такт (2.8.3): каждый кадр, а не раз в 250 мс. Строка, которая уже началась, встаёт посередине
+    // плавным сдвигом, слова в ней загораются по одному. Упреждение: глаз читает чуть раньше, чем слышит
+    const LYRIC_LEAD_MS = 140;
+    let lyricsWord = -1;
+    let lyricsFrame = 0;
     function syncLyrics(): void {
         const box = section?.querySelector<HTMLElement>('.scw-lyrics[data-synced] .scw-lyrics-rows');
-        if (!box || !player) return;
-        const at = positionOf(player.getCurrentSound()) + 250;
-        const rows = [...box.querySelectorAll<HTMLElement>('.scw-lyric')];
+        const track = box?.querySelector<HTMLElement>('.scw-lyrics-track');
+        if (!box || !track || !player) return;
+        const at = positionOf(player.getCurrentSound()) + LYRIC_LEAD_MS;
+        const rows = track.children;
         let index = -1;
-        for (let i = 0; i < rows.length; i++) if (Number(rows[i].dataset.at) <= at) index = i;
-        if (index === lyricsLine) return;
-        lyricsLine = index;
-        rows.forEach((row, i) => {
-            row.classList.toggle('now', i === index);
-            row.classList.toggle('past', i < index);
-        });
-        const now = rows[index];
-        if (now) box.scrollTo({ top: now.offsetTop - box.clientHeight / 2 + now.offsetHeight / 2, behavior: calm() ? 'auto' : 'smooth' });
+        for (let i = 0; i < rows.length; i++) {
+            if (Number((rows[i] as HTMLElement).dataset.at) <= at) index = i;
+            else break;
+        }
+        if (index !== lyricsLine) {
+            lyricsLine = index;
+            lyricsWord = -1;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i] as HTMLElement;
+                row.classList.toggle('now', i === index);
+                row.classList.toggle('past', i < index);
+                row.classList.toggle('near', Math.abs(i - index) === 1);
+                if (i !== index) for (const word of row.querySelectorAll('.scw-w.on')) word.classList.remove('on');
+            }
+            const now = rows[Math.max(0, index)] as HTMLElement | undefined;
+            if (now) {
+                const offset = now.offsetTop + now.offsetHeight / 2 - box.clientHeight / 2;
+                track.classList.toggle('calm', calm());
+                track.style.transform = 'translate3d(0,' + (-Math.max(0, offset)).toFixed(1) + 'px,0)';
+            }
+        }
+        const row = rows[index] as HTMLElement | undefined;
+        if (!row) return;
+        const words = row.querySelectorAll<HTMLElement>('.scw-w');
+        let lit = -1;
+        for (let i = 0; i < words.length; i++) {
+            if (Number(words[i].dataset.at ?? row.dataset.at) <= at) lit = i;
+            else break;
+        }
+        if (lit === lyricsWord) return;
+        lyricsWord = lit;
+        words.forEach((word, i) => word.classList.toggle('on', i <= lit));
+    }
+    function lyricsLoop(): void {
+        lyricsFrame = 0;
+        if (disposed || !lyricsOpen) return;
+        if (player?.isPlaying()) syncLyrics();
+        lyricsFrame = requestAnimationFrame(lyricsLoop);
+    }
+    function ensureLyricsLoop(): void {
+        if (!lyricsFrame && lyricsOpen && !disposed) lyricsFrame = requestAnimationFrame(lyricsLoop);
     }
     function render(rowsAt?: number, libraryAt?: number): void {
         if (!section) return;
@@ -4545,8 +4623,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         let outsideRow: HTMLElement | null = null;
         const lyricsButton = (): HTMLButtonElement | null => {
             if (!cardTrack || !host.soundcloudAPI?.lyrics) return null;
-            const node = button('scw-like', 'lyrics', LYRICS_T.show, 'lyrics');
-            node.title = LYRICS_T.show;
+            // Режим текста включается и выключается этой кнопкой; включённая подсвечена (2.8.3)
+            const label = lyricsOpen ? LYRICS_T.hide : LYRICS_T.showOn;
+            const node = button('scw-like scw-lyrics-toggle', 'lyrics', label, 'lyrics');
+            node.title = label;
             node.setAttribute('aria-pressed', String(lyricsOpen));
             return node;
         };
@@ -4643,8 +4723,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             cover.innerHTML = '<svg viewBox="0 0 200 200" fill="none"><circle cx="100" cy="100" r="76" stroke="currentColor" opacity=".07"/><circle cx="100" cy="100" r="57" stroke="currentColor" opacity=".12"/><path d="M48 96v8m13-22v36m13-43v50m13-61v72m13-84v96m13-75v54m13-44v34m13-43v52m13-36v20" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/></svg>';
         }
         if (showLyrics && (current || outside)) {
+            // Текста нет: на обложке ничего не пишется (2.8.3), обложка остаётся чистой
             if (lyrics) cover.append(renderLyrics(lyrics));
-            else cover.append(el('div', 'scw-lyrics-note', lyricsKnown ? LYRICS_T.none : LYRICS_T.searching));
+            else if (!lyricsKnown) cover.append(el('div', 'scw-lyrics-note', LYRICS_T.searching));
         }
         // Слой света пересоздаётся с блоком: пятна продолжают движение с той же фазы, свет и подложка в состоянии
         // прошлого блока. Цвета новой обложки ещё считаются: остаются прошлые, потом перетекают
@@ -5127,6 +5208,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                     // не сохранилось: до перезагрузки страницы
                 }
                 render();
+                ensureLyricsLoop();
                 return;
             case 'site-prev':
             case 'site-next':
@@ -5143,6 +5225,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 if (sound && Number.isFinite(at)) sound.seek(Math.max(0, at - 150));
                 lyricsLine = -1;
                 setTimeout(syncLyrics, 60);
+                ensureLyricsLoop();
                 return;
             }
             case 'play':
@@ -5425,7 +5508,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }, 1000);
             paintTimer = setInterval(() => {
                 if (player?.isPlaying() && player.getCurrentSound()) paint();
-                if (lyricsOpen) syncLyrics();
+                // Текст идёт своим циклом по кадрам; таймер только поднимает цикл, если он встал
+                if (lyricsOpen) ensureLyricsLoop();
             }, 250);
             glowTimer = setInterval(glowTick, 250);
             state = 'loading';
@@ -5494,6 +5578,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         clearTimeout(siteCheck);
         if (tickTimer !== undefined) clearInterval(tickTimer);
         if (paintTimer !== undefined) clearInterval(paintTimer);
+        if (lyricsFrame) cancelAnimationFrame(lyricsFrame);
         if (glowTimer !== undefined) clearInterval(glowTimer);
         if (journalTimer !== undefined) clearTimeout(journalTimer);
         flushJournal();

@@ -46,14 +46,14 @@ it('отклоняет чужой ввод и не пускает ссылки �
     expect(cleanExclusionUrl('https://evil.com/a')).toBe('');
 });
 
-it('«Не сейчас» живёт 7 дней, «Больше такого» хранит метки трека и снимает «Не нравится»', () => {
+it('«Не сейчас» живёт сутки, «Больше такого» хранит метки трека и снимает «Не нравится»', () => {
     const directory = dir();
     const store = new WaveExclusions(directory);
     const t0 = Date.UTC(2026, 8, 24);
     expect(store.set(9, 'later-track', { id: 1, title: 'Позже', until: 1 }, true, t0)).toBe(true);
     expect(store.set(9, 'later-artist', { id: 5, title: 'Артист' }, true, t0)).toBe(true);
-    expect(store.load(9, t0 + 6 * 86400000).laterTracks.map((entry) => [entry.id, entry.until])).toEqual([[1, t0 + 7 * 86400000]]);
-    expect(store.load(9, t0 + 7 * 86400000)).toMatchObject({ laterTracks: [], laterArtists: [] });
+    expect(store.load(9, t0 + 23 * 3600000).laterTracks.map((entry) => [entry.id, entry.until])).toEqual([[1, t0 + 86400000]]);
+    expect(store.load(9, t0 + 86400000)).toMatchObject({ laterTracks: [], laterArtists: [] });
 
     expect(store.set(9, 'track', { id: 2, title: 'Не то' }, true, t0)).toBe(true);
     expect(store.set(9, 'more', { id: 2, title: 'То', artistId: 70, genre: 'Drum & Bass', tags: '"liquid dnb" chill', until: 5 }, true, t0)).toBe(true);

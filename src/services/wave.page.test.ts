@@ -1537,7 +1537,7 @@ it('«Не сейчас» у играющего трека ставит след
     await vi.advanceTimersByTimeAsync(100);
     expect(bridge.set).toHaveBeenCalledWith(77, 'later-track', expect.objectContaining({ id: playing.id }), true);
     expect(site.player.getCurrentSound()!.id).not.toBe(playing.id);
-    expect(document.querySelector('.scw-toast')?.textContent).toBe('This track won’t play in My Wave for a weekUndo');
+    expect(document.querySelector('.scw-toast')?.textContent).toBe('This track won’t play in My Wave for 24 hoursUndo');
 
     const next = site.player.getCurrentSound()!.id;
     section.querySelector<HTMLButtonElement>('[data-act="more"]')!.click();

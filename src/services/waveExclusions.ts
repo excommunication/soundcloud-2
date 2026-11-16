@@ -59,7 +59,8 @@ export function tasteMarks(list: WaveExclusionList): TasteMark[] {
 }
 
 const LIMIT = 5000;
-export const LATER_MS = 7 * 86400000;
+/** «Не сейчас»: трек и аккаунт уходят из волны на сутки */
+export const LATER_MS = 86400000;
 const LISTS: Record<ExclusionKind, keyof WaveExclusionList> = {
     track: 'tracks',
     artist: 'artists',
@@ -174,12 +175,14 @@ export class WaveExclusions {
         if (!isId(userId)) return emptyList();
         this.lastUser = userId;
         const list = this.read(userId);
-        const alive = (entry: ExclusionEntry): boolean => !entry.until || entry.until > now;
+        // Срок считается от момента отметки: старые недельные «Не сейчас» тоже живут сутки
+        const alive = (entry: ExclusionEntry): boolean => !entry.until || Math.min(entry.until, entry.at + LATER_MS) > now;
+        const cut = (entry: ExclusionEntry): ExclusionEntry => (entry.until && entry.until > entry.at + LATER_MS ? { ...entry, until: entry.at + LATER_MS } : entry);
         return {
             tracks: list.tracks.slice(),
             artists: list.artists.slice(),
-            laterTracks: list.laterTracks.filter(alive),
-            laterArtists: list.laterArtists.filter(alive),
+            laterTracks: list.laterTracks.filter(alive).map(cut),
+            laterArtists: list.laterArtists.filter(alive).map(cut),
             more: list.more.slice(),
             families: list.families.slice(),
         };
