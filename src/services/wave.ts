@@ -3811,10 +3811,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
         // Плитки «Далее» (2.8.5) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
         // Громкость в карточке: значок и тонкий ползунок, который раскрывается на наведении
-        '.scw-vol{display:inline-flex;align-items:center;flex:none}',
-        '.scw-vol input{-webkit-appearance:none;appearance:none;width:0;height:4px;margin:0;opacity:0;border-radius:999px;cursor:pointer;background:linear-gradient(90deg,#fff var(--scw-vol,50%),rgba(255,255,255,.22) var(--scw-vol,50%));transition:width .28s cubic-bezier(.22,1,.36,1),opacity .2s ease,margin .28s cubic-bezier(.22,1,.36,1)}',
-        '.scw-vol:hover input,.scw-vol:focus-within input,.scw-vol.drag input{width:84px;opacity:1;margin:0 8px 0 2px}',
-        '.scw-vol input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5);transition:transform .15s ease}',
+        // Громкость занимает ровно кнопку (2.8.7): ползунок выезжает поверх строки абсолютно и не двигает соседние значки.
+        // Раньше он раздвигал ряд, курсор терял значок и размер дёргался по кругу
+        '.scw-vol{position:relative;display:inline-block;width:32px;height:32px;flex:none}',
+        '.scw-vol>.scw-like{width:32px;height:32px}',
+        '.scw-vol input{position:absolute;right:36px;top:50%;margin:0;-webkit-appearance:none;appearance:none;width:0;height:4px;transform:translateY(-50%);opacity:0;pointer-events:none;border-radius:999px;background:linear-gradient(90deg,#fff var(--scw-vol,50%),rgba(255,255,255,.22) var(--scw-vol,50%));transition:width .2s ease,opacity .2s ease}',
+        '.scw-vol:hover input,.scw-vol:focus-within input,.scw-vol.drag input{width:84px;opacity:1;pointer-events:auto}',
+        '.scw-vol input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5)}',
         '.scw-vol input:active::-webkit-slider-thumb{transform:scale(1.25)}',
         '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}}',
         'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}',
