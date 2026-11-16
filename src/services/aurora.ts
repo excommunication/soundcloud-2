@@ -511,12 +511,18 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-like:hover{background:var(--sc2-surface-3);transform:translateY(-1px)}`,
         `${w} .scw-like[aria-pressed="true"] svg{fill:var(--sc2-accent)}`,
         `${w} .scw-btn{border-radius:999px;padding:0 18px;background:var(--sc2-surface-2);font-weight:700}`,
-        // Кнопки под треком не из волны (2.8.1): две капсулы одной высоты со значками, главная белая, вторая стеклянная
-        `${w} .scw-outside{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}`,
-        `${w} .scw-btn.scw-pill{height:40px;padding:0 20px 0 15px;display:inline-flex;align-items:center;gap:9px;border-radius:999px;font-size:14px;font-weight:700;letter-spacing:-.1px;background:rgba(255,255,255,.1);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#fff;transition:transform var(--sc2-fast) var(--sc2-ease),background var(--sc2-fast),box-shadow var(--sc2-fast)}`,
-        `${w} .scw-btn.scw-pill svg{width:18px;height:18px;flex:none;fill:currentColor}`,
-        `${w} .scw-btn.scw-pill:hover{background:rgba(255,255,255,.18);transform:translateY(-1px)}`,
-        `${w} .scw-btn.scw-pill:active{transform:scale(.97)}`,
+        // Капсулы со значком и подписью (2.8.5): «Текст», а у трека не из волны «Моя волна» и «По треку» в том же
+        // ряду, что значки. Главная белая, остальные стеклянные, включённый «Текст» подсвечен цветом обложки
+        `${w} .scw-meta.outside{flex-wrap:nowrap;gap:8px}`,
+        `${w} .scw-sub{color:var(--sc2-text-2);font-weight:600}`,
+        `${w} .scw-chip{height:34px;padding:0 14px 0 11px;display:inline-flex;align-items:center;gap:7px;flex:none;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:-.1px;white-space:nowrap;color:#fff;background:rgba(255,255,255,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.13);transition:transform var(--sc2-fast) var(--sc2-ease),background var(--sc2-fast),box-shadow var(--sc2-fast)}`,
+        `${w} .scw-chip svg{width:16px;height:16px;flex:none;fill:currentColor}`,
+        `${w} .scw-chip:hover{background:rgba(255,255,255,.17);transform:translateY(-1px)}`,
+        `${w} .scw-chip:active{transform:scale(.96)}`,
+        `${w} .scw-chip.scw-chip-main{background:#fff;color:var(--sc2-ink);box-shadow:0 8px 20px -10px rgba(0,0,0,.8)}`,
+        `${w} .scw-chip.scw-chip-main:hover{background:#fff;filter:brightness(.94)}`,
+        `${w} .scw-chip.scw-lyrics-toggle[aria-pressed="true"]{background:color-mix(in srgb,var(--sca-c1,#fff) 30%,rgba(255,255,255,.08));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sca-c1,#fff) 60%,transparent)}`,
+        `@media (max-width:1100px){${w} .scw-meta.outside .scw-chip:not(.scw-chip-main) span{display:none}${w} .scw-meta.outside .scw-chip:not(.scw-chip-main){padding:0 9px}}`,
         `${w} .scw-btn.scw-primary{background:#fff;color:var(--sc2-ink);box-shadow:0 10px 24px -12px rgba(0,0,0,.8)}`,
         `${w} .scw-btn.scw-primary:hover{background:#fff;filter:brightness(.95)}`,
         // Текст песни поверх обложки (2.8.1, для съёмки роликов): обложка крупнее, затемнена, строки по центру. Сама карточка
@@ -548,12 +554,14 @@ export function appearanceCss(appearance: Appearance): string {
         `html.scm-reduce ${w} .scw-w,html.scm-reduce ${w} .scw-lyrics-track,html.scm-reduce ${w} .scw-ln{animation:none!important;transition:none!important}`,
         `@media (prefers-reduced-motion:reduce){${w} .scw-w,${w} .scw-lyrics-track,${w} .scw-ln{animation:none!important;transition:none!important}}`,
         `${w} .scw-lyric.plain{cursor:text;user-select:text;font-size:16px;font-weight:800;color:rgba(255,255,255,.88);filter:none;opacity:1;transform:none}`,
-        // Выключить текст прямо с обложки: круглая кнопка в углу, видна на наведении
-        `${w} .scw-lyrics-hide{position:absolute;top:10px;right:10px;z-index:4;width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,.38);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#fff;opacity:0;transition:opacity .2s ease,transform .15s ease}`,
-        `${w} .scw-lyrics-hide svg{width:16px;height:16px;fill:currentColor}`,
-        `${w} .scw-cover:hover .scw-lyrics-hide,${w} .scw-lyrics-hide:focus-visible{opacity:1}`,
-        `${w} .scw-lyrics-hide:hover{transform:scale(1.08);background:rgba(0,0,0,.55)}`,
-        `${w} .scw-lyrics-toggle[aria-pressed="true"] svg{fill:var(--sc2-accent,#fff)}`,
+        // Плашки на обложке (2.8.5): «Скрыть текст» сверху справа поверх текста, «Показать текст» снизу справа, когда
+        // текст выключен. Подписаны словами и видны на наведении, поэтому в ролик не попадают
+        `${w} .scw-cover-chip{position:absolute;z-index:4;height:30px;padding:0 12px 0 9px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;color:#fff;background:rgba(0,0,0,.45);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform .2s var(--sc2-ease),background .15s ease}`,
+        `${w} .scw-cover-chip svg{width:15px;height:15px;flex:none;fill:currentColor}`,
+        `${w} .scw-lyrics-hide{top:10px;right:10px}`,
+        `${w} .scw-lyrics-show{right:10px;bottom:10px}`,
+        `${w} .scw-cover:hover .scw-cover-chip,${w} .scw-cover-chip:focus-visible{opacity:1;transform:none}`,
+        `${w} .scw-cover-chip:hover{background:rgba(0,0,0,.62)}`,
         `${w} .scw-lyrics-src{position:absolute;left:0;right:0;bottom:8px;padding:0;text-align:center;font-size:10px;color:rgba(255,255,255,.55);pointer-events:none}`,
         `${w} .scw-up-h{font-size:13px;font-weight:700;color:var(--sc2-text-2);margin:26px 0 10px}`,
         // «Далее»: карточки-обложки в полный рост, название под ними, подъём и увеличение обложки на наведении

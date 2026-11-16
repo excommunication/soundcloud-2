@@ -66,6 +66,10 @@ export interface MenuCore {
     pin(target: MenuTarget, add: boolean): Promise<void>;
     /** Обычная волна с этим жанром, сразу играет */
     playGenre(genre: string): void;
+    /** Пункт текста песни у трека (2.8.5): подпись пункта или null, если текста у клиента нет */
+    lyricsLabel(target: MenuTarget): string | null;
+    /** Показать текст трека: у играющего включает текст на карточке, у другого открывает окно с текстом */
+    showLyrics(target: MenuTarget): void;
     /** Название жанра карточки полки под узлом; пусто, если это не карточка жанра */
     cardGenre(node: Element): string;
 }
@@ -109,6 +113,8 @@ export function installMenu(core: MenuCore): MenuSection {
         // Стопка слоёв: версии одной песни
         versions: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2 15 5 8 8.8 1 5zM2.7 7.4 8 10.3l5.3-2.9L15 8.3 8 12.1 1 8.3zm0 3.3L8 13.6l5.3-2.9 1.7.9L8 15.4 1 11.6z"/></svg>',
         // Список с плюсом: трек в набор
+        // Строки текста с нотой: текст песни
+        lyrics: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v1.5H2zM2 6.25h8v1.5H2zM2 9.5h5.5V11H2zM12.5 6.5v4.8a1.9 1.9 0 1 1-1.25-1.79V5.5H14v1z"/></svg>',
         pick:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 2.5h10V4H1zM1 6.25h10v1.5H1zM1 10h6v1.5H1zM11.25 9h1.5v2.25H15v1.5h-2.25V15h-1.5v-2.25H9v-1.5h2.25z"/></svg>',
         // Кнопка-булавка: закрепить на главной
         pin: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.2 1 15 5.8l-1.06 1.06-.88-.88-2.9 2.9.35 2.83-1.06 1.06-2.83-2.83L2.06 14.5 1.5 13.94l4.56-4.56-2.83-2.83 1.06-1.06 2.83.35 2.9-2.9-.88-.88z"/></svg>',
@@ -282,6 +288,8 @@ export function installMenu(core: MenuCore): MenuSection {
         if (target.kind === 'genre') return [['wave-genre', T.menuWaveGenre, 'wave'], pinItem()];
         const hasArtist = target.kind === 'artist' || !!target.artistUrl || !!target.track;
         if (target.kind === 'track') items.push(['wave-track', T.menuWaveTrack, 'wave']);
+        const lyricsLabel = target.kind === 'track' ? core.lyricsLabel(target) : null;
+        if (lyricsLabel) items.push(['lyrics', lyricsLabel, 'lyrics']);
         if (target.kind === 'playlist') items.push(['wave-playlist', T.menuWavePlaylist, 'wave'], pinItem());
         if (hasArtist) items.push(['wave-artist', T.menuWaveArtist, target.kind === 'artist' ? 'wave' : 'artist'], ['artist-all', T.menuArtistAll, 'catalog']);
         if (target.kind === 'artist') items.push(pinItem());
@@ -326,6 +334,7 @@ export function installMenu(core: MenuCore): MenuSection {
             case 'later-artist':
             case 'unlater-artist': void setExcluded('later-artist', target, act === 'later-artist'); return;
             case 'versions': void core.openVersions(target); return;
+            case 'lyrics': core.showLyrics(target); return;
             case 'copy-link':
                 void navigator.clipboard.writeText(target.url).then(() => core.showToast(T.toastLinkCopied), () => core.showToast(target.url));
                 return;
