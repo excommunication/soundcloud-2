@@ -8,33 +8,56 @@
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     // Мягкая пружина: без сильного перелёта, иначе движение выглядит дёрганым
     const spring = 'cubic-bezier(.22,1.2,.36,1)';
-    const bars = [...document.querySelectorAll('.bars rect')];
-    const cloud = document.querySelector('.cloud');
+    const word = document.getElementById('word');
+    const track = document.getElementById('track');
+    const fill = document.getElementById('fill');
+    const barsBox = document.getElementById('bars');
+    // Профиль облака SoundCloud из установщика: высоты рёбрышек, низ общий
+    const CLOUD = [0.3, 0.36, 0.44, 0.4, 0.52, 0.48, 0.6, 0.7, 0.84, 0.94, 0.99, 1.0, 0.98, 0.92, 0.8, 0.74, 0.7, 0.62, 0.48];
+    for (const h of CLOUD) {
+        const bar = document.createElement('i');
+        bar.style.setProperty('--h', String(h));
+        barsBox.append(bar);
+    }
+    const bars = [...barsBox.children];
     let gone = false;
+    let barRaf = 0;
+    // Полоса ползёт к 92% и замедляется (сколько грузится сайт, неизвестно); меняется только transform
+    const t0 = window.performance.now();
+    const tick = () => {
+        if (gone) return;
+        fill.style.transform = 'scaleX(' + (0.92 * (1 - Math.exp(-(window.performance.now() - t0) / 1900))).toFixed(3) + ')';
+        barRaf = requestAnimationFrame(tick);
+    };
 
-    // Сборка: столбики эквалайзера вырастают по очереди, облако мягко проявляется, потом столбики «дышат»
+    // Сборка: рёбрышки вырастают волной слева направо, название проявляется, потом рёбрышки «дышат»
     if (reduce) {
         for (const bar of bars) bar.style.transform = 'none';
-        cloud.style.opacity = '1';
+        word.style.opacity = '1';
+        track.style.opacity = '1';
+        tick();
     } else {
-        logo.animate([{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 900, easing: spring, fill: 'both' });
-        bars.forEach((bar, i) =>
-            bar.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 800, delay: 140 + i * 90, easing: spring, fill: 'forwards' }),
+        logo.animate([{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 700, easing: spring, fill: 'both' });
+        const grow = bars.map((bar, i) =>
+            bar.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 700, delay: 80 + i * 40, easing: spring, fill: 'forwards' }),
         );
-        cloud
-            .animate([{ opacity: 0, transform: 'translateY(10px) scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 760, easing: spring, fill: 'forwards' })
-            .finished.then(() => {
+        word.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 700, delay: 600, easing: spring, fill: 'forwards' });
+        track.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 900, fill: 'forwards' });
+        tick();
+        grow[grow.length - 1].finished
+            .then(() => {
                 if (gone) return;
                 for (const bar of bars) {
                     bar.getAnimations().forEach((animation) => animation.cancel());
                     bar.style.transform = 'none';
                 }
+                bars.forEach((bar, i) => (bar.style.animationDelay = -((i * 0.37) % 1.6) + 's'));
                 logo.classList.add('idle');
             })
             .catch(() => {});
     }
 
-    const PALETTE = ['#ffffff', '#ffffff', '#9db4ff', '#c9a8ff', '#7fe3ff', '#ffb3e6'];
+    const PALETTE = ['#ffffff', '#ffb27a', '#ff8800', '#ff5500', '#ff8800', '#ff3300'];
     const pick = () => PALETTE[Math.floor(Math.random() * PALETTE.length)];
     // Искра: точка, которая отлетает в сторону и гаснет
     function spark(x, y, dx, dy, size, life) {
@@ -50,11 +73,11 @@
     function explode(x, y) {
         // Вспышка, кольцо ударной волны и полоса света вдоль нижнего бара
         const ring = document.createElement('i');
-        ring.style.cssText = `left:${x - 60}px;top:${y - 60}px;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 40px rgba(160,190,255,.6)`;
+        ring.style.cssText = `left:${x - 60}px;top:${y - 60}px;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 40px rgba(255,110,30,.6)`;
         const flash = document.createElement('i');
-        flash.style.cssText = `left:${x - 180}px;top:${y - 180}px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(170,190,255,.3) 40%,transparent 70%)`;
+        flash.style.cssText = `left:${x - 180}px;top:${y - 180}px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,100,20,.3) 40%,transparent 70%)`;
         const streak = document.createElement('i');
-        streak.style.cssText = `left:0;top:${y - 2}px;width:100%;height:4px;background:linear-gradient(90deg,transparent,rgba(190,205,255,.9) 35%,#fff 50%,rgba(210,180,255,.9) 65%,transparent);filter:blur(1.5px);transform-origin:${x}px 50%`;
+        streak.style.cssText = `left:0;top:${y - 2}px;width:100%;height:4px;background:linear-gradient(90deg,transparent,rgba(255,140,60,.9) 35%,#fff 50%,rgba(255,90,20,.9) 65%,transparent);filter:blur(1.5px);transform-origin:${x}px 50%`;
         fx.append(flash, ring, streak);
         ring.animate([{ transform: 'scale(.2)', opacity: 1 }, { transform: 'scale(8)', opacity: 0 }], { duration: 1200, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
         flash.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(1.7)', opacity: 0 }], { duration: 700, easing: 'ease-out', fill: 'forwards' });
@@ -93,6 +116,9 @@
     window.introGo = () => {
         if (gone) return;
         gone = true;
+        cancelAnimationFrame(barRaf);
+        fill.animate([{ transform: fill.style.transform || 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 220, fill: 'forwards' });
+        for (const part of [word, track]) part.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, delay: 160, fill: 'forwards' });
         if (reduce) {
             document.body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' });
             return;

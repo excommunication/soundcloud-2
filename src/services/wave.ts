@@ -35,6 +35,7 @@ import * as vibeSectionModule from './wave/vibe';
 import * as dockSectionModule from './wave/dock';
 import * as volumeSectionModule from './wave/volume';
 import * as clipSectionModule from './wave/clip';
+import { CLIP_FONT } from './wave/clipFont';
 import * as swapSectionModule from './wave/swap';
 import * as forYouSectionModule from './wave/forYou';
 import * as waveVibeModule from './waveVibe';
@@ -230,6 +231,8 @@ interface WaveConfig {
     quiet: QuietOptions;
     /** «Без русского»: песни на русском не попадают в подбор волны */
     noRussian: boolean;
+    /** Шрифт «Удара» в режиме роликов (Montserrat, base64): вшит в клиент */
+    fonts?: { latin: string; cyrillic: string };
 }
 
 export function installWave(config: WaveConfig, createPlayback: typeof installPlaybackPage, createRecovery: typeof installPlaybackRecovery): void {
@@ -466,6 +469,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     let shownTrack = 0;
     // Куда листают: 1 вперёд, -1 назад; от этого зависит, с какой стороны въезжает новый трек
     let turnDir = 1;
+    // Смена трека идёт переходом ровно один раз: id трека, момент начала, сторона и прошлая обложка. Пересборки в
+    // полёте перехода продолжают его с той же фазы (отрицательная задержка), а не запускают заново
+    let swapId = 0;
+    let swapAt = 0;
+    let swapDir = 1;
+    let swapCover = '';
+    const SWAP_MS = 800;
     let turnTimer: ReturnType<typeof setTimeout> | undefined;
     let shownCover = '';
     // Палитра света, которая сейчас стоит на секции
@@ -794,6 +804,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     let clipLyricsOf: { id: number; from: CardLyrics | null; value: { lines: Array<{ at: number; text: string; words: CardLyricWord[] }> | null; plain: string } | null } | null = null;
     const clipSection = installClip({
         lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        fonts: config.fonts,
         now: () => {
             const sound = player?.getCurrentSound();
             const track = sound?.attributes;
@@ -3866,30 +3877,28 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // с небольшим увеличением, плитки «Далее» сдвигаются по очереди
         // Смена трека (2.10.0): прошлые название и автор не пропадают, а уезжают в сторону листания и тают (.scw-ghost),
         // новые въезжают следом; прошлая обложка уплывает с поворотом, новая приезжает с другой стороны, волна вырастает
-        '.scw-swap{position:relative}',
-        '.scw-swap.next>:not(.scw-ghost){animation:scw-in-next .62s cubic-bezier(.2,.8,.2,1) .06s both}',
-        '.scw-swap.back>:not(.scw-ghost){animation:scw-in-back .62s cubic-bezier(.2,.8,.2,1) .06s both}',
-        '@keyframes scw-in-next{from{opacity:0;transform:translateX(40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}',
-        '@keyframes scw-in-back{from{opacity:0;transform:translateX(-40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}',
-        '.scw-ghost{position:absolute;left:0;top:0;right:0;pointer-events:none}',
-        '.scw-ghost.next{animation:scw-out-next .42s cubic-bezier(.4,0,.6,1) both}',
-        '.scw-ghost.back{animation:scw-out-back .42s cubic-bezier(.4,0,.6,1) both}',
-        '@keyframes scw-out-next{to{opacity:0;transform:translateX(-40px);filter:blur(8px)}}',
-        '@keyframes scw-out-back{to{opacity:0;transform:translateX(40px);filter:blur(8px)}}',
+        // 2.10.1: призрака старого названия больше нет (он накладывался на новое). Новый блок появляется на месте,
+        // только transform и opacity; --scw-age (на теле карточки) сдвигает фазу, чтобы пересборка в полёте не рвала переход
+        '.scw-swap>*{will-change:transform,opacity}',
+        '.scw-swap.next>*{animation:scw-in-next .42s cubic-bezier(.2,.8,.2,1) calc(.04s - var(--scw-age,0s)) both}',
+        '.scw-swap.back>*{animation:scw-in-back .42s cubic-bezier(.2,.8,.2,1) calc(.04s - var(--scw-age,0s)) both}',
+        '@keyframes scw-in-next{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}',
+        '@keyframes scw-in-back{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}',
         '.scw-cover.scw-cross{overflow:hidden}',
-        '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .7s cubic-bezier(.2,.8,.2,1) both}',
+        '.scw-cover.scw-cross .scw-img{will-change:transform,opacity}',
+        '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) calc(0s - var(--scw-age,0s)) both}',
         '.scw-cover.scw-cross.back .scw-img.on:last-of-type{animation-name:scw-cover-in-back}',
-        '.scw-cover.scw-cross .scw-img.scw-under{animation:scw-cover-out .6s cubic-bezier(.4,0,.6,1) both}',
+        '.scw-cover.scw-cross .scw-img.scw-under{animation:scw-cover-out .5s cubic-bezier(.4,0,.6,1) calc(0s - var(--scw-age,0s)) both}',
         '.scw-cover.scw-cross.back .scw-img.scw-under{animation-name:scw-cover-out-back}',
-        '@keyframes scw-cover-in{from{opacity:0;transform:translateX(26%) scale(1.06) rotate(3deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}',
-        '@keyframes scw-cover-in-back{from{opacity:0;transform:translateX(-26%) scale(1.06) rotate(-3deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}',
-        '@keyframes scw-cover-out{to{opacity:0;transform:translateX(-30%) scale(.88) rotate(-4deg);filter:blur(8px)}}',
-        '@keyframes scw-cover-out-back{to{opacity:0;transform:translateX(30%) scale(.88) rotate(4deg);filter:blur(8px)}}',
-        '.scw-turning .scw-wf{transform-origin:50% 50%;animation:scw-wf-in .7s cubic-bezier(.2,.8,.2,1) both}',
-        '@keyframes scw-wf-in{from{opacity:0;transform:scaleY(.12)}to{opacity:1;transform:none}}',
+        '@keyframes scw-cover-in{from{opacity:0;transform:translateX(8%) scale(1.03)}to{opacity:1;transform:none}}',
+        '@keyframes scw-cover-in-back{from{opacity:0;transform:translateX(-8%) scale(1.03)}to{opacity:1;transform:none}}',
+        '@keyframes scw-cover-out{to{opacity:0;transform:translateX(-8%) scale(.97)}}',
+        '@keyframes scw-cover-out-back{to{opacity:0;transform:translateX(8%) scale(.97)}}',
+        '.scw-turning .scw-wf{transform-origin:50% 100%;animation:scw-wf-in .6s cubic-bezier(.2,.8,.2,1) calc(0s - var(--scw-age,0s)) both}',
+        '@keyframes scw-wf-in{from{opacity:.25;transform:scaleY(.6)}to{opacity:1;transform:none}}',
         // Плитки «Далее» (2.8.5) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
-        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-swap>*,.scw-ghost,.scw-turning .scw-wf,.scw-cover.scw-cross .scw-img{animation:none!important}.scw-ghost{display:none}}',
-        'html.scm-reduce .scw-swap,html.scm-reduce .scw-swap>*,html.scm-reduce .scw-ghost,html.scm-reduce .scw-turning .scw-wf,html.scm-reduce .scw-cover.scw-cross .scw-img{animation:none!important}html.scm-reduce .scw-ghost{display:none}',
+        '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-swap>*,.scw-turning .scw-wf,.scw-cover.scw-cross .scw-img{animation:none!important}}',
+        'html.scm-reduce .scw-swap,html.scm-reduce .scw-swap>*,html.scm-reduce .scw-turning .scw-wf,html.scm-reduce .scw-cover.scw-cross .scw-img{animation:none!important}',
         // Кнопки перемотки по бокам паузы
         '.scw-top.stepped{gap:10px}',
         '.scw-top.stepped>.scw-swap,.scw-top.stepped>div{margin-left:6px}',
@@ -3965,6 +3974,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-t1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.scw-t2{color:var(--scw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.scw-t3{font-size:12px;line-height:16px;color:var(--scw-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}',
+        // 2.10.1: плитки и карточки одной высоты: каждая строка занимает свою высоту, даже пустая, длинное режется многоточием
+        '#sc-wave .scw-t1,#sc-wave .scw-t2{height:20px;line-height:20px;min-width:0;max-width:100%}',
+        '#sc-wave .scw-t3{height:16px;line-height:16px;min-width:0;max-width:100%}',
+        '.scw-tiles:not(.scw-shelf){grid-auto-rows:1fr}',
+        '#sc-wave .scw-tiles>.scw-tile{height:100%;box-sizing:border-box}',
         '.scw-tile{min-width:0;cursor:pointer;display:grid;grid-template-columns:56px minmax(0,1fr);column-gap:10px;align-content:center;padding:4px;margin:-4px;border-radius:4px}',
         '.scw-tile[data-track]:hover,.scw-tile[data-fork]:hover{background:var(--scw-film)}',
         '.scw-fork-h{display:flex;align-items:center;gap:4px}',
@@ -4895,8 +4909,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const rowsScroll = rowsAt ?? section.querySelector('.scw-mix-rows')?.scrollTop ?? 0;
         const libraryScroll = libraryAt ?? section.querySelector('.scw-lib-rows')?.scrollTop ?? 0;
         const spotsBefore = tileSpots();
-        // Прошлые название и автор: при смене трека уезжают призраком (2.10.0)
-        const linesBefore = section.querySelector<HTMLElement>('[data-lines]');
         section.textContent = '';
         section.setAttribute('aria-label', T.wave);
         section.append(renderHead());
@@ -4927,9 +4939,19 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         };
         // Блок пересобирается целиком: при смене трека прошлые обложка и цвет переносятся в новый, и смена идёт переходом
         const shownNow = current?.track ?? outside;
-        const swap = !!shownNow && !!shownTrack && shownNow.id !== shownTrack && !calm();
-        const lines = el('div', swap ? 'scw-swap ' + (turnDir < 0 ? 'back' : 'next') : '');
+        const fresh = !!shownNow && !!shownTrack && shownNow.id !== shownTrack && !calm();
+        if (fresh && shownNow) {
+            swapId = shownNow.id;
+            swapAt = Date.now();
+            swapDir = turnDir;
+            swapCover = shownCover;
+        }
+        const swapAge = shownNow && swapId === shownNow.id ? Date.now() - swapAt : Infinity;
+        const swap = !calm() && swapAge < SWAP_MS;
+        // Новый блок и старый не живут вместе: название меняется на месте, без призрака поверх
+        const lines = el('div', swap ? 'scw-swap ' + (swapDir < 0 ? 'back' : 'next') : '');
         lines.dataset.lines = '1';
+        body.style.setProperty('--scw-age', swap ? (Math.max(0, swapAge) / 1000).toFixed(3) + 's' : '0s');
         if (current) {
             lines.append(titleLink('div', 'scw-track', current.track), artistLink('div', 'scw-artist', current.track));
         } else if (outside) {
@@ -4946,15 +4968,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             back.title = LYRICS_T.prev;
             const forward = button('scw-step', 'site-next', LYRICS_T.next, 'next');
             forward.title = LYRICS_T.next;
-            if (swap && linesBefore) {
-                const ghost = linesBefore.cloneNode(true) as HTMLElement;
-                ghost.className = 'scw-ghost ' + (turnDir < 0 ? 'back' : 'next');
-                ghost.removeAttribute('data-lines');
-                ghost.setAttribute('aria-hidden', 'true');
-                ghost.inert = true;
-                ghost.querySelector('.scw-ghost')?.remove();
-                lines.append(ghost);
-            }
             top.append(back, play, forward, lines);
             top.classList.add('stepped');
         } else top.append(play, lines);
@@ -4994,18 +5007,18 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         info.append(top, canvas, meta, ...(scout ? [scout] : []));
         // Текст песни лежит поверх обложки, как в роликах: крупные строки, текущая белая (2.8.1)
         const showLyrics = !!cardTrack && lyricsOpen && !!host.soundcloudAPI?.lyrics;
-        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' + (turnDir < 0 ? ' back' : '') : '') + (showLyrics && lyrics ? ' lyr' : ''));
+        const cover = el('div', 'scw-cover' + (swap ? ' scw-cross' + (swapDir < 0 ? ' back' : '') : '') + (showLyrics && lyrics ? ' lyr' : ''));
         if (current) {
-            if (swap && shownCover && loadedArt.has(shownCover)) {
+            if (swap && swapCover && loadedArt.has(swapCover)) {
                 const under = el('span', 'scw-img on scw-under');
-                under.style.backgroundImage = 'url("' + shownCover.replace(/["\\]/g, '') + '")';
+                under.style.backgroundImage = 'url("' + swapCover.replace(/["\\]/g, '') + '")';
                 cover.append(under);
             }
             art(cover, current.track, 't500x500');
         } else if (outside) {
-            if (swap && shownCover && loadedArt.has(shownCover)) {
+            if (swap && swapCover && loadedArt.has(swapCover)) {
                 const under = el('span', 'scw-img on scw-under');
-                under.style.backgroundImage = 'url("' + shownCover.replace(/["\\]/g, '') + '")';
+                under.style.backgroundImage = 'url("' + swapCover.replace(/["\\]/g, '') + '")';
                 cover.append(under);
             }
             art(cover, outside, 't500x500');
@@ -5058,13 +5071,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const image = images[images.length - 1];
             section.classList.add('scw-turning');
             if (turnTimer !== undefined) clearTimeout(turnTimer);
-            turnTimer = setTimeout(() => section?.classList.remove('scw-turning'), 900);
-            if (image instanceof HTMLElement && image.classList.contains('on')) {
-                image.classList.remove('on');
-                void image.offsetWidth;
-                image.classList.add('on');
+            turnTimer = setTimeout(() => section?.classList.remove('scw-turning'), Math.max(50, SWAP_MS + 100 - swapAge));
+            if (fresh) {
+                if (image instanceof HTMLElement && image.classList.contains('on')) {
+                    image.classList.remove('on');
+                    void image.offsetWidth;
+                    image.classList.add('on');
+                }
+                drawFor = current?.track.id ?? 0;
             }
-            drawFor = current?.track.id ?? 0;
         }
         shownTrack = shownNow?.id ?? 0;
         shownCover = shownNow ? artworkUrl(shownNow, 't500x500') : '';
@@ -5517,7 +5532,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             case 'site-next':
                 turnDir = control.dataset.act === 'site-prev' ? -1 : 1;
                 document.querySelector<HTMLElement>(control.dataset.act === 'site-prev' ? '.playControls .skipControl__previous' : '.playControls .skipControl__next')?.click();
-                setTimeout(tick, 300);
+                setTimeout(tick, 120);
+                setTimeout(tick, 400);
                 return;
             case 'start-wave':
                 void start();
@@ -5812,6 +5828,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 }
             }, 1000);
             paintTimer = setInterval(() => {
+                // Смена трека видна сразу, а не на ближайшем секундном тике: название и «далее …» обновляются в тот же кадр
+                try {
+                    const soundNow = player?.getCurrentSound();
+                    const idNow = soundNow?.id ?? 0;
+                    if (idNow !== currentId) tick();
+                    else if (idNow && section && idNow !== shownTrack && (currentCandidate()?.track ?? outsideTrack())) render();
+                } catch (error) {
+                    console.error('Волна: смена трека', error);
+                }
                 if (player?.isPlaying() && player.getCurrentSound()) paint();
                 // Текст идёт своим циклом по кадрам; таймер только поднимает цикл, если он встал
                 if (lyricsOpen) ensureLyricsLoop();
@@ -5992,6 +6017,6 @@ export function waveQuietScript(quiet: QuietOptions): string {
 }
 
 export function waveScript(resume = false, quiet: QuietOptions = { edges: true, crossfade: 5 }, noRussian = false): string {
-    const config: WaveConfig = { texts: WAVE_TEXTS, resume, quiet, noRussian: noRussian === true };
+    const config: WaveConfig = { texts: WAVE_TEXTS, resume, quiet, noRussian: noRussian === true, fonts: CLIP_FONT };
     return '(function(){\n' + pageHelpers.map((helper) => helper.toString()).join('\n') + '\n(' + installWave.toString() + ')(' + JSON.stringify(config) + ', installPlaybackPage, installPlaybackRecovery);\n})();';
 }

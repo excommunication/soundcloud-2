@@ -5,7 +5,9 @@
 // --sca-kick и --sca-sx/sy), а на каждой новой строке даёт толчок, даже если переливы выключены. Перемотка: полоса
 // времени тянется и щёлкается, колесо мыши и стрелки ←/→ по 5 с (Shift — 15 с), щелчок по строке текста — к ней.
 // Esc, кнопка «Закрыть» или повторное нажатие кнопки режима сворачивают обратно; F — полный экран, V — кадр 9:16,
-// H — спрятать подписи, L — стиль текста, пробел — пауза.
+// H — спрятать подписи, L — стиль текста, P — текст сбоку (2.10.1): обложка слева остаётся чистой, а текст идёт отдельной
+// колонкой справа, как в Spotify; в кадре 9:16 колонка под обложкой. «Поток» набран шрифтом самого сайта, «Удар» — Montserrat
+// Black (шрифт вшит в клиент, OFL), пробел — пауза.
 // Раздел страницы волны: installClip уходит на страницу текстом (pageHelpers в wave.ts) и ни на что снаружи не ссылается
 export interface ClipWord {
     at: number;
@@ -41,6 +43,8 @@ export interface ClipCore {
     togglePlay(): void;
     seek(ms: number): void;
     disposed(): boolean;
+    /** Шрифт «Удара» (Montserrat, base64 woff2): латиница и кириллица */
+    fonts?: { latin: string; cyrillic: string };
 }
 export interface ClipSection {
     /** Кнопка режима для карточки волны: каждый раз тот же узел */
@@ -91,14 +95,15 @@ export function clipNextStyle(style: string): ClipLyricStyle {
 export function installClip(core: ClipCore): ClipSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка' }
-        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek' };
+        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка' }
+        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek' };
     const ICON: Record<string, string> = {
         clip: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11A1.5 1.5 0 0 1 4.5 1zm.2 1.5v11h6.6v-11zM6.9 5.6l3.2 2.1-3.2 2.1z"/></svg>',
         close: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg>',
         vertical: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 1h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zm.5 1.5v11h5v-11z"/></svg>',
         text: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5h12V5h-1.5V4h-3.75v8.5H10V14H6v-1.5h1.25V4H3.5v1H2z"/></svg>',
         lyrics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zM4 9.5h11v2H4zM4 14h8v2H4zM17.5 12.2V18a2.5 2.5 0 1 1-1.5-2.3V10h4v2.2z"/></svg>',
+        side: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h13v12h-13zM3 3.5v9h5v-9zM10 5h3v1.5h-3zm-1 2.5h4V9H9zm1 2.5h3v1.5h-3z"/></svg>',
         full: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5H6V3H3v3H1.5zm8.5 0h4.5V6H13V3h-3zM1.5 10H3v3h3v1.5H1.5zm11.5 0h1.5v4.5H10V13h3z"/></svg>',
     };
     const STYLE_ID = 'sc-clip-style';
@@ -106,7 +111,7 @@ export function installClip(core: ClipCore): ClipSection {
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = [
-            '.scc{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;background:#05060a;color:#fff;font:600 14px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif;opacity:0;transition:opacity .3s ease;--k:var(--sca-kick,0);--sx:var(--sca-sx,0);--sy:var(--sca-sy,0)}',
+            '.scc{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;background:#05060a;color:#fff;font-family:inherit;font-weight:600;font-size:14px;line-height:1.3;opacity:0;transition:opacity .3s ease;--k:var(--sca-kick,0);--sx:var(--sca-sx,0);--sy:var(--sca-sy,0)}',
             '.scc.on{opacity:1}',
             // Фон дышит под бит: ярче и чуть крупнее на ударе
             '.scc-bg{position:absolute;inset:-12%;background:center/cover no-repeat;filter:blur(60px) saturate(1.6) brightness(calc(.5 + var(--k) * .25));transform:scale(calc(1.1 + var(--k) * .05));transition:background-image .6s ease,transform 90ms ease-out,filter 90ms ease-out}',
@@ -136,7 +141,7 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc.bare .scc-text,.scc.bare .scc-bar{opacity:0}',
             '.scc.bare .scc-bar{pointer-events:none}',
             // ===== Текст на обложке =====
-            '.scc-lyr{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;pointer-events:none;text-align:center;font-weight:900;letter-spacing:-.02em;color:#fff;' +
+            '.scc-lyr{position:absolute;inset:0;container-type:inline-size;display:flex;flex-direction:column;justify-content:center;pointer-events:none;text-align:center;font-weight:900;letter-spacing:-.02em;color:#fff;' +
                 // Затемнение под текстом: на светлой обложке белые буквы иначе тонули
                 'background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.28) 35%,rgba(0,0,0,.28) 65%,rgba(0,0,0,.5));transition:opacity .3s ease}',
             '.scc-lyr.wait{background:none}',
@@ -153,16 +158,44 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc-flow>p.now>span.on{color:#fff;text-shadow:0 0 24px color-mix(in srgb,var(--sca-c1,#fff) 80%,transparent),0 2px 14px rgba(0,0,0,.7)}',
             // «Удар»: одна строка, слова выпрыгивают с поворотом, длинные слова цветом обложки, ушедшая строка улетает вверх
             '.scc-punch{position:absolute;inset:0;display:grid;place-items:center;padding:0 7%}',
-            '.scc-pl{grid-area:1/1;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:.05em .28em;font-size:10cqw;line-height:1.02;text-transform:uppercase;text-shadow:0 0 .22em rgba(0,0,0,.75),0 .06em 0 rgba(0,0,0,.45),0 8px 30px rgba(0,0,0,.6)}',
+            '.scc-pl{grid-area:1/1;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:.04em .2em;font-size:9.4cqw;line-height:1;text-transform:uppercase;' +
+                // Montserrat Black (вшит в клиент, 2.10.1): геометрический гротеск в духе Proxima Nova, с кириллицей. «Поток» остаётся шрифтом сайта
+                'font-family:"SC2 Montserrat",Montserrat,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;font-weight:900;letter-spacing:-.02em;' +
+                'text-shadow:0 .04em 0 rgba(0,0,0,.3),0 6px 26px rgba(0,0,0,.55)}',
             '.scc-pl>span{display:inline-block;opacity:0;transform:translateY(.35em) scale(1.7) rotate(-6deg);filter:blur(6px);transition:opacity .16s ease-out,transform .32s cubic-bezier(.2,1.6,.4,1),filter .2s ease-out}',
             '.scc-pl>span:nth-child(even){transform:translateY(.35em) scale(1.7) rotate(6deg)}',
             '.scc-pl>span.on{opacity:1;transform:none;filter:none}',
-            '.scc-pl>span.big{color:color-mix(in srgb,var(--sca-c1,#ffd24a) 55%,#fff);-webkit-text-stroke:.025em rgba(0,0,0,.45)}',
-            '.scc-pl.small{font-size:7.4cqw}',
-            '.scc-pl.tiny{font-size:5.6cqw}',
+            '.scc-pl>span.big{color:color-mix(in srgb,var(--sca-c1,#ffd24a) 55%,#fff);}',
+            '.scc-pl.small{font-size:7cqw}',
+            '.scc-pl.tiny{font-size:5.2cqw}',
             '.scc-pl.out{animation:scc-out .38s cubic-bezier(.4,0,1,1) forwards}',
             '@keyframes scc-out{to{opacity:0;transform:translateY(-.6em) scale(.9);filter:blur(8px)}}',
             '.scc-lyr.punch .scc-pl.now{transform:scale(calc(1 + var(--k) * .06))}',
+            // Текст сбоку (2.10.1): обложка слева без текста, колонка с текстом справа, как в Spotify. В кадре 9:16 колонка под обложкой
+            '.scc.side .scc-frame{display:grid;grid-template-columns:min(calc(var(--scc-w) * .4),calc(var(--scc-h) * .6)) minmax(0,1fr);grid-template-rows:1fr auto auto auto 1fr;column-gap:calc(var(--scc-w) * .05);row-gap:calc(var(--scc-h) * .02);align-items:center;justify-content:center}',
+            '.scc.side .scc-art{grid-column:1;grid-row:2;width:100%}',
+            '.scc.side .scc-text{grid-column:1;grid-row:3}',
+            '.scc.side .scc-bar{grid-column:1;grid-row:4;width:100%}',
+            '.scc.side .scc-lyr{position:relative;inset:auto;grid-column:2;grid-row:1/-1;align-self:stretch;height:100%;background:none;text-align:left}',
+            '.scc.side .scc-flow{left:0;right:0}',
+            '.scc.side .scc-flow>p{font-size:6.6cqw;line-height:1.14;padding:1.4cqw 0;transform:none;filter:none;transform-origin:0 50%}',
+            '.scc.side .scc-flow>p.near{transform:none}',
+            '.scc.side .scc-flow>p.now{transform:none;color:rgba(255,255,255,.55)}',
+            '.scc.side .scc-punch{padding:0;place-items:center start}',
+            '.scc.side .scc-pl{justify-content:flex-start;text-align:left;font-size:9cqw}',
+            '.scc.side .scc-pl.small{font-size:7cqw}',
+            '.scc.side .scc-pl.tiny{font-size:5.4cqw}',
+            '.scc.side .scc-lyr-note{align-self:flex-start}',
+            '.scc.side.nolyr .scc-frame{grid-template-columns:min(calc(var(--scc-w) * .4),calc(var(--scc-h) * .6)) 0;column-gap:0}',
+            '.scc.vertical.side .scc-frame{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr) auto;row-gap:calc(var(--scc-h) * .02);align-content:center}',
+            '.scc.vertical.side .scc-art{grid-column:1;grid-row:1;width:min(calc(var(--scc-w) * .64),calc(var(--scc-h) * .34));justify-self:center}',
+            '.scc.vertical.side .scc-text{grid-column:1;grid-row:2}',
+            '.scc.vertical.side .scc-lyr{grid-column:1;grid-row:3;min-height:0;text-align:center}',
+            '.scc.vertical.side .scc-bar{grid-column:1;grid-row:4;justify-self:center}',
+            '.scc.vertical.side .scc-flow>p{font-size:7.4cqw;transform-origin:50% 50%;text-align:center}',
+            '.scc.vertical.side .scc-punch{place-items:center}',
+            '.scc.vertical.side .scc-pl{justify-content:center;text-align:center;font-size:10cqw}',
+            '.scc.vertical.side.nolyr .scc-frame{grid-template-rows:auto auto 0 auto}',
             // Панель кнопок: исчезает через 2 с без движения мыши, курсор тоже
             '.scc-tools{position:absolute;top:16px;right:16px;z-index:2;display:flex;gap:6px;padding:5px;border-radius:999px;background:rgba(10,11,16,.6);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);transition:opacity .25s ease,transform .25s ease}',
             '.scc.idle .scc-tools{opacity:0;transform:translateY(-6px);pointer-events:none}',
@@ -187,6 +220,31 @@ export function installClip(core: ClipCore): ClipSection {
             '@media (prefers-reduced-motion:reduce){.scc,.scc *{transition:none!important;animation:none!important}.scc-art{transform:none!important}}',
         ].join('\n');
         document.head.append(style);
+    }
+
+    // Шрифт «Удара»: Montserrat вшит в клиент и грузится из байтов (FontFace из буфера не идёт через CSP сайта)
+    let fontLoaded = false;
+    function ensureFont(): void {
+        if (fontLoaded || !core.fonts || typeof FontFace === 'undefined') return;
+        fontLoaded = true;
+        const bytes = (base64: string): ArrayBuffer => {
+            const raw = atob(base64);
+            const out = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+            return out.buffer;
+        };
+        const faces: Array<[string, string]> = [
+            [core.fonts.latin, 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD'],
+            [core.fonts.cyrillic, 'U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116'],
+        ];
+        for (const [data, range] of faces) {
+            try {
+                const face = new FontFace('SC2 Montserrat', bytes(data), { weight: '100 900', unicodeRange: range });
+                void face.load().then(() => document.fonts.add(face)).catch(() => undefined);
+            } catch {
+                // шрифт не встал: запасной из системы
+            }
+        }
     }
 
     const opener = (): HTMLButtonElement => {
@@ -227,6 +285,7 @@ export function installClip(core: ClipCore): ClipSection {
     let bare = read('sc2-clip-bare') === 'on';
     const savedStyle = read('sc2-clip-lyrics');
     let lyricStyle: ClipLyricStyle = savedStyle === 'punch' || savedStyle === 'off' ? savedStyle : 'flow';
+    let side = read('sc2-clip-side') === 'on';
 
     let layer: HTMLElement | null = null;
     let timer: ReturnType<typeof setInterval> | undefined;
@@ -258,6 +317,13 @@ export function installClip(core: ClipCore): ClipSection {
         layer.style.setProperty('--scc-h', size.height + 'px');
         layer.classList.toggle('vertical', vertical);
         layer.classList.toggle('bare', bare);
+        layer.classList.toggle('side', side);
+        const sideBtn = layer.querySelector<HTMLElement>('[data-clip="side"]');
+        if (sideBtn) {
+            sideBtn.setAttribute('aria-pressed', String(side));
+            sideBtn.setAttribute('aria-label', T.side);
+            sideBtn.title = T.side;
+        }
         layer.querySelector('[data-clip="vertical"]')?.setAttribute('aria-pressed', String(vertical));
         layer.querySelector('[data-clip="text"]')?.setAttribute('aria-pressed', String(!bare));
         const lyr = layer.querySelector<HTMLElement>('[data-clip="lyrics"]');
@@ -336,17 +402,22 @@ export function installClip(core: ClipCore): ClipSection {
     // ===== Текст на обложке =====
     function buildLyrics(now: ClipNow): void {
         const art = layer?.querySelector<HTMLElement>('.scc-art');
-        if (!art) return;
+        const frame = layer?.querySelector<HTMLElement>('.scc-frame');
+        if (!art || !frame || !layer) return;
+        // Сбоку текст лежит в кадре рядом с обложкой, иначе на самой обложке
+        const host = side ? frame : art;
         const state = now.lyrics === undefined ? 'wait' : now.lyrics === null ? 'none' : now.lyrics.lines ? 'synced' : 'plain';
-        const key = now.id + '|' + lyricStyle + '|' + state;
+        const key = now.id + '|' + lyricStyle + '|' + state + '|' + side;
         if (key === lyrKey) return;
         lyrKey = key;
         lyrLine = -2;
         lyrWord = -2;
-        art.querySelector('.scc-lyr')?.remove();
+        layer.querySelectorAll('.scc-lyr').forEach((node) => node.remove());
         lyrLines = now.lyrics?.lines ?? null;
         lyrPlain = now.lyrics && !now.lyrics.lines ? now.lyrics.plain.split('\n').map((line) => line.trim()).filter(Boolean) : [];
-        if (lyricStyle === 'off' || state === 'none') return;
+        const empty = lyricStyle === 'off' || state === 'none';
+        layer.classList.toggle('nolyr', empty);
+        if (empty) return;
         const box = document.createElement('div');
         box.className = 'scc-lyr ' + lyricStyle;
         if (state === 'wait') {
@@ -355,7 +426,7 @@ export function installClip(core: ClipCore): ClipSection {
             note.className = 'scc-lyr-note';
             note.textContent = T.searching;
             box.append(note);
-            art.append(box);
+            host.append(box);
             return;
         }
         if (lyricStyle === 'flow') {
@@ -389,7 +460,7 @@ export function installClip(core: ClipCore): ClipSection {
             punch.className = 'scc-punch';
             box.append(punch);
         }
-        art.append(box);
+        host.append(box);
     }
     /** Строка для текста без времени: по доле прослушанного */
     function plainIndex(now: ClipNow): number {
@@ -585,6 +656,7 @@ export function installClip(core: ClipCore): ClipSection {
         } else if (key === 'v' || key === 'м') toggleVertical();
         else if (key === 'h' || key === 'р') toggleText();
         else if (key === 'l' || key === 'д') cycleLyrics();
+        else if (key === 'p' || key === 'з') toggleSide();
         else if (key === 'f' || key === 'а') void toggleFull();
         else if (event.key === ' ') core.togglePlay();
         else if (event.key === 'ArrowRight') seekBy(event.shiftKey ? 15000 : 5000);
@@ -608,6 +680,13 @@ export function installClip(core: ClipCore): ClipSection {
     function cycleLyrics(): void {
         lyricStyle = clipNextStyle(lyricStyle);
         save('sc2-clip-lyrics', lyricStyle);
+        layout();
+        lyrKey = '';
+        paint();
+    }
+    function toggleSide(): void {
+        side = !side;
+        save('sc2-clip-side', side ? 'on' : 'off');
         layout();
         lyrKey = '';
         paint();
@@ -638,12 +717,13 @@ export function installClip(core: ClipCore): ClipSection {
         frame.className = 'scc-frame';
         const tools = document.createElement('div');
         tools.className = 'scc-tools';
-        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('text', T.text, 'text'), tool('full', T.full, 'full'), tool('close', T.close, 'close'));
+        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('side', T.side, 'side'), tool('text', T.text, 'text'), tool('full', T.full, 'full'), tool('close', T.close, 'close'));
         tools.addEventListener('click', (event) => {
             const control = (event.target as Element | null)?.closest<HTMLElement>('[data-clip]');
             switch (control?.dataset.clip) {
                 case 'vertical': toggleVertical(); break;
                 case 'lyrics': cycleLyrics(); break;
+                case 'side': toggleSide(); break;
                 case 'text': toggleText(); break;
                 case 'full': void toggleFull(); break;
                 case 'close': close(); break;
@@ -653,6 +733,7 @@ export function installClip(core: ClipCore): ClipSection {
         frame.addEventListener('click', (event) => {
             if ((event.target as Element | null)?.closest('.scc-art')) core.togglePlay();
         });
+        ensureFont();
         layer.append(bg, frame, tools);
         document.body.append(layer);
         layer.addEventListener('pointermove', wake);
