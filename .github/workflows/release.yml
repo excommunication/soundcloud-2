@@ -62,6 +62,8 @@ jobs:
           SKIP_VMP_SIGNING: ${{ steps.evs.outputs.skip }}
           EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
           EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+      # Маленький установщик (~100 КБ): качает полный из этого же релиза, поэтому имя у него без версии
+      - run: npx --yes pnpm@12.15.0 build-setup
       - name: Релиз на GitHub
         shell: pwsh
         env:
@@ -70,10 +72,10 @@ jobs:
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $tag = '${{ inputs.tag }}'
           if (-not $tag) { $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { "v$version" } }
-          $files = @(Get-ChildItem build -File | Where-Object { $_.Name -match 'setup-x64\.exe(\.blockmap)?$' -or $_.Name -eq 'latest.yml' } | ForEach-Object { $_.FullName })
-          Get-ChildItem build -File -Filter '*setup-x64.exe' | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content build/SHA256SUMS -Encoding ascii
+          $files = @(Get-ChildItem build -File | Where-Object { $_.Name -match 'setup-x64\.exe(\.blockmap)?$' -or $_.Name -eq 'latest.yml' -or $_.Name -eq 'SoundCloud-2-Setup.exe' } | ForEach-Object { $_.FullName })
+          Get-ChildItem build -File | Where-Object { $_.Name -like '*setup-x64.exe' -or $_.Name -eq 'SoundCloud-2-Setup.exe' } | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content build/SHA256SUMS -Encoding ascii
           $files += (Resolve-Path build/SHA256SUMS).Path
-          $notes = "SoundCloud 2 $version для Windows 10 и 11 x64.`n`nУстанови ``soundcloud-2-$version-setup-x64.exe``. Дальше клиент обновляется сам.`n`n$(git log -1 --format=%B)"
+          $notes = "SoundCloud 2 $version для Windows 10 и 11 x64.`n`nСкачай ``SoundCloud-2-Setup.exe`` (~100 КБ): он сам скачает и поставит клиент. Полный установщик без интернета: ``soundcloud-2-$version-setup-x64.exe``. Дальше клиент обновляется сам.`n`n$(git log -1 --format=%B)"
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) { gh release upload $tag @files --clobber }
           else { gh release create $tag @files --title "SoundCloud 2 $version" --notes $notes --latest }
