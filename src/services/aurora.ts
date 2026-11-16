@@ -476,6 +476,14 @@ export function appearanceCss(appearance: Appearance): string {
         // Боковые колонки сайта: карточки-стекло, обложки скруглены, строки подсвечиваются
         `.sidebarModule{border-radius:var(--sc2-r4)!important;padding:8px 14px 4px!important;background:var(--sc2-panel)!important;backdrop-filter:var(--sc2-blur);-webkit-backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line)!important}`,
         `.sidebarModule .soundBadge .sc-artwork,.sidebarModule .sc-artwork{border-radius:var(--sc2-r1)!important;overflow:hidden}`,
+        // Кнопки у трека в правой колонке (2.8.6): у сайта под ними сплошной градиент #121212, чтобы закрыть текст.
+        // На стеклянной плашке он лежал тёмным прямоугольником. Теперь фона нет, текст под кнопками плавно растворяется,
+        // а сами кнопки стеклянные круги
+        `.sidebarModule .soundBadge__additional{background:none!important}`,
+        `.sidebarModule .soundBadge .soundTitle,.sidebarModule .soundBadge .soundStats{transition:-webkit-mask-position .2s ease}`,
+        `.sidebarModule .soundBadge:hover .soundTitle,.sidebarModule .soundBadge:hover .soundStats,.sidebarModule .soundBadge:focus-within .soundTitle,.sidebarModule .soundBadge:focus-within .soundStats{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 120px),transparent calc(100% - 70px));mask-image:linear-gradient(90deg,#000 calc(100% - 120px),transparent calc(100% - 70px))}`,
+        `.sidebarModule .soundBadge__actions .sc-button{border:0!important;border-radius:999px!important;background:rgba(255,255,255,.1)!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)!important}`,
+        `.sidebarModule .soundBadge__actions .sc-button:hover{background:rgba(255,255,255,.18)!important}`,
         `.sidebarHeader__title,.sidebarModule h3{letter-spacing:.08em;font-weight:800!important}`,
         // Пустая полоса справа над лайками (2.8.1): модуль, из которого блокировщик убрал содержимое, оставался стеклянной плашкой
         // с отступами. Модуль без ссылок, картинок, кнопок, списков и текста не показывается

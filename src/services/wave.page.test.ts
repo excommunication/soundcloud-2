@@ -4634,3 +4634,16 @@ it('«Моя музыка»: смена режима сразу после пе�
     expect(queuedIds(site).slice(0, 11)).toEqual([301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311]);
     expect(site.player.isPlaying()).toBe(false);
 });
+
+it('2.8.6: трек в баре при запуске и текст песни у клиента не роняют волну (главная была пустой)', async () => {
+    fakeSite(relatedTracks, siteExtra);
+    fakeExclusions();
+    Object.assign(window, { soundcloudAPI: { ...(window as unknown as { soundcloudAPI?: object }).soundcloudAPI, lyrics: async () => null } });
+    const bar = document.createElement('div');
+    bar.className = 'playControls';
+    bar.innerHTML = '<div class="playbackSoundBadge"><a class="playbackSoundBadge__titleLink" href="https://soundcloud.com/artist/song">Song</a><div class="playbackSoundBadge__actions"></div></div>';
+    document.body.append(bar);
+    expect(() => window.eval(waveScript())).not.toThrow();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(document.getElementById('sc-wave')).not.toBeNull();
+});
