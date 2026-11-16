@@ -299,25 +299,27 @@ export function qrSvg(grid: boolean[][], dark: string, hole = 0): string {
     }
     let logo = '';
     if (hole > 0) {
-        // Значок клиента: тёмный скруглённый квадрат, белое облако и семь оранжевых полосок, как на иконке. Рисунок в поле 30×26
-        const side = hole - 1;
-        const at = quiet + lo + 0.5;
-        const k = (side * 0.8) / 23;
-        const ox = at + side / 2 - 14.9 * k;
+        // Значок клиента (2.11.2): оранжевый скруглённый квадрат, как у SoundCloud, белое облако и четыре толстые полоски — тонкие
+        // на скриншоте сливались. Оранжевый медленно переливается (SMIL внутри SVG, без скрипта). Рисунок в поле 30×26
+        const side = hole - 0.5;
+        const at = quiet + lo + 0.25;
+        const k = (side * 0.84) / 22;
+        const ox = at + side / 2 - 14.65 * k;
         const oy = at + side / 2 - 13 * k;
-        const HEIGHTS = [3.4, 5.6, 5.2, 7.2, 8.4, 7.8, 9.4];
+        const HEIGHTS = [5, 7.4, 8.6, 10.2];
         let bars = '';
         HEIGHTS.forEach((h, i) => {
-            bars += '<rect class="scq-b" style="--i:' + i + '" x="' + n(4.2 + i * 1.3) + '" y="' + n(13.1 - h / 2) + '" width=".8" height="' + n(h) + '" rx=".4"/>';
+            bars += '<rect class="scq-b" style="--i:' + i + '" x="' + n(4 + i * 2.2) + '" y="' + n(13 - h / 2) + '" width="1.4" height="' + n(h) + '" rx=".7"/>';
         });
         logo =
-            '<defs><linearGradient id="scq-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a00"/><stop offset="1" stop-color="#ff3d00"/></linearGradient></defs>' +
-            '<rect x="' + n(at) + '" y="' + n(at) + '" width="' + n(side) + '" height="' + n(side) + '" rx="' + n(side * 0.26) + '" fill="#111214"/>' +
-            '<g transform="translate(' + n(ox) + ' ' + n(oy) + ') scale(' + n(k) + ')">' +
-            '<g class="scq-eq" fill="url(#scq-o)">' + bars + '</g>' +
-            '<path fill="#fff" d="M13.9 17.7Q13.3 17.7 13.3 17.1V9C14.2 8.6 15.2 8.4 16.2 8.4 18.7 8.4 20.7 10.1 21.3 12.3 21.8 12.1 22.3 12 22.8 12 24.6 12 25.6 13.3 25.6 14.85 25.6 16.4 24.6 17.7 22.8 17.7Z"/>' +
+            '<defs><linearGradient id="scq-o" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa03a"/><stop offset=".5" stop-color="#ff5500"/><stop offset="1" stop-color="#ff2d55"/>' +
+            '<animateTransform attributeName="gradientTransform" type="rotate" values="0 .5 .5;360 .5 .5" dur="9s" repeatCount="indefinite"/></linearGradient></defs>' +
+            '<rect x="' + n(at) + '" y="' + n(at) + '" width="' + n(side) + '" height="' + n(side) + '" rx="' + n(side * 0.27) + '" fill="url(#scq-o)"/>' +
+            '<g transform="translate(' + n(ox) + ' ' + n(oy) + ') scale(' + n(k) + ')" fill="#fff">' +
+            '<g class="scq-eq">' + bars + '</g>' +
+            '<path d="M13.6 18.1Q13 18.1 13 17.5V8.6C13.95 8.15 15 7.95 16.05 7.95 18.65 7.95 20.75 9.75 21.35 12.05 21.85 11.85 22.4 11.75 22.9 11.75 24.8 11.75 25.9 13.15 25.9 14.9 25.9 16.7 24.8 18.1 22.9 18.1Z"/>' +
             '</g>';
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" aria-hidden="true"><rect width="' + total + '" height="' + total + '" rx="2" fill="#fff"/>' +
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" aria-hidden="true"><rect width="' + total + '" height="' + total + '" rx="5.6" fill="#fff"/>' +
         '<path fill="' + dark + '" d="' + eyes + '" fill-rule="evenodd"/><path fill="' + dark + '" d="' + path + '"/>' + logo + '</svg>';
 }

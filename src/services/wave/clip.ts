@@ -408,17 +408,22 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc.fx .scc-art::after{background-color:#00f;transform:translate3d(calc(var(--fxk,0) * 8px),0,0)}',
             '.scc.fx .scc-art>.scc-lyr{z-index:1}',
             // ===== Значок sc2 и QR (2.11.0): внутри кадра, в правом нижнем углу, под подписями и текстом =====
-            // Значок (2.11.1): белая карточка как у визитки Telegram — точечный QR со скруглёнными метками, в центре значок клиента,
-            // полоски которого играют эквалайзером и подпрыгивают на ударе; снизу подпись sc2. Карточка слегка светится оранжевым в такт
-            '.scc-qr{position:absolute;right:calc(var(--scc-w) * .035);bottom:calc(var(--scc-h) * .022);z-index:1;display:flex;flex-direction:column;align-items:center;gap:calc(var(--scc-h) * .002);padding:calc(var(--scc-h) * .005) calc(var(--scc-h) * .005) calc(var(--scc-h) * .006);border-radius:calc(var(--scc-h) * .016);background:#fff;pointer-events:none;' +
-                'box-shadow:0 10px 30px -10px rgba(0,0,0,.75),0 0 0 calc(1px + var(--k) * 2px) rgba(255,85,0,calc(.15 + var(--k) * .5)),0 0 calc(var(--k) * 26px) rgba(255,85,0,calc(var(--k) * .45));transition:box-shadow 90ms ease-out;animation:scq-in .6s cubic-bezier(.2,1.3,.4,1) both}',
+            // Значок (2.11.2): тихая белая карточка без подписи, по краю медленно переливается кольцо цветов SoundCloud, посередине
+            // оранжевый значок клиента, его белые полоски играют эквалайзером. Пока значок включён, кадр поднимает содержимое
+            // над ним, чтобы карточка не наезжала на полосу времени и текст
+            '.scc{--scq:clamp(64px,calc(var(--scc-h,100vh) * .088),128px)}',
+            '.scc.qr .scc-frame{padding-bottom:calc(var(--scq) + var(--scc-h) * .045)}',
+            '.scc-qr{position:absolute;right:calc(var(--scc-w) * .035);bottom:calc(var(--scc-h) * .022);z-index:1;box-sizing:border-box;width:var(--scq);padding:calc(var(--scq) * .03);border-radius:calc(var(--scq) * .17);background:#fff;opacity:.94;pointer-events:none;' +
+                'box-shadow:0 10px 28px -12px rgba(0,0,0,.8),0 0 calc(var(--k) * 22px) rgba(255,110,40,calc(var(--k) * .35));transition:box-shadow 90ms ease-out;animation:scq-in .7s cubic-bezier(.2,1.2,.4,1) both}',
+            '.scc-qr::before{content:"";position:absolute;inset:-2.5px;padding:2.5px;border-radius:calc(var(--scq) * .17 + 2.5px);background:conic-gradient(from var(--scq-a),#ff5500,#ffa24d,#ff4f8b,#9b7bff,#4fd0ff,#ff5500);' +
+                '-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:calc(.75 + var(--k) * .25);animation:scq-spin 8s linear infinite}',
+            '@property --scq-a{syntax:"<angle>";inherits:false;initial-value:0deg}',
+            '@keyframes scq-spin{to{--scq-a:360deg}}',
             '@keyframes scq-in{from{opacity:0;transform:translateY(10px) scale(.85)}}',
-            '.scc-qr>svg{display:block;width:clamp(58px,calc(var(--scc-h) * .082),118px);height:auto}',
-            '.scc-qr>b{display:block;padding-bottom:.08em;font:900 clamp(9px,calc(var(--scc-h) * .0125),15px)/1 "SC2 Montserrat",Montserrat,system-ui,sans-serif;letter-spacing:.02em;color:#101114}',
-            '.scc-qr>b>i{font-style:normal;color:#ff5500}',
-            '.scc-qr .scq-eq{transform-box:fill-box;transform-origin:50% 50%;transform:scaleY(calc(1 + var(--k) * .28));transition:transform 80ms ease-out}',
-            '.scc-qr .scq-b{transform-box:fill-box;transform-origin:50% 50%;animation:scq-eq 1.2s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.17s)}',
-            '@keyframes scq-eq{0%{transform:scaleY(.42)}50%{transform:scaleY(1)}100%{transform:scaleY(.66)}}',
+            '.scc-qr>svg{display:block;width:100%;height:auto}',
+            '.scc-qr .scq-eq{transform-box:fill-box;transform-origin:50% 50%;transform:scaleY(calc(1 + var(--k) * .25));transition:transform 80ms ease-out}',
+            '.scc-qr .scq-b{transform-box:fill-box;transform-origin:50% 50%;animation:scq-eq .95s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.23s)}',
+            '@keyframes scq-eq{0%{transform:scaleY(.32)}55%{transform:scaleY(1)}100%{transform:scaleY(.6)}}',
             '.scc:not(.playing) .scc-qr .scq-b{animation-play-state:paused}',
             '.scc-empty{font-size:18px;color:rgba(255,255,255,.7)}',
             // Кнопка режима в карточке и в баре
@@ -545,6 +550,7 @@ export function installClip(core: ClipCore): ClipSection {
         layer.classList.toggle('fx', fx && !reduced());
         layer.querySelector('[data-clip="fx"]')?.setAttribute('aria-pressed', String(fx));
         layer.querySelector('[data-clip="qr"]')?.setAttribute('aria-pressed', String(qrOn));
+        layer.classList.toggle('qr', qrOn);
         syncFx();
         syncQr();
         const sideBtn = layer.querySelector<HTMLElement>('[data-clip="side"]');
@@ -1095,7 +1101,7 @@ export function installClip(core: ClipCore): ClipSection {
         box.className = 'scc-qr';
         box.setAttribute('role', 'img');
         box.setAttribute('aria-label', T.qrTitle);
-        box.innerHTML = qrHtml + '<b>sc<i>2</i></b>';
+        box.innerHTML = qrHtml;
         frame.append(box);
     }
     /** Один шаг картинки (до 30 раз в секунду, пока играет): спектр, бит, уровни волны, огибающая эффектов */

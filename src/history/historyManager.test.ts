@@ -3,7 +3,7 @@ vi.mock('electron', () => ({
     ipcMain: { handle: vi.fn(), on: vi.fn(), removeHandler: vi.fn(), removeListener: vi.fn() },
     WebContentsView: vi.fn(), BrowserWindow: vi.fn(), app: {}, clipboard: {}, dialog: {}, nativeImage: {},
 }));
-import type { BrowserWindow } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 import type { LibraryService } from '../services/libraryService';
 import { HistoryManager, type HistoryHost } from './historyManager';
 
@@ -42,6 +42,42 @@ it('сводку закрытой недели считает один раз, �
     vi.setSystemTime(new Date(2026, 10, 4, 18, 30));
     await manager.checkRecap();
     expect(overviews()).toBe(4);
+});
+
+// Обработчик канала от последнего созданного менеджера; отправитель — главный кадр подставленного окна истории
+async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
+    const calls = vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === channel);
+    const handler = calls[calls.length - 1][1];
+    const sender = { mainFrame: {} };
+    const own = manager as unknown as { view: unknown };
+    own.view = { webContents: sender };
+    try {
+        return await handler({ sender, senderFrame: sender.mainFrame } as never, ...args);
+    } finally {
+        own.view = null;
+    }
+}
+
+it('итоги года добирают дни кусками до 200 дней, месяц и пустой год обходятся одним обзором', async () => {
+    vi.setSystemTime(new Date(2026, 10, 16, 12, 0));
+    request.mockImplementation(async (method: string, ...args: unknown[]) => {
+        if (method !== 'overview') return undefined;
+        const [, from, to] = args as [number, number, number];
+        const days = Math.round((to - from) / 86400000);
+        return { heard, from, to, heat: [], artists: [], tracks: [], genres: [], wave: { binHours: days > 200 ? 48 : 24, bins: new Array(days).fill(1) } };
+    });
+    heard = 5;
+    const year = (await invoke('history:recap', 'year', 'this')) as { recap: { period: string; days: number }; insights: { daily: number[]; months: number[] } };
+    expect(overviews()).toBe(3);
+    expect(year.recap).toMatchObject({ period: 'year', days: 320 });
+    expect(year.insights.daily).toHaveLength(320);
+    expect(year.insights.months).toHaveLength(11);
+    await invoke('history:recap', 'month', 'this');
+    expect(overviews()).toBe(4);
+    heard = 0;
+    await invoke('history:recap', 'year', 'last');
+    expect(overviews()).toBe(5);
+    request.mockImplementation(async (method: string) => (method === 'overview' ? { heard } : undefined));
 });
 
 it('пустой ответ индекса не запоминается', async () => {

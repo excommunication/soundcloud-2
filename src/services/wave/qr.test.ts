@@ -242,10 +242,10 @@ describe('QR-код значка со значком клиента', () => {
         for (const words of hit) expect(words.size).toBeLessThanOrEqual(spec.ec / 2 - 3);
         expect(hit.reduce((sum, words) => sum + words.size, 0)).toBeGreaterThan(0);
     });
-    it('SVG: скруглённые метки, дыра пуста, значок с семью полосками', () => {
+    it('SVG: скруглённые метки, дыра пуста, значок с четырьмя полосками', () => {
         const svg = qrSvg(grid, '#0b0c10', HOLE);
         expect(svg).toContain('viewBox="0 0 39 39"');
-        expect(svg.match(/class="scq-b"/g)?.length).toBe(7);
+        expect(svg.match(/class="scq-b"/g)?.length).toBe(4);
         expect(svg).toContain('fill-rule="evenodd"');
         // ни один модуль данных не начинается внутри дыры (в координатах SVG дыра 15..24)
         const data = svg.match(/<path fill="#0b0c10" d="([^"]*)"\/>/g)?.[1] ?? '';
