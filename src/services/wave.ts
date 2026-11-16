@@ -33,6 +33,8 @@ import * as scoutSectionModule from './wave/scout';
 import * as glowModule from './wave/glow';
 import * as vibeSectionModule from './wave/vibe';
 import * as dockSectionModule from './wave/dock';
+import * as volumeSectionModule from './wave/volume';
+import * as clipSectionModule from './wave/clip';
 import * as swapSectionModule from './wave/swap';
 import * as forYouSectionModule from './wave/forYou';
 import * as waveVibeModule from './waveVibe';
@@ -65,6 +67,8 @@ const { installScout, scoutStart, dropAt } = scoutSectionModule;
 const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
+const { installVolume, volumeAt, volumeWheel } = volumeSectionModule;
+const { installClip, clipArtwork, verticalFrame } = clipSectionModule;
 const { installSwap, trackAccess } = swapSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
@@ -777,6 +781,35 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
         actOn: (node, act) => menuSection.actOn(node, act),
         actsOn: (node) => menuSection.actsOn(node),
+        disposed: () => disposed,
+    });
+    // Громкость карточки и нижнего бара: раздел в wave/volume.ts, узлы живут всё время и пересборкой не пересоздаются
+    const volumeSection = installVolume({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        site: () => volumeModule(),
+        disposed: () => disposed,
+    });
+    // Режим «Для роликов»: обложка играющего трека на всё окно, раздел в wave/clip.ts. Кнопка в карточке и в баре
+    const clipSection = installClip({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        now: () => {
+            const sound = player?.getCurrentSound();
+            const track = sound?.attributes;
+            if (!sound || !track) return null;
+            const duration = durationOf(sound);
+            return {
+                title: (track.title ?? '').trim() || '…',
+                artist: track.user?.username ?? '',
+                art: artworkUrl(track, 't500x500'),
+                progress: duration > 0 ? positionOf(sound) / duration : 0,
+                playing: !!player?.isPlaying(),
+            };
+        },
+        togglePlay: () => {
+            if (!player?.getCurrentSound()) return;
+            if (player.isPlaying()) player.pauseCurrent({ userInitiated: true });
+            else player.playCurrent({ userInitiated: true });
+        },
         disposed: () => disposed,
     });
     // Автозамена отрывков Go+ и треков с неработающим защищённым потоком: раздел в wave/swap.ts
@@ -3749,7 +3782,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         history: '<svg class="scw-line" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8"/><path d="M2.4 2.6v2.5h2.5"/><path d="M8 5v3.2l2.2 1.4"/></svg>',
     };
     const CSS = [
-        '#sc-wave{--scw-surface:#303030;--scw-muted:#999;--scw-faint:#757575;--scw-film:rgba(255,255,255,.06);--scw-film-strong:rgba(255,255,255,.1);--scw-btn:#fff;--scw-btn-ink:#121212;--scw-tile:rgba(255,255,255,.06);position:relative;margin:0 0 48px 16px;font-size:14px;line-height:20px}',
+        '#sc-wave{--scw-surface:#303030;--scw-muted:#999;--scw-faint:#757575;--scw-film:rgba(255,255,255,.06);--scw-film-strong:rgba(255,255,255,.1);--scw-btn:#fff;--scw-btn-ink:#121212;--scw-tile:rgba(255,255,255,.06);position:relative;margin:0 0 40px 16px;font-size:14px;line-height:20px;--scw-cover-size:184px;container-type:inline-size;container-name:scw}',
         '#sc-wave button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}',
         '#sc-wave :focus-visible{outline:2px solid currentColor;outline-offset:2px}',
         '#sc-wave svg{display:block}',
@@ -3778,7 +3811,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '#sc-wave .scw-opt:hover{background:var(--scw-film-strong)}',
         '#sc-wave .scw-opt[aria-selected="true"]{font-weight:600}',
         // Подложка блока в цвет обложки играющего трека (В6): без цвета прозрачна, отступы гасят поля, раскладка та же
-        '.scw-body{position:relative;isolation:isolate;display:flex;gap:24px;margin:-12px;padding:12px;border-radius:8px;transition:background-color .3s cubic-bezier(.2,0,0,1)}',
+        '.scw-body{position:relative;isolation:isolate;display:flex;gap:20px;margin:-12px;padding:12px;border-radius:8px;transition:background-color .3s cubic-bezier(.2,0,0,1)}',
         '.scw-body.lit{background-color:color-mix(in srgb,var(--scw-c1) 10%,transparent)}',
         // Свет блока (Ф3): три мягких пятна цветов обложки медленно плывут за блоком внутри его границ, на паузе замирают
         // и притухают, без трека гаснут. Цвета висят на секции и при смене трека перетекают за 1,2 с, подложка с ними.
@@ -3810,15 +3843,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-cover.scw-cross .scw-img.on:last-of-type{animation:scw-cover-in .6s cubic-bezier(.2,.8,.2,1) both}',
         '@keyframes scw-cover-in{from{opacity:0;transform:scale(1.07)}to{opacity:1;transform:none}}',
         // Плитки «Далее» (2.8.5) двигает скрипт: каждая едет со своего прошлого места, новые проявляются (FLIP)
-        // Громкость в карточке: значок и тонкий ползунок, который раскрывается на наведении
-        // Громкость занимает ровно кнопку (2.8.7): ползунок выезжает поверх строки абсолютно и не двигает соседние значки.
-        // Раньше он раздвигал ряд, курсор терял значок и размер дёргался по кругу
-        '.scw-vol{position:relative;display:inline-block;width:32px;height:32px;flex:none}',
-        '.scw-vol>.scw-like{width:32px;height:32px}',
-        '.scw-vol input{position:absolute;right:36px;top:50%;margin:0;-webkit-appearance:none;appearance:none;width:0;height:4px;transform:translateY(-50%);opacity:0;pointer-events:none;border-radius:999px;background:linear-gradient(90deg,#fff var(--scw-vol,50%),rgba(255,255,255,.22) var(--scw-vol,50%));transition:width .2s ease,opacity .2s ease}',
-        '.scw-vol:hover input,.scw-vol:focus-within input,.scw-vol.drag input{width:84px;opacity:1;pointer-events:auto}',
-        '.scw-vol input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5)}',
-        '.scw-vol input:active::-webkit-slider-thumb{transform:scale(1.25)}',
         '@media(prefers-reduced-motion:reduce){.scw-swap,.scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}}',
         'html.scm-reduce .scw-swap,html.scm-reduce .scw-cover.scw-cross .scw-img.on:last-of-type{animation:none!important}',
         // Кнопки перемотки по бокам паузы
@@ -3839,14 +3863,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-cover.scw-cross .scw-img{transition-duration:.3s}',
         '.scw-info{flex:1;min-width:0;display:flex;flex-direction:column}',
         '.scw-top{display:flex;gap:16px;align-items:center}',
-        '.scw-top>div{min-width:0}',
-        '#sc-wave .scw-play{width:64px;height:64px;border-radius:50%;background:var(--scw-btn);display:grid;place-items:center;flex:none}',
+        '.scw-top>div{flex:1 1 auto;min-width:0}',
+        '#sc-wave .scw-play{width:54px;height:54px;border-radius:50%;background:var(--scw-btn);display:grid;place-items:center;flex:none}',
         '.scw-play svg{width:28px;height:28px;fill:var(--scw-btn-ink)}',
         '#sc-wave .scw-play:disabled{opacity:.5;cursor:default}',
-        '.scw-track{font-size:20px;line-height:26px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.scw-track{font-size:19px;line-height:25px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.scw-track.wrap{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
         '.scw-artist{color:var(--scw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.scw-wf{display:block;width:100%;height:96px;margin-top:auto}',
+        '.scw-wf{display:block;width:100%;height:72px;margin-top:auto;min-height:48px}',
         '.scw-wf.live{cursor:pointer}',
         '.scw-meta{display:flex;align-items:center;gap:16px;margin-top:8px;min-height:32px;flex-wrap:wrap}',
         '.scw-why{flex:1;min-width:0;color:var(--scw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -3868,7 +3892,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '#sc-wave .scw-chip svg{width:16px;height:16px;flex:none;fill:currentColor}',
         '#sc-wave .scw-meta.outside{flex-wrap:nowrap;gap:8px}',
         '#sc-wave .scw-sub{margin-top:4px;color:var(--scw-muted);font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.scw-cover{position:relative;width:200px;height:200px;flex:none;background:var(--scw-tile)}',
+        '.scw-cover{position:relative;width:var(--scw-cover-size);height:var(--scw-cover-size);flex:none;background:var(--scw-tile)}',
+        // Узкое окно (2.9.0): по ширине самого блока (правила для потомков: контейнер сам себя не запрашивает), а не окна. Раньше обложка оставалась 236 px, а название сжималось
+        // до одной буквы в строке. Сначала меньше обложка и кнопки, потом обложка уходит наверх и блок идёт столбцом
+        '@container scw (max-width:820px){#sc-wave .scw-body{--scw-cover-size:150px}html body #sc-wave .scw-track{font-size:18px;line-height:24px}#sc-wave .scw-meta{gap:8px}#sc-wave .scw-why{flex-basis:100%;order:-1}}',
+        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:min(260px,70cqw)}html body #sc-wave .scw-body{flex-direction:column;align-items:stretch}#sc-wave .scw-cover{order:-1;align-self:center}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
+        '@container scw (max-width:420px){html body #sc-wave .scw-step{display:none}#sc-wave .scw-meta.outside{flex-wrap:wrap}}',
         '.scw-cover.scw-empty-cover{display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#ff550016,transparent 65%),#191919}',
         '.scw-empty-cover svg{width:100%;height:100%;color:#f50}',
         '.scw-cover.collage{display:grid;grid-template-columns:1fr 1fr}',
@@ -4455,7 +4484,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             }
         }
     }
-    // Громкость в карточке (2.8.5): модуль громкости сайта, если он найден, иначе клавиши сайта Shift+↑/↓ и его кнопка звука
+    // Громкость (2.9.0): модуль громкости сайта для раздела wave/volume.ts, без него раздел жмёт клавиши сайта Shift+↑/↓
     interface SiteVolume { getVolume(): number; setVolume(value: number): void }
     let siteVolume: SiteVolume | null = null;
     let volumeSearched = false;
@@ -4476,69 +4505,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             // модули сайта недоступны: остаются клавиши
         }
         return null;
-    }
-    function volumeNow(bar = document.querySelector('.playControls')): number {
-        const module = volumeModule();
-        if (module) {
-            const value = Number(module.getVolume());
-            if (Number.isFinite(value)) return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
-        }
-        const node = bar?.querySelector('.volume__sliderWrapper[aria-valuenow], [role="slider"][aria-valuenow]');
-        const raw = Number(node?.getAttribute('aria-valuenow'));
-        return Number.isFinite(raw) && node ? Math.max(0, Math.min(1, raw > 1 ? raw / 100 : raw)) : 0.5;
-    }
-    const volumeMuted = (bar = document.querySelector('.playControls')): boolean => !!bar?.querySelector('.volume.muted') || volumeNow(bar) === 0;
-    function volumeSet(value: number): void {
-        const want = Math.max(0, Math.min(1, value));
-        if (volumeMuted() && want > 0) document.querySelector<HTMLElement>('.playControls .volume__button')?.click();
-        const module = volumeModule();
-        if (module) {
-            module.setVolume(want);
-            return;
-        }
-        const steps = Math.round((want - volumeNow()) * 10);
-        for (let i = 0; i < Math.abs(steps); i++) {
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: steps > 0 ? 'ArrowUp' : 'ArrowDown', code: steps > 0 ? 'ArrowUp' : 'ArrowDown', keyCode: steps > 0 ? 38 : 40, shiftKey: true, bubbles: true }));
-        }
-    }
-    const volumeIcon = (level: number): string => (level === 0 ? 'mute' : level < 50 ? 'volLow' : 'vol');
-    function volumeControl(): HTMLElement {
-        const box = el('span', 'scw-vol');
-        const bar = document.querySelector('.playControls');
-        const level = volumeMuted(bar) ? 0 : Math.round(volumeNow(bar) * 100);
-        const icon = volumeIcon(level);
-        const toggle = button('scw-like', 'vol-mute', T.lang === 'ru' ? 'Звук' : 'Volume', icon);
-        toggle.title = T.lang === 'ru' ? 'Звук, M' : 'Volume, M';
-        toggle.dataset.icon = icon;
-        const range = document.createElement('input');
-        range.type = 'range';
-        range.min = '0';
-        range.max = '100';
-        range.step = '1';
-        range.dataset.role = 'volume';
-        range.setAttribute('aria-label', T.lang === 'ru' ? 'Громкость' : 'Volume');
-        range.value = String(level);
-        box.style.setProperty('--scw-vol', level + '%');
-        box.append(toggle, range);
-        return box;
-    }
-    // Значок и ползунок догоняют звук, если его поменяли в баре или клавишами; во время перетаскивания не трогаются
-    function syncVolume(): void {
-        const box = section?.querySelector<HTMLElement>('.scw-vol');
-        if (!box || box.classList.contains('drag')) return;
-        const range = box.querySelector<HTMLInputElement>('input[data-role="volume"]');
-        const bar = document.querySelector('.playControls');
-        const level = volumeMuted(bar) ? 0 : Math.round(volumeNow(bar) * 100);
-        if (range && document.activeElement !== range && range.value !== String(level)) {
-            range.value = String(level);
-            box.style.setProperty('--scw-vol', level + '%');
-        }
-        const toggle = box.querySelector<HTMLElement>('[data-act="vol-mute"]');
-        const icon = volumeIcon(level);
-        if (toggle && toggle.dataset.icon !== icon) {
-            toggle.dataset.icon = icon;
-            toggle.innerHTML = ICON[icon];
-        }
     }
     let waitSince = 0;
     function renderTiles(): HTMLElement[] {
@@ -4885,7 +4851,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const rowsScroll = rowsAt ?? section.querySelector('.scw-mix-rows')?.scrollTop ?? 0;
         const libraryScroll = libraryAt ?? section.querySelector('.scw-lib-rows')?.scrollTop ?? 0;
         const spotsBefore = tileSpots();
-        const volumeDrag = section.querySelector('.scw-vol.drag') !== null;
         section.textContent = '';
         section.setAttribute('aria-label', T.wave);
         section.append(renderHead());
@@ -4950,7 +4915,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), volumeControl(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
             // Трек не из волны (2.8.5): «Моя волна» и «Волна по треку» компактными капсулами в том же ряду, что
@@ -4964,7 +4929,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), volumeControl(), like, el('div', 'scw-time'));
+            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), clipSection.button(), volumeSection.card(), like, el('div', 'scw-time'));
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
             if (mode === 'fresh') meta.append(textButton('to-similar', T.toSimilar));
@@ -5049,7 +5014,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         shownCover = shownNow ? artworkUrl(shownNow, 't500x500') : '';
         turnDir = 1;
         flipTiles(spotsBefore);
-        if (volumeDrag) section.querySelector('.scw-vol')?.classList.add('drag');
         const rowsBox = section.querySelector('.scw-mix-rows');
         if (rowsBox) rowsBox.scrollTop = rowsScroll;
         const libraryBox = section.querySelector('.scw-lib-rows');
@@ -5483,10 +5447,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 }
                 return;
             }
-            case 'vol-mute':
-                document.querySelector<HTMLElement>('.playControls .volume__button')?.click();
-                setTimeout(syncVolume, 60);
-                return;
             case 'lyrics':
                 lyricsOpen = !lyricsOpen;
                 try {
@@ -5555,28 +5515,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 return;
         }
     }
-    function onVolumeDown(event: PointerEvent): void {
-        const box = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-vol') : null;
-        if (!box || !(event.target instanceof HTMLInputElement)) return;
-        box.classList.add('drag');
-        const release = (): void => {
-            window.removeEventListener('pointerup', release);
-            window.removeEventListener('pointercancel', release);
-            section?.querySelector('.scw-vol')?.classList.remove('drag');
-            setTimeout(syncVolume, 80);
-        };
-        window.addEventListener('pointerup', release);
-        window.addEventListener('pointercancel', release);
-    }
     function onInput(event: Event): void {
         if (event.target instanceof HTMLSelectElement && event.target.dataset.role === 'radar-archive') {
             radarSection.select(event.target.value);
-            return;
-        }
-        if (event.target instanceof HTMLInputElement && event.target.dataset.role === 'volume') {
-            const value = Number(event.target.value);
-            event.target.closest<HTMLElement>('.scw-vol')?.style.setProperty('--scw-vol', value + '%');
-            volumeSet(value / 100);
             return;
         }
         if (!(event.target instanceof HTMLInputElement) || event.target.dataset.role !== 'genre-input') return;
@@ -5745,7 +5686,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             section.addEventListener('mousemove', onMove);
             section.addEventListener('mousedown', onDown);
             section.addEventListener('pointerdown', onHoldDown);
-            section.addEventListener('pointerdown', onVolumeDown);
             section.addEventListener('pointerup', onHoldUp);
             section.addEventListener('pointercancel', onHoldUp);
             section.addEventListener('pointerleave', onHoldUp, true);
@@ -5809,7 +5749,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             tickTimer = setInterval(() => {
                 try {
                     tick();
-                    syncVolume();
+                    volumeSection.sync();
+                    clipSection.sync();
                 } catch (error) {
                     console.error('Волна: слежение за плеером', error);
                 }
@@ -5915,6 +5856,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         radarSection.dispose();
         vibeSection.dispose();
         dockSection.dispose();
+        volumeSection.dispose();
+        clipSection.dispose();
         swapSection.dispose();
         forYouSection.dispose();
         document.getElementById('sc-vibe-style')?.remove();
@@ -5982,7 +5925,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installSwap, trackAccess, installForYou,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, installSwap, trackAccess, installForYou,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
