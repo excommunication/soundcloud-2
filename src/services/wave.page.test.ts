@@ -1217,7 +1217,7 @@ it('В7: «Не нравится» в блоке волны ставит сле�
     await vi.advanceTimersByTimeAsync(1100);
     const first = site.player.getCurrentSound()!.id;
     const labels = [...document.querySelectorAll<HTMLElement>('#sc-wave .scw-meta .scw-like')].map((node) => node.dataset.act);
-    expect(labels).toEqual(['later', 'dislike', 'more', 'like']);
+    expect(labels).toEqual(['vol-mute', 'later', 'dislike', 'more', 'like']);
     document.querySelector<HTMLElement>('#sc-wave [data-act="dislike"]')!.click();
     await vi.advanceTimersByTimeAsync(100);
     expect(bridge.set).toHaveBeenCalledWith(77, 'track', expect.objectContaining({ id: first }), true);
