@@ -62,7 +62,7 @@ export function installJam(core: JamCore): JamSection {
     const ru = core.lang === 'ru';
     const T = ru
         ? {
-              title: 'Джем', short: 'С другом', aria: 'Слушать вместе с другом', failed: 'Не удалось скопировать', copyLink: 'Копировать ссылку-приглашение', create: 'Создать джем', join: 'Войти', codePlaceholder: 'Код или sc2://jam/…', leave: 'Выйти',
+              title: 'Джем', aria: 'Слушать вместе с другом', failed: 'Не удалось скопировать', copyLink: 'Копировать ссылку-приглашение', create: 'Создать джем', join: 'Войти', codePlaceholder: 'Код или sc2://jam/…', leave: 'Выйти',
               notConfigured: 'Сервер джемов не настроен', hint: 'Укажи адрес в настройках F1: Дополнительно, «Сервер джемов».', copy: 'Копировать код', copied: 'Скопировано',
               members: 'Слушатели', queue: 'Очередь', empty: 'Очередь пуста', addNow: 'Добавить играющий трек', host: 'хозяин', canControl: 'может управлять',
               kick: 'Выгнать', remove: 'Убрать', playNow: 'Играть', up: 'Выше', everyoneAdd: 'Все могут добавлять', everyoneControl: 'Все могут управлять',
@@ -76,7 +76,7 @@ export function installJam(core: JamCore): JamSection {
               } as Record<string, string>,
           }
         : {
-              title: 'Jam', short: 'Together', aria: 'Listen together with a friend', failed: 'Could not copy', copyLink: 'Copy invite link', create: 'Start a jam', join: 'Join', codePlaceholder: 'Code or sc2://jam/…', leave: 'Leave',
+              title: 'Jam', aria: 'Listen together with a friend', failed: 'Could not copy', copyLink: 'Copy invite link', create: 'Start a jam', join: 'Join', codePlaceholder: 'Code or sc2://jam/…', leave: 'Leave',
               notConfigured: 'Jam server is not set up', hint: 'Set the address in F1 settings: Advanced, “Jam server”.', copy: 'Copy code', copied: 'Copied',
               members: 'Listeners', queue: 'Queue', empty: 'The queue is empty', addNow: 'Add the playing track', host: 'host', canControl: 'can control',
               kick: 'Remove', remove: 'Remove', playNow: 'Play', up: 'Move up', everyoneAdd: 'Everyone can add', everyoneControl: 'Everyone can control',
@@ -545,10 +545,12 @@ export function installJam(core: JamCore): JamSection {
             '.scj-mini{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.7);cursor:pointer}',
             '.scj-row{display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer}.scj-row.off{opacity:.6;cursor:default}',
             '.scj input[type=checkbox]{accent-color:#f50}',
-            '.scj-chip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:inherit;font:inherit;font-weight:700;cursor:pointer;padding:0 10px;height:30px}',
-            '.scj-chip svg{width:16px;height:16px;fill:currentColor;flex:none}.scj-chip.live{background:rgba(255,85,0,.22);box-shadow:inset 0 0 0 1px rgba(255,85,0,.5)}',
-            // Подпись «Джем · N» в одну строку: в тесном баре она переносилась, и «· 1» падало под слово
-            '.scj-chip{flex:none;white-space:nowrap;line-height:1}.scj-chip .scj-n{font-size:12px;white-space:nowrap}.scj-chip.bar{margin:0 6px;align-self:center}',
+            // Кнопка как все в баре: круглая иконка 32 px без подписи. Число участников: маленький бейдж на иконке, только пока джем идёт
+            '.scj-chip{position:relative;display:inline-grid;place-items:center;flex:none;box-sizing:border-box;width:32px;height:32px;padding:0;border:0;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75);font:inherit;cursor:pointer;align-self:center;transition:background-color .15s,color .15s,transform .15s}',
+            '.scj-chip:hover{background:rgba(255,255,255,.12);color:#fff}.scj-chip:active{transform:scale(.9)}.scj-chip:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}',
+            '.scj-chip svg{width:16px;height:16px;fill:currentColor;flex:none}.scj-chip.live{color:#fff;background:rgba(255,85,0,.22);box-shadow:inset 0 0 0 1px rgba(255,85,0,.5)}',
+            '.scj-chip .scj-n{display:none;position:absolute;top:-3px;right:-3px;box-sizing:border-box;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#f50;color:#fff;font-size:10px;font-weight:800;line-height:15px;text-align:center;white-space:nowrap;pointer-events:none}',
+            '.scj-chip.live .scj-n{display:block}',
             // Сетка панели: кнопки по левому краю, строки настроек «подпись слева, галочка справа» с одинаковыми отступами
             '.scj>.scj-btn,.scj-now>.scj-btn{display:block;margin:8px 0 0}',
             '.scj-row{justify-content:space-between;min-height:28px;margin-top:4px;padding:0 2px}.scj-row .scj-grow{flex:1 1 auto}',
@@ -570,13 +572,17 @@ export function installJam(core: JamCore): JamSection {
         node.addEventListener('click', () => (panel ? close() : open()));
         return node;
     }
-    /** Подпись кнопки: «Джем · N» пока подключены */
+    /** Кнопка без подписи: пока джем идёт, на иконке бейдж с числом участников; подсказка и aria-label несут смысл словами */
     function syncButton(): void {
         if (!button) return;
         const live = status !== 'idle' && !!state;
         button.classList.toggle('live', live);
-        const label = button.querySelector('.scj-n');
-        if (label) label.textContent = live ? T.title + ' · ' + state!.members.length : T.short;
+        const count = live ? state!.members.length : 0;
+        const badge = button.querySelector('.scj-n');
+        if (badge) badge.textContent = live ? String(count) : '';
+        const name = live ? T.aria + ' (' + T.title + ' · ' + count + ')' : T.aria;
+        button.title = name + ' (Ctrl+Shift+J)';
+        button.setAttribute('aria-label', name);
         button.setAttribute('aria-pressed', String(!!panel));
     }
     function sync(): void {
@@ -590,10 +596,14 @@ export function installJam(core: JamCore): JamSection {
             button.classList.remove('bar');
             if (button.parentElement !== target) target.append(button);
         } else {
-            // После громкости, а не перед ней: перед ней стоит кнопка режима роликов и их проверки друг другу не мешают
+            // Правая группа бара «не про текущий трек»: «С другом», режим роликов, эффекты. Джем встаёт перед кнопкой эффектов;
+            // пока её нет (страница ещё собирается) он ждёт после громкости. Порядок на экране ведёт CSS (order в narrowLayout)
+            const fx = document.querySelector<HTMLElement>('.playControls button.sca-fx');
             const volume = document.querySelector('.playControls .scv[data-kind="bar"]');
             button.classList.add('bar');
-            if (volume?.parentElement && volume.nextElementSibling !== button) volume.after(button);
+            if (fx?.parentElement) {
+                if (fx.previousElementSibling !== button) fx.before(button);
+            } else if (volume?.parentElement && volume.nextElementSibling !== button) volume.after(button);
         }
         syncButton();
     }

@@ -327,6 +327,10 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     setBeat: (value: unknown) => {
         ipcRenderer.send('soundcloud:beat-amount', value);
     },
+    // Меню кнопки эффектов в плеере: режим full, light, solid или off, значение проверяет main
+    setEffectsMode: (mode: unknown) => {
+        ipcRenderer.send('soundcloud:effects-mode', mode);
+    },
     // Кнопка с часами в блоке «Моей волны»: та же история, что по Ctrl+H
     openHistory: () => {
         ipcRenderer.send('soundcloud:open-history');
@@ -360,7 +364,7 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
     // Запись ролика из режима «Для роликов»: разрешение на захват кадра страницы и сохранение файла; ввод проверяет main
     clipRecord: {
-        arm: (state: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state),
+        arm: (state: string, note?: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state, note),
         save: (data: ArrayBuffer, name: string, ext: string): Promise<unknown> => ipcRenderer.invoke('clip:save', data, name, ext),
     },
     // «Джем» (2.12.0): общие лобби; WebSocket живёт в main, страница получает только события. Ввод проверяет main

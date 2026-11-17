@@ -114,13 +114,20 @@ export function authStepUrl(value: string): string {
     } catch { return 'invalid'; }
 }
 
+/** Разрешения страницы сайта: ключи DRM и (только под защитой взвода записи в main) захват окна */
+export function isAllowedPermission(permission: string, origin: string): boolean {
+    return (permission === 'mediaKeySystem' || permission === 'display-capture') && isSoundCloudUrl(origin);
+}
+
 export function protectContent(contents: WebContents, options: ProtectOptions | ((url: string) => Promise<void>)): void {
     const opts: ProtectOptions = typeof options === 'function' ? { openExternal: options } : options;
     const { openExternal } = opts;
+    // display-capture нужен записи ролика: getDisplayMedia сначала проходит эти обработчики и без разрешения падает с
+    // NotAllowedError. Сам кадр отдаёт только setDisplayMediaRequestHandler в main, и лишь на 10 с после clip:record-arm
     contents.session.setPermissionCheckHandler((_contents, permission, origin) =>
-        permission === 'mediaKeySystem' && isSoundCloudUrl(origin));
+        isAllowedPermission(permission, origin));
     contents.session.setPermissionRequestHandler((_contents, permission, callback, details) =>
-        callback(permission === 'mediaKeySystem' && isSoundCloudUrl(details.requestingUrl)));
+        callback(isAllowedPermission(permission, details.requestingUrl)));
     contents.on('will-navigate', (event, url) => {
         if (isSoundCloudUrl(url)) return;
         event.preventDefault();

@@ -71,7 +71,7 @@ const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
 const { installVolume, volumeAt, volumeWheel } = volumeSectionModule;
-const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipOutputSize, clipCrop } = clipSectionModule;
+const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop } = clipSectionModule;
 const { installJam, jamHelpers } = jamSectionModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
@@ -6078,7 +6078,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipOutputSize, clipCrop, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];

@@ -8,6 +8,7 @@ import type { WebhookService } from '../services/webhookService';
 import type { SettingsManager } from '../settings/settingsManager';
 import type { HistoryManager } from '../history/historyManager';
 import { mediaControlsScript } from '../services/mediaControls';
+import { isEffectsMode, type EffectsMode } from '../services/effectsMode';
 import { cleanSiteState, siteBroken } from '../services/siteModules';
 import { validateTrackMeta, validateTrackUpdatePayload } from '../validation';
 import type { IpcRegistry, SenderCheck, Settings, SitePage } from './ipcTypes';
@@ -40,6 +41,8 @@ export interface PageIpcDeps {
     webhooks(): Pick<WebhookService, 'updateTrackInfo'>;
     /** Сохранить силу бита 0..100 в оформлении и применить */
     setBeat(value: number): void;
+    /** Режим эффектов (полные, облегчённо, супер лайт, без эффектов) из меню кнопки эффектов в плеере */
+    setEffectsMode(mode: EffectsMode): void;
     /** Предпросмотр карточки Discord в F1 */
     previewPresence(): void;
     /** Кнопки, заголовок и подсказка миниатюры на панели задач Windows */
@@ -89,6 +92,11 @@ export function registerPageIpc(ipc: IpcRegistry, deps: PageIpcDeps): void {
     ipc.removeAllListeners('soundcloud:beat-amount');
     ipc.on('soundcloud:beat-amount', (event, value: unknown) => {
         if (isTrustedSoundCloudSender(event) && typeof value === 'number' && Number.isFinite(value)) deps.setBeat(Math.max(0, Math.min(100, Math.round(value))));
+    });
+    // Режим эффектов из меню той же кнопки: тот же путь, что у меню палитры в шапке; принимается только известное значение
+    ipc.removeAllListeners('soundcloud:effects-mode');
+    ipc.on('soundcloud:effects-mode', (event, mode: unknown) => {
+        if (isTrustedSoundCloudSender(event) && isEffectsMode(mode)) deps.setEffectsMode(mode);
     });
     ipc.removeAllListeners('soundcloud:open-history');
     ipc.on('soundcloud:open-history', (event) => {

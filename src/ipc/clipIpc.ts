@@ -3,6 +3,7 @@
 // скрипт клиента позвал clip:record-arm, и ровно один раз. Файл ложится в «Видео\SoundCloud Clips».
 import * as path from 'path';
 import type { IpcRegistry, SenderCheck } from './ipcTypes';
+import { isClipFailReason, type ClipFailReason } from '../services/clipFail';
 
 /** Сколько после clip:record-arm главная рамка сайта может получить захват */
 export const CLIP_GRANT_MS = 10000;
@@ -50,6 +51,8 @@ export interface ClipIpcDeps {
     reveal(file: string): void;
     /** Красная полоса на значке панели задач, пока идёт запись: в кадре ролика никаких меток нет */
     recording(on: boolean): void;
+    /** Запись не началась: код причины для журнала диагностики */
+    failed?(reason: ClipFailReason): void;
     now(): number;
 }
 
@@ -57,8 +60,12 @@ export function registerClipIpc(ipc: IpcRegistry, deps: ClipIpcDeps): void {
     ipc.removeHandler('clip:record-arm');
     ipc.removeHandler('clip:save');
     // 'arm' — через миг будет getDisplayMedia, 'live' — запись пошла, 'off' — закончилась или не вышла
-    ipc.handle('clip:record-arm', (event, state: unknown) => {
+    ipc.handle('clip:record-arm', (event, state: unknown, note?: unknown) => {
         if (!deps.trustedSite(event)) return false;
+        if (state === 'fail') {
+            deps.failed?.(isClipFailReason(note) ? note : 'unknown');
+            return true;
+        }
         if (state === 'arm') {
             deps.grant.arm();
             return true;

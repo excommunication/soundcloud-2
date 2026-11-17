@@ -34,6 +34,7 @@ function setup(settings: Record<string, unknown> = {}) {
         webhooks: () => webhooks,
         previewPresence: vi.fn(),
         setBeat: vi.fn(),
+        setEffectsMode: vi.fn(),
         updateThumbar: vi.fn(),
     };
     registerPageIpc(ipc, deps);
@@ -146,5 +147,14 @@ describe('обработчики страницы сайта', () => {
         await ipc.send('soundcloud:beat-amount', site, 900);
         await ipc.send('soundcloud:beat-amount', site, -3);
         expect(vi.mocked(deps.setBeat).mock.calls).toEqual([[42], [100], [0]]);
+    });
+    it('режим эффектов из меню плеера: только известное значение и только от сайта', async () => {
+        const { ipc, site, deps } = setup();
+        await ipc.send('soundcloud:effects-mode', fakeEvent(), 'off');
+        await ipc.send('soundcloud:effects-mode', site, 'turbo');
+        await ipc.send('soundcloud:effects-mode', site, 1);
+        expect(deps.setEffectsMode).not.toHaveBeenCalled();
+        for (const mode of ['full', 'light', 'solid', 'off']) await ipc.send('soundcloud:effects-mode', site, mode);
+        expect(vi.mocked(deps.setEffectsMode).mock.calls).toEqual([['full'], ['light'], ['solid'], ['off']]);
     });
 });
