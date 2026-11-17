@@ -106,9 +106,9 @@
                             </span>
                         </div>
                         <div class="group">Движение и свет</div>
+                        <div class="row range-row"><span class="text"><span>Интенсивность бита</span><span class="hint">Вспышки, тряска и разгон под бит; 0 выключает. Тот же ползунок у кнопки эффектов в плеере</span></span><input type="range" min="0" max="100" data-fx="beat" aria-label="Интенсивность бита" /><output data-out="beat"></output></div>
                         <div class="row range-row"><span class="text">Скорость</span><input type="range" min="0" max="100" data-fx="speed" aria-label="Скорость" /><output data-out="speed"></output></div>
                         <div class="row range-row"><span class="text">Яркость</span><input type="range" min="0" max="100" data-fx="intensity" aria-label="Яркость" /><output data-out="intensity"></output></div>
-                        <div class="row range-row"><span class="text"><span>Под бит</span><span class="hint">Скорость по темпу трека, разгон на дропах</span></span><input type="range" min="0" max="100" data-fx="beat" aria-label="Под бит" /><output data-out="beat"></output></div>
                         <div class="row range-row"><span class="text">Зерно</span><input type="range" min="0" max="100" data-fx="grain" aria-label="Зерно" /><output data-out="grain"></output></div>
                         <label class="row"><span class="text"><span>Тише на паузе</span><span class="hint">Без музыки переливы замедляются и притухают</span></span><span class="toggle"><input type="checkbox" data-fx="calmOnPause" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text"><span>Тянется за курсором</span><span class="hint">Лёгкий параллакс фона</span></span><span class="toggle"><input type="checkbox" data-fx="parallax" /><span class="slider"></span></span></label>
@@ -417,7 +417,7 @@
                         </div>
 
                         <div class="item">
-                            <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Адрес для совместного прослушивания (Ctrl+Shift+J на сайте). Пусто — адрес, вшитый в клиент</span></span></div>
+                            <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Адрес для прослушивания вместе с другом (кнопка «С другом» рядом с громкостью или Ctrl+Shift+J). Пусто — адрес, вшитый в клиент</span></span></div>
                             <div class="field-stack"><input type="url" class="input" id="jamServer" placeholder="https://sc2-jam.имя.workers.dev" aria-label="Адрес сервера джемов" autocomplete="off" spellcheck="false" /></div>
                         </div>
 

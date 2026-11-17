@@ -14,8 +14,10 @@ function setup(setting: unknown = 'https://sc2-jam.x.workers.dev') {
         send: vi.fn(() => true),
         snapshot: vi.fn(() => []),
     };
-    registerJamIpc(ipc, { trustedSite: trusting(site), client: client as unknown as JamClient, setting: () => setting, fallback: '' });
-    return { ipc, site, stranger, client };
+    let buffer = 'старое';
+    const clipboard = { writeText: vi.fn((text: string) => { buffer = text; }), readText: () => buffer };
+    registerJamIpc(ipc, { trustedSite: trusting(site), client: client as unknown as JamClient, setting: () => setting, fallback: '', clipboard });
+    return { ipc, site, stranger, client, clipboard };
 }
 
 describe('джем: мост к main', () => {
@@ -30,7 +32,7 @@ describe('джем: мост к main', () => {
     it('повторная регистрация не задваивает обработчики', () => {
         const { ipc, client } = setup();
         registerJamIpc(ipc, { trustedSite: () => true, client: client as unknown as JamClient, setting: () => '' });
-        expect([...ipc.handlers.keys()].sort()).toEqual(['jam:create', 'jam:join', 'jam:leave', 'jam:send', 'jam:snapshot']);
+        expect([...ipc.handlers.keys()].sort()).toEqual(['jam:copy', 'jam:create', 'jam:join', 'jam:leave', 'jam:send', 'jam:snapshot']);
     });
     it('чужой отправитель отвергается везде', async () => {
         const { ipc, stranger, client } = setup();
@@ -39,6 +41,7 @@ describe('джем: мост к main', () => {
         expect(await ipc.invoke('jam:leave', stranger)).toBe(false);
         expect(await ipc.invoke('jam:send', stranger, { t: 'pause' })).toBe(false);
         expect(await ipc.invoke('jam:snapshot', stranger)).toBeNull();
+        expect(await ipc.invoke('jam:copy', stranger, 'ABC234', 'code')).toBe(false);
         expect(client.create).not.toHaveBeenCalled();
         expect(client.send).not.toHaveBeenCalled();
     });
@@ -67,5 +70,27 @@ describe('джем: мост к main', () => {
         expect(await ipc.invoke('jam:send', site, { t: 'ping', c: 1 })).toBe(false);
         expect(await ipc.invoke('jam:send', site, 'мусор')).toBe(false);
         expect(client.send).toHaveBeenCalledTimes(1);
+    });
+    it('copy: в буфер попадает только код комнаты или ссылка sc2://jam/КОД', async () => {
+        const { ipc, site, stranger, clipboard } = setup();
+        expect(await ipc.invoke('jam:copy', site, 'abc234', 'code')).toBe(true);
+        expect(clipboard.readText()).toBe('ABC234');
+        expect(await ipc.invoke('jam:copy', site, 'ABC234', 'link')).toBe(true);
+        expect(clipboard.readText()).toBe('sc2://jam/ABC234');
+        const calls = clipboard.writeText.mock.calls.length;
+        for (const bad of ['', 'ABC23', 'ABC2345', 'https://evil.com', 'sc2://jam/ABC234', 'ABC234 http://x', 'ABCOI0', 42, null]) {
+            expect(await ipc.invoke('jam:copy', site, bad, 'code')).toBe(false);
+        }
+        expect(await ipc.invoke('jam:copy', site, 'ABC234', 'text')).toBe(false);
+        expect(await ipc.invoke('jam:copy', stranger, 'ABC234', 'code')).toBe(false);
+        expect(clipboard.writeText.mock.calls.length).toBe(calls);
+        expect(clipboard.readText()).toBe('sc2://jam/ABC234');
+    });
+    it('copy: если буфер не принял запись, это false', async () => {
+        const { ipc, site, clipboard } = setup();
+        clipboard.writeText.mockImplementationOnce(() => undefined);
+        expect(await ipc.invoke('jam:copy', site, 'ABC234', 'code')).toBe(false);
+        clipboard.writeText.mockImplementationOnce(() => { throw new Error('нет'); });
+        expect(await ipc.invoke('jam:copy', site, 'ABC234', 'code')).toBe(false);
     });
 });

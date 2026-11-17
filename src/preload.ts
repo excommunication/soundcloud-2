@@ -323,6 +323,10 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     reportPlayerArea: (height: unknown, viewport: unknown) => {
         ipcRenderer.send('soundcloud:player-area', height, viewport);
     },
+    // Быстрый ползунок «Интенсивность бита» у кнопки эффектов: значение 0..100 проверяет main
+    setBeat: (value: unknown) => {
+        ipcRenderer.send('soundcloud:beat-amount', value);
+    },
     // Кнопка с часами в блоке «Моей волны»: та же история, что по Ctrl+H
     openHistory: () => {
         ipcRenderer.send('soundcloud:open-history');
@@ -366,6 +370,7 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
         leave: (): Promise<unknown> => ipcRenderer.invoke('jam:leave'),
         send: (msg: unknown): Promise<unknown> => ipcRenderer.invoke('jam:send', msg),
         snapshot: (): Promise<unknown> => ipcRenderer.invoke('jam:snapshot'),
+        copy: (code: string, kind: 'code' | 'link'): Promise<unknown> => ipcRenderer.invoke('jam:copy', code, kind),
         onState: (callback: (event: unknown) => void): (() => void) => {
             const listener = (_event: unknown, payload: unknown): void => callback(payload);
             ipcRenderer.on('jam:event', listener);

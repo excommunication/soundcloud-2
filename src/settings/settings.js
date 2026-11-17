@@ -1126,7 +1126,7 @@ async function initializeSettings() {
     // main ставит новые стили и переливы на страницу за панелью. Ползунки шлют не чаще раза в 90 мс
     const FX_DEFAULTS = {
         effect: 'liquid', palette: 'aurum', colors: ['#3a6bff', '#7a3cff', '#00c2ff'], speed: 35, intensity: 60, grain: 22, glass: 55, blur: 22, radius: 14,
-        quality: 'balanced', calmOnPause: true, parallax: true, hoverMotion: true, beat: 65, likeSound: true,
+        quality: 'balanced', calmOnPause: true, parallax: true, hoverMotion: true, beat: 40, likeSound: true,
     };
     let appearance = { ...FX_DEFAULTS, ...(initial.appearance || {}) };
     let fxTimer = 0;
@@ -1215,6 +1215,12 @@ async function initializeSettings() {
         sendAppearance(true);
     });
     paintAppearance();
+    // Ползунок бита у кнопки эффектов в плеере тоже меняет оформление, пока панель открыта
+    ipcRenderer.on('appearance-beat-changed', (_, value) => {
+        if (typeof value !== 'number') return;
+        appearance.beat = value;
+        paintAppearance();
+    });
 
     // Модель для «Волны по описанию»: ключ в поле не показывается, только подсказка о последних знаках
     const aiProvider = document.getElementById('aiProvider');

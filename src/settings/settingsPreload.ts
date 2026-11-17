@@ -35,7 +35,7 @@ const INVOKE_CHANNELS = new Set([
     'ai-config:test',
 ]);
 
-const ON_CHANNELS = new Set(['settings-section', 'presence-preview-update', 'discord-incognito-changed', 'update-translations', 'accounts-updated', 'update-state', 'wave-exclusions-changed', 'backup-state-changed', 'site-state-changed', 'effects-mode-changed']);
+const ON_CHANNELS = new Set(['settings-section', 'presence-preview-update', 'discord-incognito-changed', 'update-translations', 'accounts-updated', 'update-state', 'wave-exclusions-changed', 'backup-state-changed', 'site-state-changed', 'effects-mode-changed', 'appearance-beat-changed']);
 
 function isHttpsUrl(value: string): boolean {
     try {

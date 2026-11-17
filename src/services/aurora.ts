@@ -56,9 +56,18 @@ export const APPEARANCE_DEFAULTS: Appearance = {
     calmOnPause: true,
     parallax: true,
     hoverMotion: true,
-    beat: 65,
+    beat: 40,
     likeSound: true,
 };
+
+/** Положение ползунка «Интенсивность бита» 0..100 -> множитель 0..1. Кривая степенная: низ заметно тише, максимум прежний.
+ *  Раньше множитель был value / 100 (65 давало 0.65), теперь 65 даёт 0.5, а умолчание 40 — 0.23; сохранённые значения
+ *  не пересчитываются, ползунок просто мягче. Функция уходит на страницу текстом, поэтому ни от чего снаружи не зависит */
+export function beatAmount(value: number): number {
+    const v = Number(value);
+    if (!(v > 0)) return 0;
+    return Math.pow(Math.min(100, v) / 100, 1.6);
+}
 
 /** Готовые палитры: три цвета, первый главный */
 export const PALETTES: Record<Exclude<AuroraPaletteName, 'cover' | 'custom'>, [string, string, string]> = {
@@ -653,6 +662,13 @@ export function appearanceCss(appearance: Appearance): string {
         '.sca-fx-tip{position:fixed;z-index:2147483600;transform:translate(-50%,-100%) translateY(4px);padding:7px 12px;border-radius:999px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;white-space:nowrap;pointer-events:none;' +
             'background:rgba(14,15,22,.88);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1);opacity:0;transition:opacity .16s ease,transform .2s cubic-bezier(.2,.8,.2,1)}',
         '.sca-fx-tip.on{opacity:1;transform:translate(-50%,-100%)}',
+        // Поповер кнопки эффектов: ползунок «Интенсивность бита» над кнопкой
+        '.sca-fx-pop{position:fixed;z-index:2147483601;transform:translate(-50%,-100%);display:none;flex-direction:column;gap:6px;width:210px;padding:10px 14px 12px;border-radius:14px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;' +
+            'background:rgba(14,15,22,.92);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1)}',
+        '.sca-fx-pop.on{display:flex}',
+        '.sca-fx-pop .row{display:flex;justify-content:space-between;gap:8px}',
+        '.sca-fx-pop output{opacity:.7;font-variant-numeric:tabular-nums}',
+        '.sca-fx-pop input{width:100%;margin:0;accent-color:var(--sca-c1,#3a6bff);cursor:pointer}',
         '@media (prefers-reduced-motion:reduce){#sca-club,#sca-thump{display:none}}',
     );
     // Нижний бар в духе Apple Music (2.7.0): у сайта кнопки трёх размеров и разной яркости. Теперь одна сетка: «назад» и
@@ -1306,9 +1322,79 @@ export function auroraPage(config: AuroraConfig): void {
                 applyFx();
                 showFxTip();
             });
+            // Быстрый ползунок бита: поповер над кнопкой по наведению, фокусу и правой кнопке
+            const open = (): void => {
+                clearTimeout(fxPopTimer);
+                showFxPop();
+            };
+            const later = (): void => {
+                clearTimeout(fxPopTimer);
+                fxPopTimer = setTimeout(() => fxPop?.classList.remove('on'), 450);
+            };
+            fxButton.addEventListener('mouseenter', () => {
+                clearTimeout(fxPopTimer);
+                fxPopTimer = setTimeout(showFxPop, 250);
+            });
+            fxButton.addEventListener('mouseleave', later);
+            fxButton.addEventListener('focus', open);
+            fxButton.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                open();
+            });
+            fxPopLeave = later;
+            fxPopEnter = () => clearTimeout(fxPopTimer);
         }
         host.append(fxButton);
         applyFx();
+    }
+    let fxPop: HTMLElement | null = null;
+    let fxPopTimer: ReturnType<typeof setTimeout> | undefined;
+    let fxPopLeave: () => void = () => undefined;
+    let fxPopEnter: () => void = () => undefined;
+    let beatSendTimer: ReturnType<typeof setTimeout> | undefined;
+    function showFxPop(): void {
+        if (!fxButton) return;
+        if (!fxPop) {
+            fxPop = Object.assign(document.createElement('div'), { className: 'sca-fx-pop' });
+            const row = document.createElement('div');
+            row.className = 'row';
+            const name = document.createElement('span');
+            name.textContent = ruFx ? 'Интенсивность бита' : 'Beat intensity';
+            const out = document.createElement('output');
+            row.append(name, out);
+            const range = document.createElement('input');
+            range.type = 'range';
+            range.min = '0';
+            range.max = '100';
+            range.setAttribute('aria-label', name.textContent);
+            range.addEventListener('input', () => {
+                const value = Number(range.value);
+                out.textContent = value + '%';
+                cfg = { ...cfg, appearance: { ...cfg.appearance, beat: value } };
+                // Сохраняется через main (тот же appearance, что в F1), не чаще раза в 90 мс
+                clearTimeout(beatSendTimer);
+                beatSendTimer = setTimeout(() => {
+                    try {
+                        (window as unknown as { soundcloudAPI?: { setBeat?: (value: number) => void } }).soundcloudAPI?.setBeat?.(value);
+                    } catch {
+                        // канала нет: изменение живёт до перезагрузки страницы
+                    }
+                }, 90);
+            });
+            fxPop.append(row, range);
+            fxPop.addEventListener('mouseenter', () => fxPopEnter());
+            fxPop.addEventListener('mouseleave', () => fxPopLeave());
+            fxPop.addEventListener('focusout', () => fxPopLeave());
+        }
+        const range = fxPop.querySelector('input') as HTMLInputElement;
+        const out = fxPop.querySelector('output') as HTMLOutputElement;
+        range.value = String(cfg.appearance.beat);
+        out.textContent = cfg.appearance.beat + '%';
+        if (!fxPop.isConnected) document.body.append(fxPop);
+        const box = fxButton.getBoundingClientRect();
+        fxPop.style.left = Math.max(115, Math.min(window.innerWidth - 115, box.left + box.width / 2)) + 'px';
+        fxPop.style.top = box.top - 8 + 'px';
+        fxPop.classList.add('on');
     }
     function showFxTip(): void {
         if (!fxButton) return;
@@ -1371,7 +1457,7 @@ export function auroraPage(config: AuroraConfig): void {
         // Звук и детектор бита идут каждый кадр, а не с частотой фона (2.8.0): на «Балансе» фон рисуется 30 раз в секунду,
         // и удар опаздывал до 33 мс и дрожал. Вспышки интерфейса тоже пишутся сразу
         const a = cfg.appearance;
-        const amount = a.beat / 100;
+        const amount = beatAmount(a.beat);
         const audioDt = lastAudio ? Math.min(100, now - lastAudio) : 16;
         lastAudio = now;
         const sound = amount > 0 ? readAudio(now) : { bass: 0, kick: 0, level: 0, playing: musicPlaying() };
@@ -1797,6 +1883,7 @@ export function auroraPage(config: AuroraConfig): void {
             thump?.remove();
             fxButton?.remove();
             fxTip?.remove();
+            fxPop?.remove();
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
             document.removeEventListener('pointerout', onSpotLeave);
@@ -1820,5 +1907,5 @@ export function auroraScript(input: unknown): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
     const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX };
-    return '(function(){\n' + glowPalette.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
+    return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }

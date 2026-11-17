@@ -45,7 +45,7 @@ import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
 import { registerJamIpc } from './ipc/jamIpc';
 import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
-import { appearanceCss, auroraScript } from './services/aurora';
+import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode } from './services/effectsMode';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
@@ -1200,6 +1200,13 @@ async function init() {
         presence: () => presenceService,
         webhooks: () => webhookService,
         previewPresence: sendPresencePreview,
+        setBeat: (value) => {
+            const next = { ...normalizeAppearance(store.get('appearance')), beat: value };
+            store.set('appearance', next);
+            applyThemeToContent();
+            const settings = settingsManager?.getView()?.webContents;
+            if (settings && !settings.isDestroyed()) settings.send('appearance-beat-changed', value);
+        },
         updateThumbar: (track) => {
             trayPopup?.push();
             if (!thumbarService) return;
@@ -1268,7 +1275,7 @@ async function init() {
         if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.send('jam:event', event);
     });
     app.once('before-quit', () => jamClient.leave());
-    registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', '') });
+    registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', ''), clipboard });
     // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
     // длительность; ответы помнятся до перезапуска
     const lyricsCache = new Map<string, Lyrics | null>();
