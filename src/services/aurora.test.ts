@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { APPEARANCE_DEFAULTS, AURORA_EFFECTS, appearanceCss, auroraScript, fragmentSource, isAppearance, normalizeAppearance, paletteColors, PALETTES } from './aurora';
 import { validateSettingChange } from '../settings/validateSetting';
@@ -73,6 +75,18 @@ describe('интенсивность бита', () => {
     });
     it('скрипт страницы несёт ту же кривую', () => {
         expect(auroraScript({}).includes('function beatAmount')).toBe(true);
+    });
+    it('скрипт страницы несёт режим эффектов для меню кнопки эффектов', () => {
+        expect(auroraScript({}, 'solid')).toContain('"mode":"solid"');
+        expect(auroraScript({})).not.toContain('"mode"');
+    });
+    it('меню кнопки эффектов: четыре режима по-русски и по-английски, радио и ползунок бита, закрытие по Esc и клику вне', () => {
+        const src = readFileSync(join(__dirname, 'aurora.ts'), 'utf8');
+        for (const name of ['Полные эффекты', 'Облегчённо', 'Супер лайт', 'Без эффектов', 'Full effects', 'Super light', 'No effects']) expect(src).toContain(name);
+        expect(src).toContain("'menuitemradio'");
+        expect(src).toContain('Интенсивность бита');
+        expect(src).toContain("event.key === 'Escape' && fxPop?.classList.contains('on')");
+        expect(src).toContain("document.addEventListener('pointerdown', onFxAway, true)");
     });
 });
 

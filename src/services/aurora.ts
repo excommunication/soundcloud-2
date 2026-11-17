@@ -666,7 +666,7 @@ export function appearanceCss(appearance: Appearance): string {
         'html.sca-fx-soft #sca-thump,html.sca-fx-off #sca-thump,html.sca-fx-off #sca-club{display:none}',
         'html.sca-fx-soft #sca-club .beam{opacity:calc(.02 + var(--sca-energy,0) * .12)}',
         'html.sca-fx-soft.sca-playing #sc-wave .scw-cover,html.sca-fx-off.sca-playing #sc-wave .scw-cover{transform:none!important}',
-        '.playControls button.sca-fx{all:unset;box-sizing:border-box;flex:none;width:32px;height:32px;margin:0 0 0 10px;border-radius:999px;display:inline-grid;place-items:center;cursor:pointer;' +
+        '.playControls button.sca-fx{all:unset;box-sizing:border-box;flex:none;width:32px;height:32px;margin:0 3px;border-radius:999px;display:inline-grid;place-items:center;cursor:pointer;' +
             'background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:rgba(255,255,255,.75);transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease}',
         '.playControls button.sca-fx svg{width:16px;height:16px}',
         '.playControls button.sca-fx:hover{background:rgba(255,255,255,.12);color:#fff}',
@@ -674,16 +674,23 @@ export function appearanceCss(appearance: Appearance): string {
         '.playControls button.sca-fx:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}',
         '.playControls button.sca-fx[data-level="full"]{color:#fff;background:color-mix(in srgb,var(--sca-c1,#3a6bff) 28%,transparent)}',
         '.playControls button.sca-fx[data-level="off"]{color:rgba(255,255,255,.35)}',
-        '.sca-fx-tip{position:fixed;z-index:2147483600;transform:translate(-50%,-100%) translateY(4px);padding:7px 12px;border-radius:999px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;white-space:nowrap;pointer-events:none;' +
-            'background:rgba(14,15,22,.88);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1);opacity:0;transition:opacity .16s ease,transform .2s cubic-bezier(.2,.8,.2,1)}',
-        '.sca-fx-tip.on{opacity:1;transform:translate(-50%,-100%)}',
-        // Поповер кнопки эффектов: ползунок «Интенсивность бита» над кнопкой
-        '.sca-fx-pop{position:fixed;z-index:2147483601;transform:translate(-50%,-100%);display:none;flex-direction:column;gap:6px;width:210px;padding:10px 14px 12px;border-radius:14px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;color:#fff;' +
-            'background:rgba(14,15,22,.92);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1)}',
+        // Меню кнопки эффектов: четыре радио-пункта режима и ниже ползунок «Интенсивность бита», над кнопкой
+        '.sca-fx-pop{position:fixed;z-index:2147483601;transform:translate(-50%,-100%);display:none;flex-direction:column;gap:2px;box-sizing:border-box;width:250px;max-width:calc(100vw - 16px);padding:6px;border-radius:14px;font:600 13px/1.2 system-ui,-apple-system,sans-serif;color:#fff;' +
+            'background:rgba(14,15,22,.94);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1)}',
         '.sca-fx-pop.on{display:flex}',
+        '.sca-fx-item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;white-space:nowrap;color:rgba(255,255,255,.88)}',
+        '.sca-fx-item i{flex:none;width:14px;height:14px;border-radius:50%;box-sizing:border-box;box-shadow:inset 0 0 0 2px rgba(255,255,255,.4)}',
+        '.sca-fx-item.on i{box-shadow:inset 0 0 0 4px var(--sca-c1,#3a6bff),inset 0 0 0 14px #fff}',
+        '.sca-fx-item:hover,.sca-fx-item:focus-visible{background:rgba(255,255,255,.12);color:#fff}',
+        '.sca-fx-item:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:-2px}',
+        '.sca-fx-hr{height:1px;margin:4px 8px;background:rgba(255,255,255,.12)}',
+        '.sca-fx-beat{display:flex;flex-direction:column;gap:6px;padding:6px 10px 8px;font-size:12px}.sca-fx-beat.off{opacity:.45}',
         '.sca-fx-pop .row{display:flex;justify-content:space-between;gap:8px}',
         '.sca-fx-pop output{opacity:.7;font-variant-numeric:tabular-nums}',
         '.sca-fx-pop input{width:100%;margin:0;accent-color:var(--sca-c1,#3a6bff);cursor:pointer}',
+        '.sca-fx-pop input:disabled{cursor:default}',
+        // Разделитель между действиями над треком и правой группой («С другом», ролики, эффекты)
+        '.playControls .sca-bar-sep{flex:none;width:1px;height:20px;margin:0 8px;background:rgba(255,255,255,.14)}',
         '@media (prefers-reduced-motion:reduce){#sca-club,#sca-thump{display:none}}',
     );
     // Нижний бар в духе Apple Music (2.7.0): у сайта кнопки трёх размеров и разной яркости. Теперь одна сетка: «назад» и
@@ -845,6 +852,8 @@ interface AuroraConfig {
     colors: [string, string, string];
     shaders: Record<string, string>;
     vertex: string;
+    /** Режим эффектов из настроек (full, light, solid, off): им ведётся меню кнопки эффектов в баре */
+    mode?: string;
 }
 
 /** Скрипт страницы: ставит холст или обновляет уже стоящий. Повторный вызов с новыми настройками применяет их плавно */
@@ -1285,36 +1294,54 @@ export function auroraPage(config: AuroraConfig): void {
             document.documentElement.style.setProperty('--sca-sweep', sweep.toFixed(1) + 's');
         }
     }
-    // Сила эффектов (2.7.1), кнопка справа в баре: «Полные», «Мягкие» (без вспышек и толчков, лучи и свет тише) и
-    // «Выкл» (клуба, вспышек и анимаций лайка нет). Выбор помнит страница
+    // Эффекты (2.7.1, меню с 2.12.4), кнопка справа в баре. Режим один и тот же, что у палитры в шапке и в F1: «Полные эффекты»,
+    // «Облегчённо», «Супер лайт», «Без эффектов». Клик по кнопке открывает меню над ней (радио-пункты и ползунок «Интенсивность бита»),
+    // а не крутит режимы по кругу. Для клуба, вспышек и анимаций лайка режим сводится к трём уровням: полный, мягкий (без вспышек и
+    // толчков, лучи и свет тише) и выключенный. Менять режим может только main: страница шлёт выбор через soundcloudAPI.setEffectsMode
     type FxLevel = 'full' | 'soft' | 'off';
+    type FxMode = 'full' | 'light' | 'solid' | 'off';
     const FX_SCALE: Record<FxLevel, number> = { full: 1, soft: 0.45, off: 0 };
-    const FX_ORDER: FxLevel[] = ['full', 'soft', 'off'];
+    const FX_MODES: FxMode[] = ['full', 'light', 'solid', 'off'];
+    const FX_LEVEL: Record<FxMode, FxLevel> = { full: 'full', light: 'soft', solid: 'off', off: 'off' };
     const ruFx = /^ru/i.test(document.documentElement.lang || navigator.language || '');
-    const FX_LABEL: Record<FxLevel, string> = ruFx
-        ? { full: 'Эффекты: полные', soft: 'Эффекты: мягкие, без вспышек', off: 'Эффекты выключены' }
-        : { full: 'Effects: full', soft: 'Effects: soft, no flashes', off: 'Effects off' };
-    let fx: FxLevel = 'full';
-    try {
-        const saved = localStorage.getItem('sc2-fx');
-        if (saved === 'soft' || saved === 'off') fx = saved;
-    } catch {
-        // хранилище недоступно: полные эффекты
-    }
+    const FX_NAME: Record<FxMode, string> = ruFx
+        ? { full: 'Полные эффекты', light: 'Облегчённо', solid: 'Супер лайт', off: 'Без эффектов' }
+        : { full: 'Full effects', light: 'Light', solid: 'Super light', off: 'No effects' };
+    const FX_TITLE = ruFx ? 'Эффекты' : 'Effects';
+    const FX_BEAT = ruFx ? 'Интенсивность бита' : 'Beat intensity';
+    const FX_BEAT_HINT = ruFx ? 'Работает в режиме «Полные эффекты»' : 'Works in full effects mode';
+    let fxMode: FxMode = FX_MODES.includes(config.mode as FxMode) ? (config.mode as FxMode) : 'full';
+    let fx: FxLevel = FX_LEVEL[fxMode];
     // Вспышки и толчки на ударе только в полном режиме
     const fxFlash = (): number => (fx === 'full' ? 1 : 0);
     const FX_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6.5 1 7.6 4.4 11 5.5 7.6 6.6 6.5 10 5.4 6.6 2 5.5 5.4 4.4zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM3.5 11l.5 1.2 1.2.5-1.2.5-.5 1.3-.5-1.3-1.2-.5 1.2-.5z"/></svg>';
     let fxButton: HTMLButtonElement | null = null;
-    let fxTip: HTMLElement | null = null;
-    let fxTipTimer: ReturnType<typeof setTimeout> | undefined;
+    let fxPop: HTMLElement | null = null;
+    let fxSep: HTMLElement | null = null;
+    let beatSendTimer: ReturnType<typeof setTimeout> | undefined;
     function applyFx(): void {
         const root = document.documentElement;
         root.classList.toggle('sca-fx-soft', fx === 'soft');
         root.classList.toggle('sca-fx-off', fx === 'off');
         if (fxButton) {
+            const name = FX_TITLE + ': ' + FX_NAME[fxMode];
             fxButton.dataset.level = fx;
-            fxButton.title = FX_LABEL[fx];
-            fxButton.setAttribute('aria-label', FX_LABEL[fx]);
+            fxButton.dataset.mode = fxMode;
+            fxButton.title = name;
+            fxButton.setAttribute('aria-label', name);
+        }
+        syncFxMenu();
+    }
+    function chooseFxMode(mode: FxMode): void {
+        closeFxMenu();
+        if (mode === fxMode) return;
+        fxMode = mode;
+        fx = FX_LEVEL[mode];
+        applyFx();
+        try {
+            (window as unknown as { soundcloudAPI?: { setEffectsMode?: (value: string) => void } }).soundcloudAPI?.setEffectsMode?.(mode);
+        } catch {
+            // канала нет: режим живёт до перезагрузки страницы
         }
     }
     function ensureFxButton(): void {
@@ -1326,104 +1353,140 @@ export function auroraPage(config: AuroraConfig): void {
             fxButton.type = 'button';
             fxButton.className = 'sca-fx';
             fxButton.innerHTML = FX_ICON;
+            fxButton.setAttribute('aria-haspopup', 'menu');
+            fxButton.setAttribute('aria-expanded', 'false');
+            // Одно действие: клик открывает или закрывает меню. Ни наведения, ни правой кнопки, ни цикла по режимам
             fxButton.addEventListener('click', (event) => {
                 event.stopPropagation();
-                fx = FX_ORDER[(FX_ORDER.indexOf(fx) + 1) % FX_ORDER.length];
-                try {
-                    localStorage.setItem('sc2-fx', fx);
-                } catch {
-                    // не сохранилось: до перезагрузки страницы
-                }
-                applyFx();
-                showFxTip();
+                if (fxPop?.classList.contains('on')) closeFxMenu();
+                else openFxMenu();
             });
-            // Быстрый ползунок бита: поповер над кнопкой по наведению, фокусу и правой кнопке
-            const open = (): void => {
-                clearTimeout(fxPopTimer);
-                showFxPop();
-            };
-            const later = (): void => {
-                clearTimeout(fxPopTimer);
-                fxPopTimer = setTimeout(() => fxPop?.classList.remove('on'), 450);
-            };
-            fxButton.addEventListener('mouseenter', () => {
-                clearTimeout(fxPopTimer);
-                fxPopTimer = setTimeout(showFxPop, 250);
-            });
-            fxButton.addEventListener('mouseleave', later);
-            fxButton.addEventListener('focus', open);
-            fxButton.addEventListener('contextmenu', (event) => {
-                event.preventDefault();
-                open();
-            });
-            fxPopLeave = later;
-            fxPopEnter = () => clearTimeout(fxPopTimer);
+        }
+        // Тонкий разделитель: слева действия над текущим треком, справа то, что к нему не относится
+        if (!fxSep?.isConnected) {
+            fxSep ??= Object.assign(document.createElement('span'), { className: 'sca-bar-sep' });
+            fxSep.setAttribute('aria-hidden', 'true');
+            host.append(fxSep);
         }
         host.append(fxButton);
         applyFx();
         onFitResize();
     }
-    let fxPop: HTMLElement | null = null;
-    let fxPopTimer: ReturnType<typeof setTimeout> | undefined;
-    let fxPopLeave: () => void = () => undefined;
-    let fxPopEnter: () => void = () => undefined;
-    let beatSendTimer: ReturnType<typeof setTimeout> | undefined;
-    function showFxPop(): void {
-        if (!fxButton) return;
-        if (!fxPop) {
-            fxPop = Object.assign(document.createElement('div'), { className: 'sca-fx-pop' });
-            const row = document.createElement('div');
-            row.className = 'row';
-            const name = document.createElement('span');
-            name.textContent = ruFx ? 'Интенсивность бита' : 'Beat intensity';
-            const out = document.createElement('output');
-            row.append(name, out);
-            const range = document.createElement('input');
-            range.type = 'range';
-            range.min = '0';
-            range.max = '100';
-            range.setAttribute('aria-label', name.textContent);
-            range.addEventListener('input', () => {
-                const value = Number(range.value);
-                out.textContent = value + '%';
-                cfg = { ...cfg, appearance: { ...cfg.appearance, beat: value } };
-                // Сохраняется через main (тот же appearance, что в F1), не чаще раза в 90 мс
-                clearTimeout(beatSendTimer);
-                beatSendTimer = setTimeout(() => {
-                    try {
-                        (window as unknown as { soundcloudAPI?: { setBeat?: (value: number) => void } }).soundcloudAPI?.setBeat?.(value);
-                    } catch {
-                        // канала нет: изменение живёт до перезагрузки страницы
-                    }
-                }, 90);
+    function buildFxMenu(): HTMLElement {
+        const pop = Object.assign(document.createElement('div'), { className: 'sca-fx-pop' });
+        pop.setAttribute('role', 'menu');
+        pop.setAttribute('aria-label', FX_TITLE);
+        for (const mode of FX_MODES) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'sca-fx-item';
+            item.dataset.mode = mode;
+            item.setAttribute('role', 'menuitemradio');
+            const dot = document.createElement('i');
+            dot.setAttribute('aria-hidden', 'true');
+            const text = document.createElement('span');
+            text.textContent = FX_NAME[mode];
+            item.append(dot, text);
+            item.addEventListener('click', (event) => {
+                event.stopPropagation();
+                chooseFxMode(mode);
+                fxButton?.focus();
             });
-            fxPop.append(row, range);
-            fxPop.addEventListener('mouseenter', () => fxPopEnter());
-            fxPop.addEventListener('mouseleave', () => fxPopLeave());
-            fxPop.addEventListener('focusout', () => fxPopLeave());
+            pop.append(item);
+        }
+        const sep = document.createElement('div');
+        sep.className = 'sca-fx-hr';
+        sep.setAttribute('role', 'separator');
+        const group = document.createElement('div');
+        group.className = 'sca-fx-beat';
+        group.title = FX_BEAT_HINT;
+        const row = document.createElement('div');
+        row.className = 'row';
+        const name = document.createElement('span');
+        name.textContent = FX_BEAT;
+        const out = document.createElement('output');
+        row.append(name, out);
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = '0';
+        range.max = '100';
+        range.setAttribute('aria-label', FX_BEAT);
+        range.addEventListener('input', () => {
+            const value = Number(range.value);
+            out.textContent = value + '%';
+            cfg = { ...cfg, appearance: { ...cfg.appearance, beat: value } };
+            // Сохраняется через main (тот же appearance, что в F1), не чаще раза в 90 мс
+            clearTimeout(beatSendTimer);
+            beatSendTimer = setTimeout(() => {
+                try {
+                    (window as unknown as { soundcloudAPI?: { setBeat?: (value: number) => void } }).soundcloudAPI?.setBeat?.(value);
+                } catch {
+                    // канала нет: изменение живёт до перезагрузки страницы
+                }
+            }, 90);
+        });
+        group.append(row, range);
+        pop.append(sep, group);
+        pop.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            const stops = [...pop.querySelectorAll<HTMLElement>('.sca-fx-item, input:not(:disabled)')];
+            const at = stops.indexOf(document.activeElement as HTMLElement);
+            const next = stops[(at + (event.key === 'ArrowDown' ? 1 : -1) + stops.length) % stops.length];
+            if (event.target instanceof HTMLInputElement && event.target.type === 'range') return;
+            event.preventDefault();
+            next?.focus();
+        });
+        return pop;
+    }
+    /** Радио-пункты и ползунок показывают текущее: режим из main и силу бита из настроек */
+    function syncFxMenu(): void {
+        if (!fxPop) return;
+        for (const item of fxPop.querySelectorAll<HTMLElement>('.sca-fx-item')) {
+            const checked = item.dataset.mode === fxMode;
+            item.classList.toggle('on', checked);
+            item.setAttribute('aria-checked', String(checked));
         }
         const range = fxPop.querySelector('input') as HTMLInputElement;
         const out = fxPop.querySelector('output') as HTMLOutputElement;
-        range.value = String(cfg.appearance.beat);
-        out.textContent = cfg.appearance.beat + '%';
+        // Под рукой ползунок не трогаем: ответ main отстаёт на долю секунды и дёргал бы его назад
+        if (document.activeElement !== range) {
+            range.value = String(cfg.appearance.beat);
+            out.textContent = cfg.appearance.beat + '%';
+        }
+        // Вне полного режима сила бита всё равно ноль: ползунок не обещает того, чего не будет
+        range.disabled = fxMode !== 'full';
+        fxPop.querySelector('.sca-fx-beat')?.classList.toggle('off', fxMode !== 'full');
+    }
+    function openFxMenu(): void {
+        if (!fxButton) return;
+        fxPop ??= buildFxMenu();
+        syncFxMenu();
         if (!fxPop.isConnected) document.body.append(fxPop);
         const box = fxButton.getBoundingClientRect();
-        fxPop.style.left = Math.max(115, Math.min(window.innerWidth - 115, box.left + box.width / 2)) + 'px';
+        fxPop.style.left = Math.max(125, Math.min(window.innerWidth - 125, box.left + box.width / 2)) + 'px';
         fxPop.style.top = box.top - 8 + 'px';
         fxPop.classList.add('on');
+        fxButton.setAttribute('aria-expanded', 'true');
+        fxPop.querySelector<HTMLElement>('.sca-fx-item.on')?.focus();
     }
-    function showFxTip(): void {
-        if (!fxButton) return;
-        fxTip ??= Object.assign(document.createElement('div'), { className: 'sca-fx-tip' });
-        fxTip.textContent = FX_LABEL[fx];
-        if (!fxTip.isConnected) document.body.append(fxTip);
-        const box = fxButton.getBoundingClientRect();
-        fxTip.style.left = Math.min(window.innerWidth - 12, box.left + box.width / 2) + 'px';
-        fxTip.style.top = box.top - 10 + 'px';
-        fxTip.classList.add('on');
-        clearTimeout(fxTipTimer);
-        fxTipTimer = setTimeout(() => fxTip?.classList.remove('on'), 1600);
+    function closeFxMenu(): void {
+        fxPop?.classList.remove('on');
+        fxButton?.setAttribute('aria-expanded', 'false');
     }
+    const onFxAway = (event: Event): void => {
+        if (!fxPop?.classList.contains('on')) return;
+        if (event.target instanceof Node && (fxPop.contains(event.target) || fxButton?.contains(event.target))) return;
+        closeFxMenu();
+    };
+    const onFxKey = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape' && fxPop?.classList.contains('on')) {
+            closeFxMenu();
+            fxButton?.focus();
+        }
+    };
+    document.addEventListener('pointerdown', onFxAway, true);
+    document.addEventListener('keydown', onFxKey, true);
+    window.addEventListener('resize', closeFxMenu);
     applyFx();
     // Ряд кнопок справа (2.12.2): когда он не помещается, второстепенные кнопки уходят в меню «…», а не обрезаются и не
     // наползают на название. Лайк, кнопка эффектов и сама «…» остаются всегда. Порядок ухода: «К дропу», «Больше такого»,
@@ -2007,6 +2070,12 @@ export function auroraPage(config: AuroraConfig): void {
     function apply(next: AuroraConfig): void {
         const effectChanged = next.appearance.effect !== cfg.appearance.effect;
         cfg = next;
+        // Режим эффектов сменили в шапке или в F1: кнопка и меню в баре показывают то же
+        if (next.mode && next.mode !== fxMode && FX_MODES.includes(next.mode as FxMode)) {
+            fxMode = next.mode as FxMode;
+            fx = FX_LEVEL[fxMode];
+            applyFx();
+        } else if (fxPop?.classList.contains('on')) syncFxMenu();
         if (cfg.appearance.palette !== 'cover') coverUrl = '';
         retarget();
         sampleCover();
@@ -2056,8 +2125,12 @@ export function auroraPage(config: AuroraConfig): void {
             club?.remove();
             thump?.remove();
             fxButton?.remove();
-            fxTip?.remove();
+            fxSep?.remove();
             fxPop?.remove();
+            clearTimeout(beatSendTimer);
+            window.removeEventListener('resize', closeFxMenu);
+            document.removeEventListener('pointerdown', onFxAway, true);
+            document.removeEventListener('keydown', onFxKey, true);
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
             document.removeEventListener('pointerout', onSpotLeave);
@@ -2077,9 +2150,9 @@ export function auroraPage(config: AuroraConfig): void {
 const VERTEX = 'attribute vec2 a_pos; void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }';
 
 /** Скрипт для страницы сайта с текущими настройками оформления */
-export function auroraScript(input: unknown): string {
+export function auroraScript(input: unknown, mode?: string): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
-    const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX };
+    const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX, mode };
     return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + shouldThrottleIdle.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }

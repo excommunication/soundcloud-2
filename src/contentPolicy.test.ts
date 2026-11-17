@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIREFOX_VERSION, firefoxHeaders, firefoxUserAgent, isBlankPopup, isGoogleRejection, isGoogleUrl, isShortLink, isSoundCloudUrl, isWebUrl, shortLinkTarget, sitePagePath } from './contentPolicy';
+import { isAllowedPermission, FIREFOX_VERSION, firefoxHeaders, firefoxUserAgent, isBlankPopup, isGoogleRejection, isGoogleUrl, isShortLink, isSoundCloudUrl, isWebUrl, shortLinkTarget, sitePagePath } from './contentPolicy';
 describe('короткая ссылка on.soundcloud.com', () => {
     it('узнаётся только сама короткая ссылка', () => {
         expect(isShortLink('https://on.soundcloud.com/9BWtqT2nIcIiAubq3X')).toBe(true);
@@ -70,5 +70,15 @@ describe('вход через Google: окно входа как Firefox', () =>
         expect(isGoogleRejection('https://accounts.google.com/signin/v2/disallowed')).toBe(true);
         expect(isGoogleRejection('https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn')).toBe(false);
         expect(isGoogleRejection('https://evil.test/signin/rejected')).toBe(false);
+    });
+});
+
+describe('разрешения страницы сайта', () => {
+    it('DRM и захват окна только для SoundCloud, остальное отказ', () => {
+        expect(isAllowedPermission('mediaKeySystem', 'https://soundcloud.com/')).toBe(true);
+        expect(isAllowedPermission('display-capture', 'https://soundcloud.com/discover')).toBe(true);
+        expect(isAllowedPermission('display-capture', 'https://evil.example/')).toBe(false);
+        expect(isAllowedPermission('media', 'https://soundcloud.com/')).toBe(false);
+        expect(isAllowedPermission('geolocation', 'https://soundcloud.com/')).toBe(false);
     });
 });

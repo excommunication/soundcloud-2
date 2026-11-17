@@ -2,7 +2,7 @@
 // скрыта, на 901..1100 px сужена до 220 px; нижний плеер сжимается, а не обрезается. Правила только в медиа-запросах, на широком окне ничего не меняется
 // 2.12.3: кнопки справа в плеере больше не прячутся по порогам ширины (так кнопка пропадала насовсем). Их ведёт auroraPage (fitBar):
 // если ряд не помещается, лишние кнопки получают класс sca-ovf и появляются в меню «…» (.sca-more). Здесь только стили этого механизма:
-// скрытие, кнопка «…», меню и сжатие бейджа трека. Лайк и кнопка эффектов (.sca-fx) не скрываются ни при какой ширине.
+// скрытие, кнопка «…», меню и сжатие бейджа трека. Лайк и правая группа (.sca-fx, режим роликов, «С другом») не скрываются ни при какой ширине.
 // Панель лайков на 901..1100 px переносит строку счётчиков, а не обрезает её
 const BAR = 'html body .playControls';
 const ACTIONS = `${BAR} .playbackSoundBadge__actions`;
@@ -21,6 +21,19 @@ export const NARROW_CSS = [
     `${ACTIONS}>button.sca-more:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}`,
     // Кнопка эффектов всегда на месте
     `${BAR} button.sca-fx{display:inline-grid!important;flex:none!important}`,
+    // Нижний бар по смыслу, слева направо: транспорт и громкость · прогресс · название трека с действиями над ним · разделитель ·
+    // правая группа «не про текущий трек»: «С другом», режим роликов, эффекты. Блок громкости растворяется (contents), чтобы ролики и джем,
+    // что стоят рядом с громкостью в DOM, встали в правую группу через order. Правая группа всегда на месте и никогда не уходит в «…»
+    `html.scv-bar-on body .playControls .playControls__volume{display:contents!important}`,
+    `${BAR} .scv[data-kind="bar"]{order:1}`,
+    `${BAR} .playControls__elements>.playControls__timeline{order:2}`,
+    `${BAR} .playControls__elements>.playControls__soundBadge{order:3}`,
+    `${BAR} .sca-bar-sep{order:4}`,
+    `${BAR} .scj-chip.bar{order:5}`,
+    `${BAR} .scc-open{order:6}`,
+    `${BAR} button.sca-fx{order:7}`,
+    // Одинаковые круглые кнопки 32 px с одинаковыми отступами
+    `${BAR} .scj-chip.bar,${BAR} .scc-open,${BAR} button.sca-fx{display:inline-grid!important;flex:none!important;width:32px!important;height:32px!important;margin:0 3px!important;align-self:center}`,
     '.sca-more-pop{position:fixed;z-index:2147483601;display:none;flex-direction:column;gap:2px;min-width:190px;max-width:calc(100vw - 16px);padding:6px;border-radius:14px;font:600 13px/1.2 system-ui,-apple-system,sans-serif;color:#fff;' +
         'background:rgba(14,15,22,.94);backdrop-filter:blur(20px);box-shadow:0 10px 30px -10px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.1)}',
     '.sca-more-pop.on{display:flex}',
@@ -29,9 +42,6 @@ export const NARROW_CSS = [
     '.sca-more-item:hover,.sca-more-item:focus-visible{background:rgba(255,255,255,.12);color:#fff}',
     '.sca-more-item:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:-2px}',
     '@media (max-width:1100px){',
-    // «С другом» без подписи: остаётся круглая кнопка с иконкой
-    `${BAR} .scj-chip.bar .scj-n{display:none}`,
-    `${BAR} .scj-chip.bar{padding:0 8px;margin:0 4px}`,
     `${BAR} .playbackSoundBadge__actions>*{margin-left:0!important}`,
     '}',
     '@media (max-width:1100px) and (min-width:901px){',

@@ -16,6 +16,7 @@ function setup() {
         write: vi.fn<(file: string, data: Uint8Array) => Promise<void>>(async () => undefined),
         reveal: vi.fn<(file: string) => void>(),
         recording: vi.fn<(on: boolean) => void>(),
+        failed: vi.fn<(reason: string) => void>(),
         now: () => new Date(2026, 10, 16, 9, 5, 7).getTime(),
     } satisfies ClipIpcDeps;
     registerClipIpc(ipc, deps);
@@ -77,5 +78,15 @@ describe('запись ролика: каналы', () => {
         expect(clipFileName('...')).toBe('clip');
         expect(clipFileName(5)).toBe('clip');
         expect(clipFileName('я'.repeat(200)).length).toBe(80);
+    });
+});
+
+describe('запись ролика: причина отказа', () => {
+    it('код причины доходит до журнала, неизвестный превращается в unknown, чужой отправитель игнорируется', async () => {
+        const { ipc, site, stranger, deps } = setup();
+        expect(await ipc.invoke('clip:record-arm', site, 'fail', 'denied')).toBe(true);
+        expect(await ipc.invoke('clip:record-arm', site, 'fail', 'любой <текст>')).toBe(true);
+        expect(await ipc.invoke('clip:record-arm', stranger, 'fail', 'denied')).toBe(false);
+        expect(deps.failed.mock.calls).toEqual([['denied'], ['unknown']]);
     });
 });

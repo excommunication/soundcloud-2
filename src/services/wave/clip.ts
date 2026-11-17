@@ -12,6 +12,7 @@
 // Shift+R — 15 с; кадр страницы снимает getDisplayMedia, в файл идёт только вырез кадра и звук трека), «Эффекты на бит» (B) и значок
 // sc2 с QR-кодом (Q). Всё это выключено, пока режим закрыт, и не работает при «уменьшить движение».
 // Раздел страницы волны: installClip уходит на страницу текстом (pageHelpers в wave.ts) и ни на что снаружи не ссылается
+import type { ClipFailReason } from '../clipFail';
 export interface ClipWord {
     at: number;
     text: string;
@@ -60,7 +61,7 @@ export interface ClipCore {
     /** Разметка SVG значка с QR-кодом ссылки на репозиторий (кодировщик из wave/qr.ts лежит на странице отдельно от этого раздела) */
     qr?(): string;
     /** Запись ролика: разрешение main на захват кадра и сохранение файла; нет — кнопка записи говорит, что недоступна */
-    record?: { arm(state: string): Promise<unknown>; save(data: ArrayBuffer, name: string, ext: string): Promise<unknown> };
+    record?: { arm(state: string, note?: string): Promise<unknown>; save(data: ArrayBuffer, name: string, ext: string): Promise<unknown> };
     /** Шрифт «Удара» (Montserrat, base64 woff2): латиница и кириллица */
     fonts?: { latin: string; cyrillic: string };
 }
@@ -176,11 +177,30 @@ export function clipPseudoWave(seed: number, count: number): number[] {
     }
     return out;
 }
+/** Код причины по ошибке getDisplayMedia / MediaRecorder (читается только имя ошибки). Коды те же, что в services/clipFail.ts */
+export function clipFailReason(error: unknown): ClipFailReason {
+    const name = typeof error === 'object' && error !== null && typeof (error as { name?: unknown }).name === 'string' ? (error as { name: string }).name : '';
+    if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied';
+    if (name === 'NotFoundError') return 'not-found';
+    if (name === 'NotReadableError' || name === 'OverconstrainedError') return 'unavailable';
+    if (name === 'NotSupportedError') return 'not-supported';
+    if (name === 'AbortError') return 'aborted';
+    return 'unknown';
+}
+/** Форматы записи по убыванию предпочтения: MP4 (H.264 и AAC), потом WebM; в список входят только поддерживаемые */
+export function clipRecordFormats(supported: (type: string) => boolean): Array<{ mime: string; ext: 'mp4' | 'webm' }> {
+    const list: Array<{ mime: string; ext: 'mp4' | 'webm' }> = [];
+    for (const mime of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E', 'video/mp4']) {
+        if (supported(mime)) list.push({ mime, ext: 'mp4' });
+    }
+    for (const mime of ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) {
+        if (supported(mime)) list.push({ mime, ext: 'webm' });
+    }
+    return list;
+}
 /** Формат записи: MP4 с H.264 и AAC, если браузер его пишет, иначе любой MP4, иначе WebM */
 export function clipRecordMime(supported: (type: string) => boolean): { mime: string; ext: 'mp4' | 'webm' } {
-    for (const mime of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']) if (supported(mime)) return { mime, ext: 'mp4' };
-    for (const mime of ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) if (supported(mime)) return { mime, ext: 'webm' };
-    return { mime: '', ext: 'webm' };
+    return clipRecordFormats(supported)[0] ?? { mime: '', ext: 'webm' };
 }
 /** Размер файла: длинная сторона 1920, стороны чётные (1080×1920 для кадра 9:16, 1920×1080 для окна 16:9) */
 export function clipOutputSize(width: number, height: number): { width: number; height: number } {
@@ -203,8 +223,8 @@ export function clipCrop(frameW: number, frameH: number, viewW: number, viewH: n
 export function installClip(core: ClipCore): ClipSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub' }
-        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub' };
+        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recDenied: 'Нет доступа к захвату окна', recNotFound: 'Нет окна для захвата', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub' }
+        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recDenied: 'No access to window capture', recNotFound: 'No window to capture', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub' };
     const ICON: Record<string, string> = {
         clip: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11A1.5 1.5 0 0 1 4.5 1zm.2 1.5v11h6.6v-11zM6.9 5.6l3.2 2.1-3.2 2.1z"/></svg>',
         close: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg>',
@@ -1205,7 +1225,14 @@ export function installClip(core: ClipCore): ClipSection {
             toast(T.recNo);
             return;
         }
-        const format = clipRecordMime((type) => MediaRecorder.isTypeSupported(type));
+        const formats = clipRecordFormats((type) => {
+            try {
+                return MediaRecorder.isTypeSupported(type);
+            } catch {
+                return false;
+            }
+        });
+        let format = formats[0] ?? { mime: '', ext: 'webm' as 'mp4' | 'webm' };
         if (!format.mime) {
             toast(T.recNo);
             return;
@@ -1252,15 +1279,17 @@ export function installClip(core: ClipCore): ClipSection {
             void api.arm('off').catch(() => undefined);
             wake();
         };
-        const fail = (text: string): void => {
+        const fail = (reason: ClipFailReason): void => {
+            // Причина (код без текста ошибки) уходит в журнал диагностики; 'off' из cleanup идёт следом
+            void api.arm('fail', reason).catch(() => undefined);
             cleanup();
-            toast(text);
+            toast(reason === 'denied' ? T.recDenied : reason === 'not-found' ? T.recNotFound : T.recFail);
         };
         try {
             await api.arm('arm');
             display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
-        } catch {
-            fail(T.recFail);
+        } catch (error) {
+            fail(clipFailReason(error));
             return;
         }
         if (!layer || cancelled) {
@@ -1279,7 +1308,7 @@ export function installClip(core: ClipCore): ClipSection {
         }
         for (let n = 0; n < 20 && !video.videoWidth; n++) await sleep(100);
         if (!video.videoWidth) {
-            fail(T.recFail);
+            fail('no-frames');
             return;
         }
         // Звук трека: приёмник в цепочке сайта, тот же регулятор, что слышит пользователь (его громкость попадёт в ролик)
@@ -1306,7 +1335,7 @@ export function installClip(core: ClipCore): ClipSection {
         // Всё лишнее убирается до первого кадра: панели, курсор, подсказки. Метка записи только вне выреза
         const frameEl = layer.querySelector<HTMLElement>('.scc-frame');
         if (!frameEl) {
-            fail(T.recFail);
+            fail('no-canvas');
             return;
         }
         const frameW = frameEl.offsetWidth;
@@ -1326,7 +1355,7 @@ export function installClip(core: ClipCore): ClipSection {
         canvas.height = crop.height;
         const g = canvas.getContext('2d', { alpha: false });
         if (!g || !crop.sw || !crop.sh) {
-            fail(T.recFail);
+            fail('no-canvas');
             return;
         }
         const source = video;
@@ -1356,10 +1385,23 @@ export function installClip(core: ClipCore): ClipSection {
                 }
             }, 1000));
         }
-        try {
-            recorder = new MediaRecorder(out, { mimeType: format.mime, videoBitsPerSecond: 8000000, audioBitsPerSecond: 192000 });
-        } catch {
-            fail(T.recFail);
+        // Первый формат, который MediaRecorder реально принял; битрейт без привязки к кодеку, если с ним не вышло
+        let recorderError: unknown = null;
+        for (const candidate of formats) {
+            for (const options of [{ mimeType: candidate.mime, videoBitsPerSecond: 8000000, audioBitsPerSecond: 192000 }, { mimeType: candidate.mime }]) {
+                try {
+                    recorder = new MediaRecorder(out, options);
+                    format = candidate;
+                    break;
+                } catch (error) {
+                    recorderError = error;
+                }
+            }
+            if (recorder) break;
+        }
+        if (!recorder) {
+            const reason = clipFailReason(recorderError);
+            fail(reason === 'unknown' ? 'recorder' : reason);
             return;
         }
         const rec = recorder;

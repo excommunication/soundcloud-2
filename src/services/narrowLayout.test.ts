@@ -101,8 +101,34 @@ describe('плеер: лишние кнопки уходят в меню «…»
         expect(order).not.toContain("'fx'");
         expect(aurora).toContain('function fitBar()');
     });
-    it('«С другом» на ≤1100px остаётся иконкой без подписи', () => {
-        expect(block(NARROW_CSS, '@media (max-width:1100px){')).toContain('.scj-chip.bar .scj-n{display:none}');
+    it('правая группа бара: «С другом», ролики, эффекты стоят справа за разделителем, всегда на месте', () => {
+        const order = (selector: string) => {
+            const at = NARROW_CSS.indexOf(selector + '{order:');
+            return at < 0 ? Number.NaN : parseInt(NARROW_CSS.slice(at + selector.length + 7), 10);
+        };
+        const seq = [order('.playControls__elements>.playControls__soundBadge'), order('.sca-bar-sep'), order('.scj-chip.bar'), order('.scc-open'), order('button.sca-fx')];
+        expect(seq.every(Number.isFinite)).toBe(true);
+        expect([...seq].sort((x, y) => x - y)).toEqual(seq);
+        expect(new Set(seq).size).toBe(seq.length);
+        // Громкость слева от прогресса, название трека правее прогресса
+        expect(order('.scv[data-kind="bar"]')).toBeLessThan(order('.playControls__elements>.playControls__timeline'));
+        expect(order('.playControls__elements>.playControls__timeline')).toBeLessThan(seq[0]);
+        expect(NARROW_CSS).toContain('.playControls__volume{display:contents!important}');
+        // Одинаковые круглые кнопки, ни одна не прячется по ширине окна
+        expect(NARROW_CSS).toContain('html body .playControls .scj-chip.bar,html body .playControls .scc-open,html body .playControls button.sca-fx{display:inline-grid!important;flex:none!important;width:32px!important;height:32px!important');
+    });
+    it('«С другом» без подписи: ни в одном медиа-запросе нет текстовых правил для кнопки', () => {
+        expect(NARROW_CSS).not.toContain('.scj-n');
+        expect(NARROW_CSS).not.toContain('.scj-chip.bar .scj-n');
+    });
+    it('кнопка эффектов: меню по клику, без наведения, правой кнопки и цикла режимов', () => {
+        expect(aurora).toContain("fxButton.setAttribute('aria-haspopup', 'menu')");
+        expect(aurora).toContain('function openFxMenu()');
+        expect(aurora).not.toContain('mouseenter');
+        expect(aurora).not.toContain('contextmenu');
+        expect(aurora).not.toContain('FX_ORDER');
+        expect(aurora).not.toContain('sc2-fx');
+        expect(aurora).toContain('setEffectsMode');
     });
 });
 

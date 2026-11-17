@@ -1,7 +1,8 @@
 import { type BrowserWindow, nativeImage, type ThumbarButton } from 'electron';
 import { join } from 'path';
 import type { TranslationService } from './translationService';
-import type { PlaybackController, PlaybackCommand } from './playbackController';
+import type { PlaybackController } from './playbackController';
+import { buildThumbarSpecs } from './thumbarButtons';
 import type { TrackInfo } from '../types';
 import { formatClock, trackParts, trackSeconds } from '../utils/trackParser';
 
@@ -30,19 +31,13 @@ export class ThumbarService {
         if (window.isDestroyed() || !window.isVisible()) return;
         const key = [window.id, playing, liked, this.translation.getLanguage()].join(':');
         if (key === this.key) return;
-        const button = (command: PlaybackCommand, icon: string, tooltip: string): ThumbarButton => ({
-            icon: this.icons[icon],
-            tooltip,
+        const buttons: ThumbarButton[] = buildThumbarSpecs(playing, liked).map((spec) => ({
+            icon: this.icons[spec.icon],
+            tooltip: this.translation.translate(spec.tooltip),
             click: () => {
-                void this.playback.execute(command).catch(console.error);
+                void this.playback.execute(spec.command).catch(console.error);
             },
-        });
-        const buttons = [
-            button('like', liked ? 'heart-filled' : 'heart', this.translation.translate(liked ? 'unlike' : 'like')),
-            button('previous', 'backward', this.translation.translate('previous')),
-            button('toggle', playing ? 'pause' : 'play', this.translation.translate(playing ? 'pause' : 'play')),
-            button('next', 'forward', this.translation.translate('next')),
-        ];
+        }));
         if (window.setThumbarButtons(buttons)) this.key = key;
     }
     // Заголовок окна Windows пишет над превью на панели задач и в Alt+Tab, подсказка всплывает при наведении на превью.

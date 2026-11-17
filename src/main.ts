@@ -46,7 +46,7 @@ import { registerJamIpc } from './ipc/jamIpc';
 import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
-import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode } from './services/effectsMode';
+import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode, type EffectsMode } from './services/effectsMode';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
@@ -1200,6 +1200,7 @@ async function init() {
         presence: () => presenceService,
         webhooks: () => webhookService,
         previewPresence: sendPresencePreview,
+        setEffectsMode,
         setBeat: (value) => {
             const next = { ...normalizeAppearance(store.get('appearance')), beat: value };
             store.set('appearance', next);
@@ -1259,8 +1260,14 @@ async function init() {
         recording: (on) => {
             if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(on ? 1 : -1, on ? { mode: 'error' } : undefined);
             // Запись снимает экран: страница не должна замедляться, когда окно перекрыто или без фокуса
-            if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
+            // Не должно мешать записи: сбой здесь только значит, что страница может притормаживать
+            try {
+                if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
+            } catch (error) {
+                console.warn('Фон страницы не переключён на время записи:', error instanceof Error ? error.name : 'Error');
+            }
         },
+        failed: (reason) => diagnostics.record('clip.record-failed', { reason }),
         now: () => Date.now(),
     });
     // «Джем» (2.12.0): клиент комнаты живёт в main, страница сайта получает события через webContents.send
@@ -1693,18 +1700,20 @@ function applyEffectsMode(): void {
         void contentView.webContents.executeJavaScript(pageMotionScript(reduceMotionNow())).catch(console.error);
     }
 }
+// Один путь смены режима для меню палитры в шапке и для меню кнопки эффектов в плеере страницы
+function setEffectsMode(mode: EffectsMode): void {
+    if (currentEffectsMode() === mode) return;
+    store.set('effectsMode', mode);
+    applyEffectsMode();
+    const settings = settingsManager?.getView()?.webContents;
+    if (settings && !settings.isDestroyed()) settings.send('effects-mode-changed', mode);
+}
 // Меню режимов под кнопкой палитры в шапке: родное, поэтому закрывается кликом вне и Esc и управляется стрелками
 function showAppearanceMenu(anchor: { x: number; y: number }): void {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const current = currentEffectsMode();
     const label = (key: 'effectsFull' | 'effectsLight' | 'effectsSolid' | 'effectsOff' | 'effectsMore') => translationService.translate(key);
-    const choose = (mode: 'full' | 'light' | 'solid' | 'off') => () => {
-        if (currentEffectsMode() === mode) return;
-        store.set('effectsMode', mode);
-        applyEffectsMode();
-        const settings = settingsManager?.getView()?.webContents;
-        if (settings && !settings.isDestroyed()) settings.send('effects-mode-changed', mode);
-    };
+    const choose = (mode: EffectsMode) => () => setEffectsMode(mode);
     const item = (mode: 'full' | 'light' | 'solid' | 'off', key: 'effectsFull' | 'effectsLight' | 'effectsSolid' | 'effectsOff'): Electron.MenuItemConstructorOptions => ({ label: label(key), type: 'radio', checked: current === mode, click: choose(mode) });
     Menu.buildFromTemplate([
         item('full', 'effectsFull'),
@@ -1734,7 +1743,7 @@ function applyThemeToContent() {
         void contentView.webContents.executeJavaScript('for(const n of [document.documentElement,document.body]){n.classList.remove("theme-light");n.classList.add("theme-dark")}').catch(console.error);
         void contentView.webContents.executeJavaScript(pageFeaturesScript(store.get('hideArtistUpsells', true) === true)).catch(console.error);
         // Переливы WebGL за сайтом: ставятся или обновляются без перезагрузки
-        void contentView.webContents.executeJavaScript(auroraScript(currentAppearance())).catch(console.error);
+        void contentView.webContents.executeJavaScript(auroraScript(currentAppearance(), currentEffectsMode())).catch(console.error);
     }
 }
 

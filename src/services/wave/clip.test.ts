@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CLIP_FONT } from './clipFont';
-import { clipArtwork, clipBarLevels, clipBassLevel, clipCrop, clipLineAt, clipOutputSize, clipPseudoWave, clipRecordMime, clipNextStyle, clipSeekStep, clipTime, clipVolumeIcon, clipVolumeStep, verticalFrame } from './clip';
+import { clipArtwork, clipBarLevels, clipBassLevel, clipCrop, clipLineAt, clipOutputSize, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipNextStyle, clipSeekStep, clipTime, clipVolumeIcon, clipVolumeStep, verticalFrame } from './clip';
 
 describe('режим «Для роликов»', () => {
     it('кадр 9:16 во всю высоту, в узком окне во всю ширину', () => {
@@ -81,6 +81,23 @@ describe('режим «Для роликов»', () => {
         expect(clipRecordMime((t) => t === 'video/mp4')).toEqual({ mime: 'video/mp4', ext: 'mp4' });
         expect(clipRecordMime((t) => t.startsWith('video/webm'))).toEqual({ mime: 'video/webm;codecs=vp9,opus', ext: 'webm' });
         expect(clipRecordMime(() => false)).toEqual({ mime: '', ext: 'webm' });
+    });
+    it('форматы записи: все поддерживаемые по порядку, запасные WebM без аудиокодека', () => {
+        expect(clipRecordFormats(() => false)).toEqual([]);
+        expect(clipRecordFormats((t) => t === 'video/webm;codecs=vp8').map((f) => f.mime)).toEqual(['video/webm;codecs=vp8']);
+        const all = clipRecordFormats(() => true);
+        expect(all[0].ext).toBe('mp4');
+        expect(all[all.length - 1]).toEqual({ mime: 'video/webm', ext: 'webm' });
+        expect(all.map((f) => f.ext)).toEqual(['mp4', 'mp4', 'mp4', 'webm', 'webm', 'webm', 'webm', 'webm']);
+    });
+    it('причина отказа по имени ошибки', () => {
+        expect(clipFailReason({ name: 'NotAllowedError' })).toBe('denied');
+        expect(clipFailReason(new DOMException('x', 'NotFoundError'))).toBe('not-found');
+        expect(clipFailReason({ name: 'NotReadableError' })).toBe('unavailable');
+        expect(clipFailReason({ name: 'NotSupportedError' })).toBe('not-supported');
+        expect(clipFailReason({ name: 'AbortError' })).toBe('aborted');
+        expect(clipFailReason(new Error('boom'))).toBe('unknown');
+        expect(clipFailReason(null)).toBe('unknown');
     });
     it('размер файла: длинная сторона 1920, стороны чётные', () => {
         expect(clipOutputSize(608, 1080)).toEqual({ width: 1080, height: 1920 });
