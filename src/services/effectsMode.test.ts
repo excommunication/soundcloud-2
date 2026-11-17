@@ -23,6 +23,8 @@ describe('режим оформления', () => {
         expect(a).toMatchObject({ effect: 'off', blur: 0, parallax: false, palette: 'sunset' });
         expect(effectsModeCss('off')).toContain('backdrop-filter:none');
         expect(effectsModeCss('full')).toBe('');
+        // режим роликов (.scc) не гасится
+        expect(effectsModeCss('off')).toContain(':not(.scc,.scc *)');
     });
     it('«Супер лайт» даёт однотонный фон без WebGL и размытия', () => {
         const a = effectiveAppearance(APPEARANCE_DEFAULTS, 'solid');

@@ -1,10 +1,10 @@
 // Сервер «Джемов» SoundCloud 2: Cloudflare Worker + по одному Durable Object на комнату, WebSocket с гибернацией.
 // Вся логика комнаты в ../../src/services/jam/room.ts (чистые функции, там же тесты), протокол в protocol.ts.
 // Сервер не знает ни аккаунтов, ни токенов SoundCloud: имя, аватарка, ссылки на треки. Комната живёт, пока в ней
-// была активность за последние 6 часов; потом alarm стирает всё хранилище.
+// была активность за последние 7 суток (JAM_LIMITS.idleMs) или есть хоть одно соединение; потом alarm стирает всё хранилище.
 import { DurableObject } from 'cloudflare:workers';
 import { JAM_LIMITS, cleanAvatar, cleanName, makeCode, parseClientMsg, parseCode, type JamServerMsg, type JamState } from '../../src/services/jam/protocol';
-import { addMember, memberOf, newState, reduce, removeMember } from '../../src/services/jam/room';
+import { addMember, memberOf, newState, reduce, removeMember, shouldExpire } from '../../src/services/jam/room';
 
 interface Env {
     JAM_ROOM: DurableObjectNamespace<JamRoom>;
@@ -84,7 +84,7 @@ export class JamRoom extends DurableObject<Env> {
         this.stored = { ...this.stored!, state: rest };
         await this.ctx.storage.put(queueChanged ? { room: this.stored, queue } : { room: this.stored });
     }
-    /** Любая активность отодвигает стирание комнаты на 6 часов */
+    /** Любая активность отодвигает стирание комнаты на 7 суток */
     private async touch(): Promise<void> {
         await this.ctx.storage.setAlarm(Date.now() + JAM_LIMITS.idleMs);
     }
@@ -192,7 +192,12 @@ export class JamRoom extends DurableObject<Env> {
     }
 
     async alarm(): Promise<void> {
-        // Тишина шесть часов: всех отключаем и стираем всё, что комната хранила
+        // Пока в комнате кто-то подключён, она живёт: таймер просто переносится
+        if (!shouldExpire(this.ctx.getWebSockets().length)) {
+            await this.touch();
+            return;
+        }
+        // Тишина семь суток и никого нет: стираем всё, что комната хранила
         for (const ws of this.ctx.getWebSockets()) {
             try { ws.close(4000, 'expired'); } catch { /* уже закрыт */ }
         }

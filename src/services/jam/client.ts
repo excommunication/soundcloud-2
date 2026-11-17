@@ -2,7 +2,7 @@
 // Страница сайта сети не видит: она зовёт узкий soundcloudAPI.jam (preload, jamIpc.ts) и получает готовые события.
 // Все внешние зависимости (сокет, HTTP, таймеры) приходят объектом, поэтому в тестах подставляются свои.
 import { applyEvent } from './room';
-import { parseCode, parseServerMsg, type JamClientMsg, type JamErrorCode, type JamState } from './protocol';
+import { cleanAvatar, cleanName, parseCode, parseServerMsg, type JamClientMsg, type JamErrorCode, type JamState } from './protocol';
 import { medianOffset, offsetFromPong } from './sync';
 
 /** Узкая форма WebSocket: подходит и браузерному, и из Node (undici) */
@@ -25,6 +25,31 @@ export interface JamClientDeps {
     now(): number;
     random(): number;
     timers: JamTimers;
+    /** Запомненная комната на диске (только main: токен хозяина наружу, на страницу, не уходит) */
+    saved?: { load(): unknown; save(value: JamSavedSession | null): void };
+    /** Отвечает ли сервер вообще (GET корня): отличает «комнаты нет» от «нет сети» при восстановлении */
+    reachable?(httpBase: string): Promise<boolean>;
+}
+/** Что помним между запусками: к какой комнате вернуться и под каким именем */
+export interface JamSavedSession {
+    code: string;
+    /** Токен хозяина; у гостя пустой */
+    token: string;
+    name: string;
+    avatar: string;
+    /** Адрес сервера (http-форма): после смены сервера запись не подходит */
+    server: string;
+}
+/** Запись с диска -> проверенная запись; null — мусор (записи не верим: файл можно было править) */
+export function parseSavedSession(value: unknown): JamSavedSession | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const v = value as Record<string, unknown>;
+    const code = parseCode(v.code);
+    const name = cleanName(v.name);
+    const token = typeof v.token === 'string' && (v.token === '' || /^[0-9a-f]{48}$/.test(v.token)) ? v.token : null;
+    const server = typeof v.server === 'string' && v.server.length <= 200 ? v.server : null;
+    if (!code || !name || token === null || !server) return null;
+    return { code, token, name, avatar: cleanAvatar(v.avatar), server };
 }
 
 export type JamStatus = 'idle' | 'connecting' | 'open' | 'reconnecting';
@@ -64,6 +89,8 @@ interface Session {
     token: string;
     name: string;
     avatar: string;
+    /** Поднята с диска при запуске: если комнаты уже нет, молча забываем */
+    restoring?: boolean;
 }
 
 export class JamClient {
@@ -79,6 +106,7 @@ export class JamClient {
     private pingTimer: unknown = null;
     private pings = new Map<number, number>();
     private generation = 0;
+    private persisted = false;
 
     constructor(private readonly deps: JamClientDeps, private readonly emit: (event: JamUiEvent) => void) {}
 
@@ -121,13 +149,45 @@ export class JamClient {
         this.open();
         return { ok: true, code: clean };
     }
+    /** Вернуться в комнату, запомненную с прошлого запуска. false: запоминать нечего, сервер другой или уже идёт сессия */
+    restore(base: { http: string; ws: string }): boolean {
+        if (this.active || !this.deps.saved) return false;
+        let raw: unknown;
+        try { raw = this.deps.saved.load(); } catch { return false; }
+        if (raw === null || raw === undefined || raw === '') return false;
+        const saved = parseSavedSession(raw);
+        if (!saved) { this.forget(); return false; }
+        if (saved.server !== base.http) return false;
+        ++this.generation;
+        this.session = { base, code: saved.code, token: saved.token, name: saved.name, avatar: saved.avatar, restoring: true };
+        this.persisted = true;
+        this.setStatus('connecting');
+        this.open();
+        return true;
+    }
+    /** Выход по кнопке: комната забывается и при следующем запуске не поднимается */
     leave(): void {
+        this.suspend();
+        this.forget();
+    }
+    /** Остановка без забывания: закрытие приложения. Запись остаётся, при запуске клиент вернётся в комнату */
+    suspend(): void {
         this.generation++;
         this.stop();
         this.session = null;
         this.state = null;
         this.you = '';
+        this.persisted = false;
         if (this.status !== 'idle') this.setStatus('idle');
+    }
+    private forget(): void {
+        try { this.deps.saved?.save(null); } catch { /* диск недоступен: запись останется до следующей попытки */ }
+    }
+    private remember(): void {
+        const s = this.session;
+        if (!s || this.persisted || !this.deps.saved) return;
+        this.persisted = true;
+        try { this.deps.saved.save({ code: s.code, token: s.token, name: s.name, avatar: s.avatar, server: s.base.http }); } catch { /* не критично */ }
     }
     /** Отправка в комнату; false, пока соединения нет */
     send(msg: JamClientMsg): boolean {
@@ -215,6 +275,7 @@ export class JamClient {
                 // Часы сервера из hello грубо, до первых pong
                 if (!this.samples.length) this.offset = msg.serverNow - this.deps.now();
                 this.setStatus('open');
+                this.remember();
                 this.pushState();
                 return;
             case 'pong': {
@@ -245,13 +306,27 @@ export class JamClient {
         if (this.state) this.emit({ type: 'state', state: this.state, you: this.you, offset: this.offset, synced: this.samples.length >= 3 });
     }
     /** Сессия закончилась не по просьбе человека */
-    private end(reason: JamLeaveReason): void {
+    private end(reason: JamLeaveReason, keep = false, silent = false): void {
         this.generation++;
         this.stop();
         this.session = null;
         this.state = null;
         this.status = 'idle';
-        this.emit({ type: 'status', status: 'idle', reason });
+        this.persisted = false;
+        // Потеря связи запись не стирает: при следующем запуске вернёмся. Выгнали, комната кончилась: забываем
+        if (!keep) this.forget();
+        this.emit(silent ? { type: 'status', status: 'idle' } : { type: 'status', status: 'idle', reason });
+    }
+    /** Попытки кончились. Восстановление при запуске молчит: комнаты нет — запись стирается, сервера нет — остаётся */
+    private giveUp(generation: number): void {
+        const session = this.session;
+        if (this.state) return this.end('network', true);
+        if (!session?.restoring) return this.end('not-found');
+        const probe = this.deps.reachable ? this.deps.reachable(session.base.http).catch(() => false) : Promise.resolve(true);
+        void probe.then((up) => {
+            if (generation !== this.generation) return;
+            this.end(up ? 'not-found' : 'unreachable', !up, true);
+        });
     }
     private dropped(generation: number, code: number): void {
         if (generation !== this.generation || !this.session) return;
@@ -263,7 +338,7 @@ export class JamClient {
         if (this.pingTimer !== null) this.deps.timers.clear(this.pingTimer);
         this.pingTimer = null;
         // Соединение так ни разу и не открылось подряд много раз: комнаты нет или сервер недоступен
-        if (failed >= JAM_MAX_ATTEMPTS) return this.end(this.state ? 'network' : 'not-found');
+        if (failed >= JAM_MAX_ATTEMPTS) return this.giveUp(generation);
         this.attempt = failed + 1;
         this.setStatus('reconnecting');
         const delay = backoffDelay(failed, this.deps.random());

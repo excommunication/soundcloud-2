@@ -21,10 +21,18 @@ describe('NARROW_CSS', () => {
         expect(b).toContain('html,body{overflow-x:clip}');
         expect(b).toContain('.playControls__volume,.playControls__repeat{display:none!important}');
     });
-    it('сужает колонку до 220px на 901..1100px', () => {
+    it('901..1100px: колонка 240px целиком в окне, резерв справа под неё сброшен', () => {
         const b = block(NARROW_CSS, '@media (max-width:1100px) and (min-width:901px)');
-        expect(b).toContain('220px');
+        expect(b).toContain('width:240px!important');
+        expect(b).not.toContain('220px');
         expect(b).not.toContain('250px');
+        expect(b).toContain(':has(.l-sidebar-right){padding-right:0!important;margin-right:0!important');
+        expect(b).toContain(':has(>.l-sidebar-right){display:flex!important');
+        expect(b).toContain('position:static!important;float:none!important');
+        expect(b).toContain('html,body{overflow-x:clip}');
+    });
+    it('ряд жанров не переносится, а листается без полосы', () => {
+        expect(NARROW_CSS).toContain('#sc-wave .scw-moods{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none');
     });
     it('не задаёт width:250px колонке', () => {
         expect(NARROW_CSS).not.toMatch(/\.l-sidebar-right\{[^}]*250px/);
@@ -68,6 +76,10 @@ describe('wave.ts узкое/низкое окно', () => {
         expect(rule).toContain('#sc-wave>.scw-up-h{grid-column:2');
         expect(rule).toContain('.scw-tiles:not(.scw-shelf){grid-column:2');
         expect(rule).not.toContain('flex-direction:column');
+    });
+    it('940..1100 px: колонка «Далее» шире, третья плитка видна', () => {
+        expect(src).toContain('@media (max-width:1100px) and (min-width:940px){#sc-wave{grid-template-columns:minmax(0,1fr) 190px}');
+        expect(src).toContain('.scw-tile:nth-child(3){display:grid}');
     });
     it('в узком диапазоне .scw-body остаётся строкой, не столбцом', () => {
         expect(src).not.toMatch(/\.scw-body\{[^}]*flex-direction:column/);

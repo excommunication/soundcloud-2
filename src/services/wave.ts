@@ -29,6 +29,7 @@ import * as radarSectionModule from './wave/radar';
 import * as shelfSectionModule from './wave/shelf';
 import * as menuSectionModule from './wave/menu';
 import * as quietSectionModule from './wave/quiet';
+import * as seekGuardModule from './seekGuard';
 import * as scoutSectionModule from './wave/scout';
 import * as glowModule from './wave/glow';
 import * as vibeSectionModule from './wave/vibe';
@@ -71,8 +72,9 @@ const { glowPalette } = glowModule;
 const { installVibe } = vibeSectionModule;
 const { installDock } = dockSectionModule;
 const { installVolume, volumeAt, volumeWheel } = volumeSectionModule;
-const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop } = clipSectionModule;
+const { installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText } = clipSectionModule;
 const { installJam, jamHelpers } = jamSectionModule;
+const { createSeekWatch, restorePosition, seekBackDelta } = seekGuardModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
 const { installForYou } = forYouSectionModule;
@@ -211,6 +213,7 @@ export interface WaveWindow extends Window {
         reportWaveEmpty?(counts: { seen: number; artistTracks: number; moodTags: number }): void;
         reportWaveFiltered?(counts: WaveFilterStats): void;
         reportCrossfade?(entry: { stage: string; prepMs: number; leftMs: number }): void;
+        reportSeekBack?(entry: { source: string; deltaMs: number }): void;
         // Сайт поменялся: чего страница не нашла; после находки то же сообщение снимает отметку
         reportSite?(state: SiteState): void;
         sendTrackMeta?(meta: TrackMeta): void;
@@ -856,7 +859,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         },
         seek: (ms) => {
             const sound = player?.getCurrentSound();
-            if (sound && Number.isFinite(ms)) sound.seek(Math.max(0, ms));
+            if (sound && Number.isFinite(ms)) { seekWatch.note('seek-core'); sound.seek(Math.max(0, ms)); }
         },
         togglePlay: () => {
             if (!player?.getCurrentSound()) return;
@@ -1017,6 +1020,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // Модель трека сайта может оказаться без методов (чужой элемент очереди): тогда длительность и позиция нулевые
     const durationOf = (sound: SiteSound | null | undefined): number => (typeof sound?.getMediaDuration === 'function' ? sound.getMediaDuration() || 0 : 0);
     const positionOf = (sound: SiteSound | null | undefined): number => (typeof sound?.currentTime === 'function' ? sound.currentTime() || 0 : 0);
+    const seekWatch = createSeekWatch((source, deltaMs) => host.soundcloudAPI?.reportSeekBack?.({ source, deltaMs }));
 
     function createQueueItem(track: WaveTrack): SiteQueueItem | null {
         const Item = player?.getQueue().model;
@@ -1079,9 +1083,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         p.toggleState('fallbackEnabled', active ? false : saved.fallback);
         startedAt = Date.now(); jumped = true;
         // SoundCloud по умолчанию запускает заменённую очередь через setCurrentItem. Пауза должна быть явной до её замены.
+        const playingBefore = p.getCurrentSound();
+        const positionBefore = positionOf(playingBefore);
         p.replaceQueue(items, selected, { pause: true });
         const sound = items[selected].sound;
-        if (sound?.id === saved.items[saved.index].track.id && saved.position > 0) sound.seek(saved.position);
+        // Уже проигранное место не откатываем: только тот же трек и только если сохранённое не позади текущего
+        const target = sound?.id === saved.items[saved.index].track.id
+            ? restorePosition({ savedTrackId: sound.id, savedPositionMs: saved.position, currentTrackId: playingBefore?.id ?? null, currentPositionMs: positionBefore })
+            : null;
+        if (sound && target !== null) { seekWatch.note('seek-restore'); sound.seek(target); }
         if (saved.paused || !config.resume) p.pauseCurrent({ userInitiated: true });
         else p.playCurrent({ userInitiated: true });
         state = active ? 'playing' : 'idle';
@@ -3268,6 +3278,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (fork && Date.now() - fork.at > 120000) closeFork();
         const sound = p.getCurrentSound();
         const id = sound?.id ?? 0;
+        // Откат места назад без действия человека (>1 с) уходит в журнал диагностики с источником
+        if (sound) {
+            if (recentInput()) seekWatch.user();
+            seekWatch.sample(id, positionOf(sound), p.isPlaying());
+        }
         if (id !== currentId) {
             const previous = known.get(currentId);
             // Клик, которым трек поставили, его пропуском не считается: не загрузился и сайт сам ушёл дальше
@@ -4067,6 +4082,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // 2.12.3: окно 901..1100 px (справа ещё панель «Лайки», блок волны 500..640 px): плашка слева, «Далее» справа колонкой из двух плиток.
         // Шапка, подборки и прочее на всю ширину. Раскладка на #sc-wave по ширине окна: сам контейнер себя не запрашивает. Шире 1100 и уже 901 ничего не меняется
         '@media (max-width:1100px) and (min-width:901px){#sc-wave{display:grid;grid-template-columns:minmax(0,1fr) 168px;column-gap:20px;align-items:start}#sc-wave>*{grid-column:1/-1}#sc-wave>.scw-body{grid-column:1;grid-row:span 2;--scw-cover-size:96px}#sc-wave>.scw-up-h{grid-column:2;margin-top:0}#sc-wave>.scw-tiles:not(.scw-shelf){grid-column:2;grid-template-columns:minmax(0,1fr);gap:12px}#sc-wave>.scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(n+3){display:none}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile{grid-template-columns:48px minmax(0,1fr)}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile>.scw-art{width:48px}html body #sc-wave>.scw-body .scw-step{display:none}}',
+        // 2.12.4: от 940 px окна блок волны ≥ 620 px (справа панель «Лайки» 240 px): колонка «Далее» шире и в ней три плитки
+        '@media (max-width:1100px) and (min-width:940px){#sc-wave{grid-template-columns:minmax(0,1fr) 190px}#sc-wave>.scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(3){display:grid}}',
         '.scw-card{position:relative;min-width:0}',
         // Прокрутка к карточке и раскрытому списку не прячет их под шапкой сайта
         '.scw-card,.scw-mix{scroll-margin:72px 0 16px}',
@@ -6078,8 +6095,8 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
-    ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
+    ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery, createSeekWatch, restorePosition, seekBackDelta,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
 

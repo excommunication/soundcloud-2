@@ -94,3 +94,13 @@ describe('джем: мост к main', () => {
         expect(await ipc.invoke('jam:copy', site, 'ABC234', 'code')).toBe(false);
     });
 });
+
+describe('джем: токен хозяина не уходит на страницу', () => {
+    it('ответы create и snapshot не содержат hostToken', async () => {
+        const { ipc, site, client } = setup();
+        client.create.mockResolvedValueOnce({ ok: true as const, code: 'ABC234' });
+        const created = await ipc.invoke('jam:create', site, 'x', '');
+        const snap = await ipc.invoke('jam:snapshot', site);
+        expect(JSON.stringify([created, snap]).toLowerCase()).not.toContain('token');
+    });
+});

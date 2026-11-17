@@ -67,7 +67,8 @@ export function installJam(core: JamCore): JamSection {
               members: 'Слушатели', queue: 'Очередь', empty: 'Очередь пуста', addNow: 'Добавить играющий трек', host: 'хозяин', canControl: 'может управлять',
               kick: 'Выгнать', remove: 'Убрать', playNow: 'Играть', up: 'Выше', everyoneAdd: 'Все могут добавлять', everyoneControl: 'Все могут управлять',
               nowPlaying: 'Играет', nothing: 'Ничего не играет', resync: 'Синхронизироваться', connecting: 'Подключаюсь…', reconnecting: 'Связь потеряна, переподключаюсь…',
-              invite: 'Друг вводит этот код в «Джем» (Ctrl+Shift+J)', close: 'Закрыть', you: 'ты', addedBy: 'добавил',
+              invite: 'Друг вводит этот код в «Джем» (Ctrl+Shift+J)', close: 'Закрыть', you: 'ты', addedBy: 'добавил', addedByYou: 'добавил ты', next: 'Далее', down: 'Ниже', loading: 'Подключаюсь к джему…', cancel: 'Отмена', paused: 'пауза',
+              emptyHintAdd: 'Включи трек и нажми «Добавить играющий трек».', emptyHintHost: 'Треки добавляет хозяин или тот, кому он разрешил.',
               errors: {
                   'not-configured': 'Сервер джемов не настроен', invalid: 'Неверный код', busy: 'Сервер занят, попробуй ещё раз', unreachable: 'Сервер джемов недоступен',
                   'not-found': 'Такого джема нет или он закончился', full: 'В джеме нет мест', kicked: 'Тебя убрали из джема', expired: 'Джем закончился', network: 'Связь с джемом потеряна',
@@ -81,7 +82,8 @@ export function installJam(core: JamCore): JamSection {
               members: 'Listeners', queue: 'Queue', empty: 'The queue is empty', addNow: 'Add the playing track', host: 'host', canControl: 'can control',
               kick: 'Remove', remove: 'Remove', playNow: 'Play', up: 'Move up', everyoneAdd: 'Everyone can add', everyoneControl: 'Everyone can control',
               nowPlaying: 'Now playing', nothing: 'Nothing is playing', resync: 'Sync now', connecting: 'Connecting…', reconnecting: 'Connection lost, reconnecting…',
-              invite: 'A friend enters this code in “Jam” (Ctrl+Shift+J)', close: 'Close', you: 'you', addedBy: 'added by',
+              invite: 'A friend enters this code in “Jam” (Ctrl+Shift+J)', close: 'Close', you: 'you', addedBy: 'added by', addedByYou: 'added by you', next: 'Up next', down: 'Move down', loading: 'Connecting to the jam…', cancel: 'Cancel', paused: 'paused',
+              emptyHintAdd: 'Play a track and press “Add the playing track”.', emptyHintHost: 'The host, or anyone they allow, adds tracks.',
               errors: {
                   'not-configured': 'Jam server is not set up', invalid: 'Wrong code', busy: 'The server is busy, try again', unreachable: 'The jam server is unreachable',
                   'not-found': 'No such jam, or it has ended', full: 'The jam is full', kicked: 'You were removed from the jam', expired: 'The jam has ended', network: 'Lost connection to the jam',
@@ -380,6 +382,19 @@ export function installJam(core: JamCore): JamSection {
         } else node.textContent = (name.trim()[0] || '?').toUpperCase();
         return node;
     }
+    /** Обложка трека (только sndcdn.com по https: так же фильтрует сервер); без неё буква на плашке */
+    function art(url: string, title: string, className: string): HTMLElement {
+        const node = el('span', className);
+        if (url && /^https:\/\/[a-z0-9.-]+\.sndcdn\.com\//.test(url)) {
+            const img = el('img');
+            img.src = url;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            node.append(img);
+        } else node.textContent = (title.trim()[0] || '♪').toUpperCase();
+        return node;
+    }
     function toggle(label: string, on: boolean, enabled: boolean, onChange: (value: boolean) => void): HTMLElement {
         const row = el('label', 'scj-row' + (enabled ? '' : ' off'));
         const box = el('input');
@@ -401,6 +416,11 @@ export function installJam(core: JamCore): JamSection {
         panel.append(head);
         if (configured === false) {
             panel.append(el('div', 'scj-warn', T.notConfigured), el('div', 'scj-hint', T.hint));
+            return;
+        }
+        if (!state && (status === 'connecting' || status === 'reconnecting')) {
+            // Подключение (в том числе возврат в комнату после перезапуска): вместо формы понятное ожидание
+            panel.append(el('div', 'scj-loading', T.loading), action(T.cancel, () => leave(), 'scj-btn'));
             return;
         }
         if (!state) {
@@ -431,10 +451,10 @@ export function installJam(core: JamCore): JamSection {
         }
         const st = state;
         const host = isHost();
-        // Код комнаты
+        // Код комнаты: код слева, «Копировать» справа, ссылка-приглашение под ним
         const code = el('div', 'scj-code');
         const copiedNow = Date.now() - copiedAt < 1500;
-        code.append(el('span', 'scj-codetext', st.code), action(copiedNow && copiedKind === 'code' ? T.copied : T.copy, () => void copyOut(st.code, 'code')));
+        code.append(el('span', 'scj-codetext', st.code), action(copiedNow && copiedKind === 'code' ? T.copied : T.copy, () => void copyOut(st.code, 'code'), 'scj-btn scj-copy'));
         panel.append(code, el('div', 'scj-hint', T.invite));
         panel.append(action(copiedNow && copiedKind === 'link' ? T.copied : T.copyLink, () => void copyOut(st.code, 'link')));
         if (status !== 'open') panel.append(el('div', 'scj-msg', status === 'reconnecting' ? T.reconnecting : T.connecting));
@@ -443,11 +463,65 @@ export function installJam(core: JamCore): JamSection {
         const now = st.now;
         const nowBox = el('div', 'scj-now');
         nowBox.append(el('div', 'scj-label', T.nowPlaying));
-        nowBox.append(el('div', 'scj-track', now ? now.track.title : T.nothing));
-        if (now) nowBox.append(el('div', 'scj-sub', now.track.artist));
+        const nowRow = el('div', 'scj-item scj-nowrow');
+        const nowBody = el('div', 'scj-grow');
+        nowBody.append(el('div', 'scj-track', now ? now.track.title : T.nothing));
+        if (now) nowBody.append(el('div', 'scj-sub', now.track.artist + (now.paused ? ' · ' + T.paused : '')));
+        nowRow.append(art(now?.track.artwork ?? '', now?.track.title ?? '', 'scj-art big'), nowBody);
+        nowBox.append(nowRow);
         const local = core.current();
         if (now && (!local || local.track.id !== now.track.id)) nowBox.append(action(T.resync, () => follow()));
         panel.append(nowBox);
+        // Далее: обложка, название, кто добавил (у друга «добавил Вася», у меня «добавил ты»)
+        panel.append(el('div', 'scj-label', T.next + ' · ' + st.queue.length));
+        const mayControl = controls();
+        const mine = me()?.name ?? '';
+        if (!st.queue.length) {
+            const empty = el('div', 'scj-empty');
+            empty.append(el('div', 'scj-emptytitle', T.empty), el('div', 'scj-hint', canAddNow() ? T.emptyHintAdd : T.emptyHintHost));
+            panel.append(empty);
+        } else {
+            const queue = el('ul', 'scj-list scj-queue');
+            st.queue.forEach((track, index) => {
+                const item = el('li', 'scj-item scj-qitem');
+                const body = el('div', 'scj-grow');
+                const own = !!mine && track.addedBy === mine;
+                const adder = el('div', 'scj-by');
+                const adderAvatar = track.addedAvatar || st.members.find((member) => member.name === track.addedBy)?.avatar || '';
+                adder.append(avatar(adderAvatar, track.addedBy), el('span', 'scj-byname', own ? T.addedByYou : T.addedBy + ' ' + track.addedBy));
+                body.append(el('div', 'scj-name', track.title), el('div', 'scj-sub', track.artist), adder);
+                item.append(art(track.artwork, track.title, 'scj-art'), body);
+                const tools = el('div', 'scj-tools');
+                if (mayControl) {
+                    tools.append(action('▶', () => send({ t: 'play', track: { id: track.id, url: track.url, title: track.title, artist: track.artist, artwork: track.artwork, durationMs: track.durationMs }, positionMs: 0, qid: track.qid }), 'scj-x'));
+                    tools.lastElementChild?.setAttribute('aria-label', T.playNow);
+                    if (index > 0) {
+                        tools.append(action('↑', () => send({ t: 'move', qid: track.qid, to: index - 1 }), 'scj-x'));
+                        tools.lastElementChild?.setAttribute('aria-label', T.up);
+                    }
+                    if (index < st.queue.length - 1) {
+                        tools.append(action('↓', () => send({ t: 'move', qid: track.qid, to: index + 1 }), 'scj-x'));
+                        tools.lastElementChild?.setAttribute('aria-label', T.down);
+                    }
+                }
+                if (mayControl || own) {
+                    tools.append(action('×', () => send({ t: 'remove', qid: track.qid }), 'scj-x'));
+                    tools.lastElementChild?.setAttribute('aria-label', T.remove);
+                }
+                if (tools.childElementCount) item.append(tools);
+                queue.append(item);
+            });
+            panel.append(queue);
+        }
+        if (canAddNow()) {
+            const add = action(T.addNow, () => {
+                const ref = refOf(core.current());
+                if (ref) send({ t: 'add', track: ref });
+                else toast(core.current() ? T.errors.noLink : T.nothing);
+            });
+            add.disabled = !core.current();
+            panel.append(add);
+        }
         // Участники
         panel.append(el('div', 'scj-label', T.members + ' · ' + st.members.length));
         const list = el('ul', 'scj-list');
@@ -470,40 +544,6 @@ export function installJam(core: JamCore): JamSection {
             list.append(item);
         }
         panel.append(list);
-        // Очередь
-        panel.append(el('div', 'scj-label', T.queue + ' · ' + st.queue.length));
-        if (!st.queue.length) panel.append(el('div', 'scj-hint', T.empty));
-        const queue = el('ul', 'scj-list');
-        const mayControl = controls();
-        st.queue.forEach((track, index) => {
-            const item = el('li', 'scj-item');
-            const body = el('div', 'scj-grow');
-            body.append(el('div', 'scj-name', track.title), el('div', 'scj-sub', track.artist + ' · ' + T.addedBy + ' ' + track.addedBy));
-            item.append(avatar(track.artwork, track.title), body);
-            if (mayControl) {
-                item.append(action('▶', () => send({ t: 'play', track: { id: track.id, url: track.url, title: track.title, artist: track.artist, artwork: track.artwork, durationMs: track.durationMs }, positionMs: 0, qid: track.qid }), 'scj-x'));
-                item.lastElementChild?.setAttribute('aria-label', T.playNow);
-                if (index > 0) {
-                    item.append(action('↑', () => send({ t: 'move', qid: track.qid, to: index - 1 }), 'scj-x'));
-                    item.lastElementChild?.setAttribute('aria-label', T.up);
-                }
-            }
-            if (mayControl || track.addedBy === me()?.name) {
-                item.append(action('×', () => send({ t: 'remove', qid: track.qid }), 'scj-x'));
-                item.lastElementChild?.setAttribute('aria-label', T.remove);
-            }
-            queue.append(item);
-        });
-        panel.append(queue);
-        if (canAddNow()) {
-            const add = action(T.addNow, () => {
-                const ref = refOf(core.current());
-                if (ref) send({ t: 'add', track: ref });
-                else toast(core.current() ? T.errors.noLink : T.nothing);
-            });
-            add.disabled = !core.current();
-            panel.append(add);
-        }
         // Настройки: меняет хозяин, остальные видят
         panel.append(
             toggle(T.everyoneAdd, st.settings.everyoneCanAdd, host, (value) => send({ t: 'settings', everyoneCanAdd: value })),
@@ -556,7 +596,20 @@ export function installJam(core: JamCore): JamSection {
             '.scj-row{justify-content:space-between;min-height:28px;margin-top:4px;padding:0 2px}.scj-row .scj-grow{flex:1 1 auto}',
             '.scj-row input[type=checkbox],.scj-mini input[type=checkbox]{flex:none;width:16px;height:16px;margin:0}',
             '.scj-mini{flex:none;white-space:nowrap}',
-            '@media (prefers-reduced-motion:reduce){.scj{transition:none;transform:none}}',
+            // Очередь: обложка, текст, под ним «добавил …» с аватаркой; кнопки справа в узком столбце, ничего не выпирает за 340 px
+            '.scj-art{flex:none;width:40px;height:40px;border-radius:8px;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.14);font-weight:800}.scj-art img{width:100%;height:100%;object-fit:cover;display:block}',
+            '.scj-art.big{width:48px;height:48px;border-radius:10px}',
+            '.scj-now{padding:10px;border-radius:14px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}.scj-now .scj-label{margin-top:0}',
+            '.scj-nowrow{padding:0}.scj-qitem{align-items:flex-start;padding:6px 2px}',
+            '.scj-by{display:flex;align-items:center;gap:5px;margin-top:2px;min-width:0;font-size:11px;color:rgba(255,255,255,.55)}',
+            '.scj-by .scj-av{width:16px;height:16px;font-size:9px}.scj-byname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.scj-tools{flex:none;display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:62px;gap:2px}',
+            '.scj-empty{padding:12px;border-radius:12px;background:rgba(255,255,255,.05);text-align:center}.scj-emptytitle{font-size:13px;font-weight:800;margin-bottom:2px}',
+            '.scj-loading{margin:10px 0 4px;padding:12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;font-weight:700;animation:scj-pulse 1.4s ease-in-out infinite}',
+            '@keyframes scj-pulse{50%{opacity:.55}}',
+            '.scj-copy{margin:0;flex:none}.scj-codetext{min-width:0}',
+            '.scj-label{padding:0 2px}',
+            '@media (prefers-reduced-motion:reduce){.scj{transition:none;transform:none}.scj-loading{animation:none}}',
             'html.scm-reduce .scj{transition:none;transform:none}',
         ].join('');
         document.head.append(style);

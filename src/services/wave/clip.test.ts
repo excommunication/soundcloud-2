@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CLIP_FONT } from './clipFont';
-import { clipArtwork, clipBarLevels, clipBassLevel, clipCrop, clipLineAt, clipOutputSize, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipNextStyle, clipSeekStep, clipTime, clipVolumeIcon, clipVolumeStep, verticalFrame } from './clip';
+import { clipArtwork, clipBarLevels, clipBassLevel, clipCrop, clipLineAt, clipOutputSize, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipNextStyle, clipSeekStep, clipSimpleText, clipTime, clipVolumeIcon, clipVolumeStep, verticalFrame } from './clip';
 
 describe('режим «Для роликов»', () => {
     it('кадр 9:16 во всю высоту, в узком окне во всю ширину', () => {
@@ -115,5 +115,13 @@ describe('режим «Для роликов»', () => {
         // woff2 начинается с сигнатуры «wOF2»
         expect(atob(CLIP_FONT.latin).slice(0, 4)).toBe('wOF2');
         expect(atob(CLIP_FONT.cyrillic).slice(0, 4)).toBe('wOF2');
+    });
+    it('упрощённая подача текста: только системное «Отключить анимации», режимы эффектов и флажок не влияют', () => {
+        for (const mode of ['full', 'light', 'solid', 'off']) {
+            expect(clipSimpleText(false, mode, false)).toBe(false);
+            expect(clipSimpleText(true, mode, false)).toBe(false);
+            expect(clipSimpleText(false, mode, true)).toBe(true);
+            expect(clipSimpleText(true, mode, true)).toBe(true);
+        }
     });
 });
