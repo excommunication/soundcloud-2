@@ -47,7 +47,33 @@ describe('оформление', () => {
     });
 });
 
-import { beatInit, beatStep, envelopeTempo } from './aurora';
+import { beatAmount, beatInit, beatStep, envelopeTempo } from './aurora';
+
+describe('интенсивность бита', () => {
+    it('кривая: 0 выключает, максимум прежний, середина мягче линейной, растёт монотонно', () => {
+        expect(beatAmount(0)).toBe(0);
+        expect(beatAmount(100)).toBe(1);
+        expect(beatAmount(50)).toBeLessThan(0.5);
+        expect(beatAmount(50)).toBeGreaterThan(0.25);
+        expect(beatAmount(25)).toBeLessThan(0.25);
+        for (let v = 1; v <= 100; v++) expect(beatAmount(v)).toBeGreaterThan(beatAmount(v - 1));
+    });
+    it('мусор и выход за границы не ломают множитель', () => {
+        expect(beatAmount(-5)).toBe(0);
+        expect(beatAmount(Number.NaN)).toBe(0);
+        expect(beatAmount(250)).toBe(1);
+    });
+    it('умолчание заметно тише прежнего линейного 0.65; сохранённые значения проходят нормализацию как есть', () => {
+        expect(APPEARANCE_DEFAULTS.beat).toBe(40);
+        expect(beatAmount(APPEARANCE_DEFAULTS.beat)).toBeLessThan(0.3);
+        expect(normalizeAppearance({ beat: 65 }).beat).toBe(65);
+        expect(normalizeAppearance({ beat: 120 }).beat).toBe(APPEARANCE_DEFAULTS.beat);
+        expect(normalizeAppearance({}).beat).toBe(40);
+    });
+    it('скрипт страницы несёт ту же кривую', () => {
+        expect(auroraScript({}).includes('function beatAmount')).toBe(true);
+    });
+});
 
 describe('бит', () => {
     const run = (bpm: number, seconds: number, beatAt = (t: number) => (t % (60000 / bpm)) < 90) => {

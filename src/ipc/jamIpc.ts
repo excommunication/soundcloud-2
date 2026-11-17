@@ -3,7 +3,7 @@
 // страница не выбирает хост. Любое сообщение страницы проходит ту же проверку, что на сервере (parseClientMsg).
 import type { IpcRegistry, SenderCheck } from './ipcTypes';
 import { jamServerBase, type JamClient, type JamStartResult, type JamUiEvent } from '../services/jam/client';
-import { cleanAvatar, cleanName, codeFromInput, parseClientMsg } from '../services/jam/protocol';
+import { cleanAvatar, cleanName, codeFromInput, parseClientMsg, parseCode } from '../services/jam/protocol';
 
 /** Адрес сервера джемов, вшитый в сборку. Пусто, пока сервер не развёрнут: после `npx wrangler deploy` впиши сюда
  *  адрес вида https://sc2-jam.<аккаунт>.workers.dev, и настройка «Сервер джемов» в F1 останется только для смены */
@@ -16,6 +16,8 @@ export interface JamIpcDeps {
     setting(): unknown;
     /** Вшитый адрес; по умолчанию JAM_SERVER_DEFAULT (в тестах подменяется) */
     fallback?: string;
+    /** Запись в системный буфер (Electron clipboard.writeText), читает обратно для проверки */
+    clipboard?: { writeText(text: string): void; readText(): string };
 }
 
 /** Какой сервер использовать: настройка важнее вшитого адреса; null — не настроен или адрес негодный */
@@ -24,7 +26,7 @@ export function jamServerOf(setting: unknown, fallback: string = JAM_SERVER_DEFA
 }
 
 export function registerJamIpc(ipc: IpcRegistry, deps: JamIpcDeps): void {
-    for (const channel of ['jam:create', 'jam:join', 'jam:leave', 'jam:send', 'jam:snapshot']) ipc.removeHandler(channel);
+    for (const channel of ['jam:create', 'jam:join', 'jam:leave', 'jam:send', 'jam:snapshot', 'jam:copy']) ipc.removeHandler(channel);
     const who = (name: unknown, avatar: unknown): { name: string; avatar: string } => ({ name: cleanName(name) ?? 'SoundCloud', avatar: cleanAvatar(avatar) });
 
     ipc.handle('jam:create', async (event, name: unknown, avatar: unknown): Promise<JamStartResult> => {
@@ -53,6 +55,20 @@ export function registerJamIpc(ipc: IpcRegistry, deps: JamIpcDeps): void {
         const clean = parseClientMsg(typeof msg === 'string' ? msg : JSON.stringify(msg ?? null));
         // ping считает сам клиент: страница им часы не трогает
         return !!clean && clean.t !== 'ping' && deps.client.send(clean);
+    });
+    // Копирование через main: в странице navigator.clipboard молча не срабатывает. Копируется только код комнаты
+    // (kind 'code') или ссылка sc2://jam/КОД (kind 'link'), собранные здесь из проверенного кода, а не присланный текст
+    ipc.handle('jam:copy', (event, code: unknown, kind: unknown): boolean => {
+        if (!deps.trustedSite(event) || !deps.clipboard) return false;
+        const clean = typeof code === 'string' && code === code.trim() ? parseCode(code) : null;
+        if (!clean || (kind !== 'code' && kind !== 'link')) return false;
+        const text = kind === 'link' ? 'sc2://jam/' + clean : clean;
+        try {
+            deps.clipboard.writeText(text);
+            return deps.clipboard.readText() === text;
+        } catch {
+            return false;
+        }
     });
     // Страница открылась (или перезагрузилась) посреди джема: текущее состояние и настроен ли сервер
     ipc.handle('jam:snapshot', (event): { configured: boolean; events: JamUiEvent[] } | null => {

@@ -45,6 +45,7 @@ export function installJam(core: JamCore): JamSection {
         leave(): Promise<unknown>;
         send(msg: unknown): Promise<unknown>;
         snapshot(): Promise<{ configured: boolean; events: UiEvent[] } | null>;
+        copy?(code: string, kind: 'code' | 'link'): Promise<boolean>;
         onState(callback: (event: unknown) => void): () => void;
     }
     type UiEvent =
@@ -61,7 +62,7 @@ export function installJam(core: JamCore): JamSection {
     const ru = core.lang === 'ru';
     const T = ru
         ? {
-              title: 'Джем', aria: 'Джем: слушать вместе', create: 'Создать джем', join: 'Войти', codePlaceholder: 'Код или sc2://jam/…', leave: 'Выйти',
+              title: 'Джем', short: 'С другом', aria: 'Слушать вместе с другом', failed: 'Не удалось скопировать', copyLink: 'Копировать ссылку-приглашение', create: 'Создать джем', join: 'Войти', codePlaceholder: 'Код или sc2://jam/…', leave: 'Выйти',
               notConfigured: 'Сервер джемов не настроен', hint: 'Укажи адрес в настройках F1: Дополнительно, «Сервер джемов».', copy: 'Копировать код', copied: 'Скопировано',
               members: 'Слушатели', queue: 'Очередь', empty: 'Очередь пуста', addNow: 'Добавить играющий трек', host: 'хозяин', canControl: 'может управлять',
               kick: 'Выгнать', remove: 'Убрать', playNow: 'Играть', up: 'Выше', everyoneAdd: 'Все могут добавлять', everyoneControl: 'Все могут управлять',
@@ -75,7 +76,7 @@ export function installJam(core: JamCore): JamSection {
               } as Record<string, string>,
           }
         : {
-              title: 'Jam', aria: 'Jam: listen together', create: 'Start a jam', join: 'Join', codePlaceholder: 'Code or sc2://jam/…', leave: 'Leave',
+              title: 'Jam', short: 'Together', aria: 'Listen together with a friend', failed: 'Could not copy', copyLink: 'Copy invite link', create: 'Start a jam', join: 'Join', codePlaceholder: 'Code or sc2://jam/…', leave: 'Leave',
               notConfigured: 'Jam server is not set up', hint: 'Set the address in F1 settings: Advanced, “Jam server”.', copy: 'Copy code', copied: 'Copied',
               members: 'Listeners', queue: 'Queue', empty: 'The queue is empty', addNow: 'Add the playing track', host: 'host', canControl: 'can control',
               kick: 'Remove', remove: 'Remove', playNow: 'Play', up: 'Move up', everyoneAdd: 'Everyone can add', everyoneControl: 'Everyone can control',
@@ -89,7 +90,7 @@ export function installJam(core: JamCore): JamSection {
               } as Record<string, string>,
           };
 
-    const ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 9a5 5 0 0 1 10 0v3.2a1.3 1.3 0 0 1-1.3 1.3H10.5V9.8h2V9a4.5 4.5 0 0 0-9 0v.8h2v3.7H4.3A1.3 1.3 0 0 1 3 12.2z"/></svg>';
+    const ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="6" cy="5" r="2.4"/><path d="M1.2 13.5a4.8 4.8 0 0 1 9.6 0z"/><circle cx="11.6" cy="5.6" r="1.9"/><path d="M11.6 8.5a3.7 3.7 0 0 1 3.5 5h-2.9a6.3 6.3 0 0 0-1.5-3.6 3.7 3.7 0 0 1 .9-1.4z"/></svg>';
     const STYLE_ID = 'sc-jam-style';
     const api = (): Api | undefined => core.api() as Api | undefined;
     const reduced = (): boolean => document.documentElement.classList.contains('scm-reduce') || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -105,6 +106,7 @@ export function installJam(core: JamCore): JamSection {
     let busyStart = false;
     let draftCode = '';
     let copiedAt = 0;
+    let copiedKind: 'code' | 'link' = 'code';
     let unsubscribe: (() => void) | null = null;
     let timer: ReturnType<typeof setInterval> | undefined;
     let paintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -157,6 +159,42 @@ export function installJam(core: JamCore): JamSection {
     function toast(text: string): void {
         message = text;
         schedulePaint();
+    }
+    /** Запасной путь: временное поле и execCommand('copy'); true, только если браузер сказал, что скопировал */
+    function copyFallback(text: string): boolean {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        const keep = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        document.body.append(area);
+        let done: boolean;
+        try {
+            area.focus({ preventScroll: true });
+            area.select();
+            done = document.execCommand('copy');
+        } catch {
+            done = false;
+        }
+        area.remove();
+        keep?.focus({ preventScroll: true });
+        return done;
+    }
+    /** Код (или ссылка sc2://jam/КОД) в буфер: сначала через main (Electron clipboard), потом запасной путь. «Скопировано» только по факту */
+    async function copyOut(code: string, kind: 'code' | 'link'): Promise<void> {
+        let ok: boolean;
+        try {
+            ok = (await api()?.copy?.(code, kind)) === true;
+        } catch {
+            ok = false;
+        }
+        if (!ok) ok = copyFallback(kind === 'link' ? 'sc2://jam/' + code : code);
+        if (ok) {
+            copiedAt = Date.now();
+            copiedKind = kind;
+            setTimeout(schedulePaint, 1600);
+            schedulePaint();
+        } else toast(T.failed);
     }
     function errorText(code: string | undefined): string {
         return (code && T.errors[code]) || T.errors.unreachable;
@@ -395,13 +433,10 @@ export function installJam(core: JamCore): JamSection {
         const host = isHost();
         // Код комнаты
         const code = el('div', 'scj-code');
-        code.append(el('span', 'scj-codetext', st.code), action(Date.now() - copiedAt < 1500 ? T.copied : T.copy, () => {
-            copiedAt = Date.now();
-            try { void navigator.clipboard.writeText(st.code); } catch { /* буфер недоступен */ }
-            schedulePaint();
-            setTimeout(schedulePaint, 1600);
-        }));
+        const copiedNow = Date.now() - copiedAt < 1500;
+        code.append(el('span', 'scj-codetext', st.code), action(copiedNow && copiedKind === 'code' ? T.copied : T.copy, () => void copyOut(st.code, 'code')));
         panel.append(code, el('div', 'scj-hint', T.invite));
+        panel.append(action(copiedNow && copiedKind === 'link' ? T.copied : T.copyLink, () => void copyOut(st.code, 'link')));
         if (status !== 'open') panel.append(el('div', 'scj-msg', status === 'reconnecting' ? T.reconnecting : T.connecting));
         else if (message) panel.append(el('div', 'scj-msg', message));
         // Играет сейчас
@@ -523,6 +558,7 @@ export function installJam(core: JamCore): JamSection {
         node.type = 'button';
         node.innerHTML = ICON + '<span class="scj-n"></span>';
         node.title = T.aria + ' (Ctrl+Shift+J)';
+        node.dataset.sc2Jam = 'button';
         node.setAttribute('aria-label', T.aria);
         node.setAttribute('aria-haspopup', 'dialog');
         node.addEventListener('click', () => (panel ? close() : open()));
@@ -534,7 +570,7 @@ export function installJam(core: JamCore): JamSection {
         const live = status !== 'idle' && !!state;
         button.classList.toggle('live', live);
         const label = button.querySelector('.scj-n');
-        if (label) label.textContent = live ? T.title + ' · ' + state!.members.length : '';
+        if (label) label.textContent = live ? T.title + ' · ' + state!.members.length : T.short;
         button.setAttribute('aria-pressed', String(!!panel));
     }
     function sync(): void {

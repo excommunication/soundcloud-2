@@ -38,6 +38,8 @@ export interface PageIpcDeps {
     history(): Pick<HistoryManager, 'setPlayerArea' | 'show' | 'setNowPlaying'> | null;
     presence(): Pick<PresenceService, 'updateMeta' | 'updatePresence'>;
     webhooks(): Pick<WebhookService, 'updateTrackInfo'>;
+    /** Сохранить силу бита 0..100 в оформлении и применить */
+    setBeat(value: number): void;
     /** Предпросмотр карточки Discord в F1 */
     previewPresence(): void;
     /** Кнопки, заголовок и подсказка миниатюры на панели задач Windows */
@@ -82,6 +84,11 @@ export function registerPageIpc(ipc: IpcRegistry, deps: PageIpcDeps): void {
     ipc.removeAllListeners('soundcloud:player-area');
     ipc.on('soundcloud:player-area', (event, height: unknown, viewport: unknown) => {
         if (isTrustedSoundCloudSender(event)) deps.history()?.setPlayerArea(height, viewport);
+    });
+    // Ползунок бита у кнопки эффектов в плеере
+    ipc.removeAllListeners('soundcloud:beat-amount');
+    ipc.on('soundcloud:beat-amount', (event, value: unknown) => {
+        if (isTrustedSoundCloudSender(event) && typeof value === 'number' && Number.isFinite(value)) deps.setBeat(Math.max(0, Math.min(100, Math.round(value))));
     });
     ipc.removeAllListeners('soundcloud:open-history');
     ipc.on('soundcloud:open-history', (event) => {

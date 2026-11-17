@@ -3997,8 +3997,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // Узкое окно (2.9.0): по ширине самого блока (правила для потомков: контейнер сам себя не запрашивает), а не окна. Раньше обложка оставалась 236 px, а название сжималось
         // до одной буквы в строке. Сначала меньше обложка и кнопки, потом обложка уходит наверх и блок идёт столбцом
         '@container scw (max-width:820px){#sc-wave .scw-body{--scw-cover-size:150px}html body #sc-wave .scw-track{font-size:18px;line-height:24px}#sc-wave .scw-meta{gap:8px}#sc-wave .scw-why{flex-basis:100%;order:-1}}',
-        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:min(260px,70cqw)}html body #sc-wave .scw-body{flex-direction:column;align-items:stretch}#sc-wave .scw-cover{order:-1;align-self:center}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
+        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:min(200px,56cqw)}html body #sc-wave .scw-body{flex-direction:column;align-items:stretch}#sc-wave .scw-cover{order:-1;align-self:center}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
         '@container scw (max-width:420px){html body #sc-wave .scw-step{display:none}#sc-wave .scw-meta.outside{flex-wrap:wrap}}',
+        // Низкое окно (860x600): компактная карточка в строку, чтобы она помещалась над плеером
+        '@media (max-height:700px){#sc-wave .scw-body{--scw-cover-size:128px}html body #sc-wave .scw-body{padding:12px!important;gap:14px!important}html body #sc-wave .scw-track{font-size:17px;line-height:22px}#sc-wave .scw-wf{height:48px}#sc-wave .scw-meta{margin-top:4px}}',
+        '@container scw (max-width:620px){@media (max-height:700px){html body #sc-wave .scw-body{flex-direction:row;align-items:center}#sc-wave .scw-cover{order:0;align-self:auto}}}',
+        '@media (max-height:700px){html body #sc-wave .scw-lyric{font-size:14px;padding:3px 0}html body #sc-wave .scw-lyrics[data-synced] .scw-lyrics-rows{padding:0 10px}}',
         '.scw-cover.scw-empty-cover{display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#ff550016,transparent 65%),#191919}',
         '.scw-empty-cover svg{width:100%;height:100%;color:#f50}',
         '.scw-cover.collage{display:grid;grid-template-columns:1fr 1fr}',

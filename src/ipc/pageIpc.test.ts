@@ -33,6 +33,7 @@ function setup(settings: Record<string, unknown> = {}) {
         presence: () => presence,
         webhooks: () => webhooks,
         previewPresence: vi.fn(),
+        setBeat: vi.fn(),
         updateThumbar: vi.fn(),
     };
     registerPageIpc(ipc, deps);
@@ -134,5 +135,16 @@ describe('обработчики страницы сайта', () => {
         await ipc.send('soundcloud:player-area', site, 80, 900);
         expect(history.show).toHaveBeenCalledOnce();
         expect(history.setPlayerArea).toHaveBeenCalledWith(80, 900);
+    });
+    it('ползунок бита: только число от сайта, значение зажимается в 0..100', async () => {
+        const { ipc, site, deps } = setup();
+        await ipc.send('soundcloud:beat-amount', fakeEvent(), 30);
+        await ipc.send('soundcloud:beat-amount', site, 'много');
+        await ipc.send('soundcloud:beat-amount', site, Number.NaN);
+        expect(deps.setBeat).not.toHaveBeenCalled();
+        await ipc.send('soundcloud:beat-amount', site, 42.4);
+        await ipc.send('soundcloud:beat-amount', site, 900);
+        await ipc.send('soundcloud:beat-amount', site, -3);
+        expect(vi.mocked(deps.setBeat).mock.calls).toEqual([[42], [100], [0]]);
     });
 });
