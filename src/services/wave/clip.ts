@@ -1211,6 +1211,8 @@ export function installClip(core: ClipCore): ClipSection {
             return;
         }
         recState = 'prep';
+        // Пока идёт запись, фон считает окно «в фокусе» (aurora читает флаг): кадры не режутся при уходе в другое окно
+        (window as unknown as { __scClipRec?: boolean }).__scClipRec = true;
         recButton(true);
         let cancelled = false;
         let want = true;
@@ -1245,6 +1247,7 @@ export function installClip(core: ClipCore): ClipSection {
             layer?.querySelector('.scc-rec')?.classList.remove('shown');
             recState = 'idle';
             recStop = null;
+            (window as unknown as { __scClipRec?: boolean }).__scClipRec = false;
             recButton(false);
             void api.arm('off').catch(() => undefined);
             wake();

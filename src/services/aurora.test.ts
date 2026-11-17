@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { APPEARANCE_DEFAULTS, AURORA_EFFECTS, appearanceCss, auroraScript, fragmentSource, isAppearance, normalizeAppearance, paletteColors, PALETTES } from './aurora';
 import { validateSettingChange } from '../settings/validateSetting';
+import { EFFECTS_MODE_DEFAULT, effectiveAppearance } from './effectsMode';
 
 describe('оформление', () => {
     it('normalizeAppearance отбрасывает мусор и держит границы', () => {
@@ -181,8 +182,40 @@ describe('keepFramesUnfocused', () => {
         expect(shouldThrottleIdle(true, true)).toBe(false);
         expect(shouldThrottleIdle(false, false)).toBe(false);
         expect(shouldThrottleIdle(false, true)).toBe(false);
+        // идёт запись ролика: без фокуса кадры не режем
+        expect(shouldThrottleIdle(true, false, true)).toBe(false);
+        expect(shouldThrottleIdle(true, false, false)).toBe(true);
     });
     it('скрипт страницы содержит функцию', () => {
         expect(auroraScript({})).toContain('shouldThrottleIdle');
     });
 });
+
+describe('умолчания оформления и скрипт страницы', () => {
+    it('на чистой установке фон средний: эффект включён, качество «Баланс», умеренные размытие и бит', () => {
+        const fresh = normalizeAppearance(undefined);
+        expect(fresh).toEqual(APPEARANCE_DEFAULTS);
+        expect(fresh.effect).not.toBe('off');
+        expect(fresh.quality).toBe('balanced');
+        expect(fresh.blur).toBeGreaterThanOrEqual(8);
+        expect(fresh.blur).toBeLessThanOrEqual(24);
+        expect(fresh.beat).toBeGreaterThan(0);
+        expect(fresh.beat).toBeLessThanOrEqual(50);
+        expect(EFFECTS_MODE_DEFAULT).toBe('full');
+        // «Полные» с умолчаниями: фон рисуется (не eco-урезанный и не выключенный)
+        const shown = effectiveAppearance(undefined, EFFECTS_MODE_DEFAULT);
+        expect(shown.effect).not.toBe('off');
+        expect(appearanceCss(shown)).toContain('#sca-bg.on{opacity:1}');
+    });
+    it('сохранённые значения не перезаписываются умолчаниями', () => {
+        const saved = normalizeAppearance({ ...APPEARANCE_DEFAULTS, quality: 'high', blur: 30, effect: 'mesh', beat: 80 });
+        expect(saved).toMatchObject({ quality: 'high', blur: 30, effect: 'mesh', beat: 80 });
+    });
+    it('скрипт страницы несёт определения всех функций, которые зовёт auroraPage (без них кадр падал и фона не было)', () => {
+        const script = auroraScript({});
+        for (const name of ['glowPalette', 'beatAmount', 'shouldThrottleIdle', 'beatInit', 'beatStep', 'envelopeTempo']) {
+            expect(script).toContain('function ' + name + '(');
+        }
+    });
+});
+
