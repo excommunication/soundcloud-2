@@ -547,7 +547,13 @@ export function installJam(core: JamCore): JamSection {
             '.scj input[type=checkbox]{accent-color:#f50}',
             '.scj-chip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);color:inherit;font:inherit;font-weight:700;cursor:pointer;padding:0 10px;height:30px}',
             '.scj-chip svg{width:16px;height:16px;fill:currentColor;flex:none}.scj-chip.live{background:rgba(255,85,0,.22);box-shadow:inset 0 0 0 1px rgba(255,85,0,.5)}',
-            '.scj-chip .scj-n{font-size:12px}.scj-chip.bar{margin:0 4px;align-self:center}',
+            // Подпись «Джем · N» в одну строку: в тесном баре она переносилась, и «· 1» падало под слово
+            '.scj-chip{flex:none;white-space:nowrap;line-height:1}.scj-chip .scj-n{font-size:12px;white-space:nowrap}.scj-chip.bar{margin:0 6px;align-self:center}',
+            // Сетка панели: кнопки по левому краю, строки настроек «подпись слева, галочка справа» с одинаковыми отступами
+            '.scj>.scj-btn,.scj-now>.scj-btn{display:block;margin:8px 0 0}',
+            '.scj-row{justify-content:space-between;min-height:28px;margin-top:4px;padding:0 2px}.scj-row .scj-grow{flex:1 1 auto}',
+            '.scj-row input[type=checkbox],.scj-mini input[type=checkbox]{flex:none;width:16px;height:16px;margin:0}',
+            '.scj-mini{flex:none;white-space:nowrap}',
             '@media (prefers-reduced-motion:reduce){.scj{transition:none;transform:none}}',
             'html.scm-reduce .scj{transition:none;transform:none}',
         ].join('');

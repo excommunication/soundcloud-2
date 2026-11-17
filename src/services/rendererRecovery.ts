@@ -10,6 +10,8 @@ interface RecoveryActions {
     online(): boolean;
     /** Паузы кончились: одно уведомление, дальше ждём сеть или ручной Ctrl+R */
     onGaveUp(): void;
+    /** Окно скрыто или свёрнуто: у такой страницы нет ввода и кадров, «зависание» ложное, страницу не убиваем */
+    pageHidden?(): boolean;
 }
 export interface RecoveryTiming {
     /** Паузы перед повторами после первого сбоя */
@@ -21,7 +23,7 @@ export interface RecoveryTiming {
     /** Как часто проверять сеть, пока загрузка ждёт её */
     poll: number;
 }
-const TIMING: RecoveryTiming = { steps: [60000, 300000, 900000], hang: 30000, calm: 600000, poll: 15000 };
+const TIMING: RecoveryTiming = { steps: [60000, 300000, 900000], hang: 45000, calm: 600000, poll: 15000 };
 
 // Страница поднимается сама после падения, зависания и неудачной загрузки. Первое падение перезагружает сразу, дальше
 // повторы через 1, 5 и 15 минут, счётчик сбрасывается после 10 минут без сбоев. Раньше второе падение за минуту,
@@ -98,7 +100,7 @@ export function installRendererRecovery(contents: WebContents, actions: Recovery
         // Перезапуск идёт обычным путём падения: render-process-gone и перезагрузка
         hang = setTimeout(() => {
             hang = undefined;
-            if (alive()) contents.forcefullyCrashRenderer();
+            if (alive() && !actions.pageHidden?.()) contents.forcefullyCrashRenderer();
         }, timing.hang);
     });
     contents.on('responsive', () => {

@@ -160,3 +160,29 @@ describe('envelopeTempo (2.8.1)', () => {
         expect(late).toBeGreaterThan(15);
     });
 });
+
+import { shouldThrottleIdle } from './aurora';
+
+describe('keepFramesUnfocused', () => {
+    it('по умолчанию выключена, испорченное значение даёт умолчание', () => {
+        expect(APPEARANCE_DEFAULTS.keepFramesUnfocused).toBe(false);
+        expect(normalizeAppearance({}).keepFramesUnfocused).toBe(false);
+        expect(normalizeAppearance({ keepFramesUnfocused: 'yes' }).keepFramesUnfocused).toBe(false);
+        expect(normalizeAppearance({ keepFramesUnfocused: true }).keepFramesUnfocused).toBe(true);
+    });
+    it('валидатор принимает булево и отвергает остальное', () => {
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS, keepFramesUnfocused: true })).toBe(true);
+        expect(isAppearance({ ...APPEARANCE_DEFAULTS, keepFramesUnfocused: 1 })).toBe(false);
+        expect(validateSettingChange({ key: 'appearance', value: { ...APPEARANCE_DEFAULTS, keepFramesUnfocused: true } })).toBe(true);
+        expect(validateSettingChange({ key: 'appearance', value: { ...APPEARANCE_DEFAULTS, keepFramesUnfocused: 'x' } })).toBe(false);
+    });
+    it('shouldThrottleIdle: троттлим только без фокуса и без настройки', () => {
+        expect(shouldThrottleIdle(true, false)).toBe(true);
+        expect(shouldThrottleIdle(true, true)).toBe(false);
+        expect(shouldThrottleIdle(false, false)).toBe(false);
+        expect(shouldThrottleIdle(false, true)).toBe(false);
+    });
+    it('скрипт страницы содержит функцию', () => {
+        expect(auroraScript({})).toContain('shouldThrottleIdle');
+    });
+});

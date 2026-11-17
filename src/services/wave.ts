@@ -369,6 +369,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     let autoplayReleased = false;
     const ours = new WeakSet<SiteQueueItem>();
     const known = new Map<number, WaveCandidate>();
+    // known растёт на каждый отданный трек, а страница живёт сутками (память процесса ~2 ГБ): старейшие вытесняются сверх лимита
+    const KNOWN_LIMIT = 3000;
+    const rememberKnown = (id: number, candidate: WaveCandidate): void => {
+        known.delete(id);
+        known.set(id, candidate);
+        if (known.size > KNOWN_LIMIT) known.delete(known.keys().next().value as number);
+    };
     // Паспорт элемента очереди волны для журнала: поколение, место в выдаче и откуда волна в момент постановки.
     // Трек волны остаётся треком волны и после её конца, а не пишется историей сайта
     interface QueueTrace { gen: number; slot: number; source: string; mode: WaveMode; waveGenre: string; libMode?: LibraryMode; preset?: WaveMood }
@@ -1055,7 +1062,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             if (stored.wave && track) {
                 ours.add(item);
                 const candidate: WaveCandidate = { track, reason: stored.reason ?? { kind: 'restored' } };
-                known.set(track.id, candidate);
+                rememberKnown(track.id, candidate);
                 if (!ownKinds.has(candidate.reason.kind)) pooled.add(candidate);
             }
             items.push(item);
@@ -2637,7 +2644,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             item.release?.();
             ours.add(item);
             itemTrace.set(item, queueTrace(++givenInGeneration));
-            known.set(candidate.track.id, candidate);
+            rememberKnown(candidate.track.id, candidate);
             seedGiven.add(candidate.track.id);
             items.push(item);
         }
@@ -4008,6 +4015,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-cover.collage{display:grid;grid-template-columns:1fr 1fr}',
         '.scw-cover.collage>span{position:relative;background:var(--scw-tile)}',
         // Картинка проявляется поверх подложки со средним цветом обложки
+        '.scw-art img,.scw-cover img{display:block;width:100%;height:100%;object-fit:cover}',
         '.scw-img{position:absolute;inset:0;background:center/cover;opacity:0;transition:opacity .2s cubic-bezier(.2,0,0,1)}',
         '.scw-img.on{opacity:1}',
         // Очередь волны это часть блока, а не отдельная полка: мелкая подпись и компактные строки
@@ -4048,8 +4056,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         'html.scm-reduce #sc-wave .scw-play{transition:none;transform:none}',
         '@media(prefers-reduced-motion:reduce){#sc-wave .scw-play{transition:none;transform:none!important}}',
         '.scw-tiles.scw-shelf{grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}',
-        '@media(max-width:1200px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4,minmax(0,1fr))}}',
-        '@media(max-width:920px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}#sc-wave .scw-tiles.scw-shelf{gap:12px}}',
+        // 2.12.2: число колонок по ширине самого блока, а не окна. Раньше «Далее» на 1250 px окна давало пять колонок по ~100 px с обрезанными
+        // подписями, а на 860..920 px две колонки по ~350 px с огромными обложками. Пять колонок только от 800 px блока, три до 480, дальше две.
+        // Полка: шесть колонок от 900 px блока, иначе четыре (промежуток остаётся 20 px: от него считается уголок раскрытой подборки)
+        '@container scw (max-width:799px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}}',
+        '@container scw (max-width:479px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}}',
+        '@container scw (max-width:899px){#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4,minmax(0,1fr))}}',
         '.scw-card{position:relative;min-width:0}',
         // Прокрутка к карточке и раскрытому списку не прячет их под шапкой сайта
         '.scw-card,.scw-mix{scroll-margin:72px 0 16px}',
@@ -4091,7 +4103,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-mix::before{content:"";position:absolute;top:-8px;left:calc((100% - 100px) / 6 * (var(--scw-at6) + .5) + 20px * var(--scw-at6) - 8px);border:8px solid transparent;border-top:0;border-bottom-color:var(--scw-film)}',
         // Внутри сетки полки список занимает всю строку под своей карточкой; при 4 колонках свои строка и уголок
         '.scw-shelf>.scw-mix{grid-column:1/-1;grid-row:var(--scw-row6);margin-top:0}',
-        '@media(max-width:1200px){#sc-wave .scw-shelf>.scw-mix{grid-row:var(--scw-row4)}#sc-wave .scw-mix::before{left:calc((100% - 60px) / 4 * (var(--scw-at4) + .5) + 20px * var(--scw-at4) - 8px)}}',
+        '@container scw (max-width:899px){#sc-wave .scw-shelf>.scw-mix{grid-row:var(--scw-row4)}#sc-wave .scw-mix::before{left:calc((100% - 60px) / 4 * (var(--scw-at4) + .5) + 20px * var(--scw-at4) - 8px)}}',
         // Название не уже 240 px: в узком окне и на длинных русских подписях кнопки уходят строкой ниже, а не сжимают его
         '.scw-mix-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px}',
         '.scw-mix-head>.scw-mix-tools{margin-left:auto}',
@@ -5173,7 +5185,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     function glowTick(): void {
         const now = performance.now();
         const playing = active && !!player?.isPlaying();
-        if (playing && glowAt) glowTime += now - glowAt;
+        if (playing && glowAt) glowTime += Math.min(now - glowAt, 1000);
         glowAt = now;
         const glow = section?.querySelector<HTMLElement>('.scw-glow');
         if (glow && glow.classList.contains('idle') === playing) {
@@ -5895,7 +5907,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                 // Текст идёт своим циклом по кадрам; таймер только поднимает цикл, если он встал
                 if (lyricsOpen) ensureLyricsLoop();
             }, 250);
-            glowTimer = setInterval(glowTick, 250);
+            glowTimer = setInterval(() => { if (!document.hidden) glowTick(); }, 500);
             state = 'loading';
             void queueControls.ready().catch((error: unknown) => console.warn('Сессия пока не восстановлена', error)).finally(() => {
                 if (disposed) return;

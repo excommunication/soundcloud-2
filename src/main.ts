@@ -236,8 +236,6 @@ const globalUserAgent = isMac
 app.userAgentFallback = globalUserAgent;
 
 function applyMacMemoryOptimizations(): void {
-    if (!isMac) return;
-
     const existingDisableFeatures = app.commandLine.getSwitchValue('disable-features');
     const features = new Set(
         existingDisableFeatures
@@ -245,9 +243,11 @@ function applyMacMemoryOptimizations(): void {
             .map((feature) => feature.trim())
             .filter(Boolean),
     );
+    // BackForwardCache держит в памяти целые прошлые страницы (клиент одностраничный, возврат из кэша ему не нужен): на всех ОС
     features.add('BackForwardCache');
 
     app.commandLine.appendSwitch('disable-features', Array.from(features).join(','));
+    if (!isMac) return;
     app.commandLine.appendSwitch('renderer-process-limit', '1');
     app.commandLine.appendSwitch('disk-cache-size', '1');
     app.commandLine.appendSwitch('media-cache-size', '1');
@@ -689,7 +689,7 @@ function createBrowserWindow(windowState: ReturnType<typeof windowStateManager>)
             experimentalFeatures: false,
             devTools: devMode,
             backgroundThrottling: true,
-            ...(isMac ? { spellcheck: false } : {}),
+            spellcheck: false,
         },
         backgroundColor: '#070a12',
     });
@@ -912,7 +912,7 @@ async function init() {
         lastGuardReloadAt = Date.now();
         diagnostics.record('memory.reload', { kind: verdict, pageMiB: Math.round(pageMiB), playing: playback.info.isPlaying, windowVisible: shown });
         contentView.webContents.reload();
-    }, 20000);
+    }, 60000);
     memoryGuardTimer.unref();
     powerMonitor.on('suspend', () => { diagnostics.record('system.suspend'); diagnostics.flush(); });
     powerMonitor.on('resume', () => {
@@ -995,7 +995,7 @@ async function init() {
             nodeIntegrationInWorker: false,
             preload: path.join(__dirname, 'header', 'headerPreload.js'),
             devTools: devMode,
-            ...(isMac ? { spellcheck: false } : {}),
+            spellcheck: false,
         },
     });
 
@@ -1027,7 +1027,7 @@ async function init() {
             nodeIntegrationInWorker: false,
             devTools: devMode,
             preload: path.join(__dirname, 'preload.js'),
-            ...(isMac ? { spellcheck: false } : {}),
+            spellcheck: false,
         },
     });
 
@@ -1476,6 +1476,7 @@ async function init() {
         },
         onRepeatedCrash: () => queueToastNotification(translationService.translate('playerCrashed')),
         online: () => net.isOnline(),
+        pageHidden: () => !mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isMinimized(),
         // Окно в трее: сообщение внутри окна никто не увидит, поэтому одно системное уведомление
         onGaveUp: () => {
             const text = translationService.translate('pageGaveUp');

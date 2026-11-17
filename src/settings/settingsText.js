@@ -47,6 +47,8 @@ window.SETTINGS_EN = {
     'Скорость': 'Speed',
     'Яркость': 'Brightness',
     'Зерно': 'Grain',
+    'Не ограничивать кадры, если окно не выбрано': 'Keep full frame rate when the window is not focused',
+    'Больше нагрузки на видеокарту и процессор, когда окно свёрнуто или не в фокусе': 'More GPU and CPU load when the window is not focused',
     'Тише на паузе': 'Calmer on pause',
     'Без музыки переливы замедляются и притухают': 'Without music the background slows down and dims',
     'Тянется за курсором': 'Follows the cursor',

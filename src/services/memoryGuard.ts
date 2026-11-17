@@ -21,16 +21,23 @@ export interface MemoryReading {
     sinceReloadMs: number;
 }
 
-/** Пороги от объёма памяти ПК: на слабом раньше, но не ниже 600 МиБ и не выше 1100 МиБ */
+/** Не чаще раза в 30 минут: перезагрузка не должна превращаться в цикл */
+export const MEMORY_RELOAD_COOLDOWN_MS = 30 * 60_000;
+
+/**
+ * Пороги от объёма памяти ПК: 25% памяти, но не ниже 1400 и не выше 2400 МиБ (2.12.2). Прежние 600–1100 МиБ
+ * срабатывали на обычных ~2 ГБ страницы и вызывали «перезагрузки сами по себе»; теперь перезагрузка только при
+ * настоящей угрозе: жёсткий порог в 1,5 раза выше мягкого (4 ГБ ПК: 1400 / 2100, 16 ГБ: 2400 / 3600)
+ */
 export function memoryLimits(totalMiB: number): MemoryLimits {
-    const base = Number.isFinite(totalMiB) && totalMiB > 0 ? totalMiB * 0.07 : 1100;
-    const soft = Math.round(Math.max(600, Math.min(1100, base)));
-    return { soft, hard: Math.round(soft * 1.7) };
+    const base = Number.isFinite(totalMiB) && totalMiB > 0 ? totalMiB * 0.25 : 2400;
+    const soft = Math.round(Math.max(1400, Math.min(2400, base)));
+    return { soft, hard: Math.round(soft * 1.5) };
 }
 
-/** Что делать с этим замером: null — ничего. Не чаще раза в 10 минут: перезагрузка не должна превращаться в цикл */
+/** Что делать с этим замером: null — ничего. Не чаще раза в 30 минут */
 export function memoryVerdict(reading: MemoryReading): 'soft' | 'hard' | null {
-    if (!(reading.pageMiB > 0) || reading.sinceReloadMs < 10 * 60_000) return null;
+    if (!(reading.pageMiB > 0) || reading.sinceReloadMs < MEMORY_RELOAD_COOLDOWN_MS) return null;
     const limits = memoryLimits(reading.totalMiB);
     if (reading.pageMiB >= limits.hard) return 'hard';
     if (reading.pageMiB >= limits.soft && (!reading.playing || !reading.windowShown)) return 'soft';
