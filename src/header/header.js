@@ -164,7 +164,11 @@ document.getElementById('queue-btn')?.addEventListener('click', () => ipcRendere
 // Настройки открываются и закрываются так же, как по F1
 document.getElementById('settings-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-settings'));
 // Оформление: та же панель, сразу на разделе фона и палитры
-document.getElementById('appearance-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-settings', 'appearance'));
+// Оформление: меню режимов (полные эффекты, облегчённо, без эффектов) под кнопкой; меню родное, закрывается кликом вне и Esc
+document.getElementById('appearance-btn')?.addEventListener('click', (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    ipcRenderer.send('show-appearance-menu', { x: rect.left, y: rect.bottom });
+});
 ipcRenderer.on('history-recap', (_, ready) => {
     recapReady = ready === true;
     document.getElementById('history-btn')?.classList.toggle('has-news', recapReady);

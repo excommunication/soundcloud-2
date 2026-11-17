@@ -398,6 +398,13 @@ async function initializeSettings() {
         document.documentElement.classList.toggle('reduce-motion', e.target.checked);
         ipcRenderer.send('setting-changed', { key: 'reduceMotion', value: e.target.checked });
     });
+    const effectsSelect = document.getElementById('effectsMode');
+    if (effectsSelect) {
+        effectsSelect.value = ['full', 'light', 'solid', 'off'].includes(initial.effectsMode) ? initial.effectsMode : 'full';
+        effectsSelect.addEventListener('change', () => ipcRenderer.send('setting-changed', { key: 'effectsMode', value: effectsSelect.value }));
+        // Режим можно сменить и из шапки, пока панель открыта
+        ipcRenderer.on('effects-mode-changed', (_, mode) => { effectsSelect.value = mode; });
+    }
     gpuSelector.addEventListener('change', () => {
         ipcRenderer.send('setting-changed', { key: 'gpuCompatibilityMode', value: gpuSelector.value });
         updateGpuStatus();

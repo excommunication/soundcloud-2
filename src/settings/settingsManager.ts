@@ -22,6 +22,7 @@ const defaults: Record<string, string | number | boolean> = {
     crossfade: true,
     crossfadeSeconds: 5,
     reduceMotion: false,
+    effectsMode: 'full',
     waveNoRussian: false,
     vibeWeb: true,
     gpuCompatibilityMode: 'auto',

@@ -34,6 +34,7 @@ import { TimeoutError, withTimeout } from './utils/withTimeout';
 import { tintIcon } from './services/devIcon';
 import { revealWindow } from './services/revealWindow';
 import { WINDOW_MIN, contentLayout, fitWindowBounds } from './services/windowBounds';
+import { NARROW_CSS } from './services/narrowLayout';
 import { watchHiddenPage } from './services/hiddenPageWatchdog';
 import { registerWindowIpc } from './ipc/windowIpc';
 import { registerUpdateIpc } from './ipc/updateIpc';
@@ -44,7 +45,8 @@ import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
 import { registerJamIpc } from './ipc/jamIpc';
 import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
-import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
+import { appearanceCss, auroraScript } from './services/aurora';
+import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode } from './services/effectsMode';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
@@ -170,6 +172,7 @@ const store = new Store<Record<string, unknown>>({
         crossfade: true,
         crossfadeSeconds: 5,
         reduceMotion: false,
+        effectsMode: 'full',
         siteLanguage: 'ru',
         ...homeBlockDefaults,
         radarDay: DEFAULT_RADAR_SCHEDULE.day,
@@ -618,7 +621,7 @@ function startIconicThumbnail(): void {
             progress: duration > 0 ? Math.min(1, elapsed / duration) : -1,
             time: duration > 0 ? formatClock(elapsed) + ' / ' + formatClock(duration) : '',
             playing: track.isPlaying,
-            motion: store.get('reduceMotion', false) !== true,
+            motion: !reduceMotionNow(),
         };
     };
     const render = async (value: TaskbarCard, width: number, height: number, phase: number): Promise<{ image: NativeImage; moving: boolean } | null> => {
@@ -766,6 +769,7 @@ function setupWindowControls() {
         header: () => headerView?.webContents ?? null,
         navigateBack,
         headerTexts,
+        showAppearanceMenu,
     });
 
     const sendMaximizedState = (): void => {
@@ -942,7 +946,25 @@ async function init() {
     mainWindow = createBrowserWindow(windowState);
 
     windowState.manage(mainWindow);
+    // Смена масштаба Windows, разрешения или отключение монитора: окно, вылезшее за рабочую область, возвращается на экран
+    const refitWindow = (): void => {
+        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMaximized() || mainWindow.isFullScreen() || mainWindow.isMinimized()) return;
+        const current = mainWindow.getBounds();
+        const work = screen.getDisplayMatching(current).workArea;
+        const fitted = fitWindowBounds(current, work);
+        if (fitted.x === undefined || fitted.y === undefined) mainWindow.setBounds({ ...fitted, x: Math.round(work.x + (work.width - fitted.width) / 2), y: Math.round(work.y + (work.height - fitted.height) / 2) });
+        else if (fitted.width !== current.width || fitted.height !== current.height) mainWindow.setBounds({ x: fitted.x, y: fitted.y, width: fitted.width, height: fitted.height });
+        mainWindow.setMinimumSize(Math.min(WINDOW_MIN.width, work.width), Math.min(WINDOW_MIN.height, work.height));
+    };
+    screen.on('display-metrics-changed', refitWindow);
+    screen.on('display-removed', refitWindow);
     mainWindow.on('focus', focusTopView);
+    // Фон не должен падать до 8 к/с, когда фокус просто в шапке или настройках: простой считаем по окну приложения
+    const setAppIdle = (idle: boolean): void => {
+        if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle}`).catch(() => undefined);
+    };
+    mainWindow.on('blur', () => setAppIdle(true));
+    mainWindow.on('focus', () => setAppIdle(false));
     flushOnSessionEnd(mainWindow, () => [waveJournal, waveSignals, diagnostics]);
 
     // handle window close event for minimize to tray
@@ -1302,7 +1324,7 @@ async function init() {
         site: () => (contentView.webContents.isDestroyed() ? null : contentView.webContents),
         fallbackUser: () => waveExclusions?.currentUser() ?? 0,
         language: appLanguage,
-        reduceMotion: () => store.get('reduceMotion', false) === true,
+        reduceMotion: () => reduceMotionNow(),
         beforeOpen: () => {
             closeQueueDialog();
             if (settingsManager.getView()) settingsManager.toggle();
@@ -1509,7 +1531,7 @@ async function init() {
             await contentView.webContents.executeJavaScript(audioMonitorScript);
             await contentView.webContents.executeJavaScript(fullShuffleScript(store.get('fullShuffle', true) === true));
             // Плавность раньше волны: волна берёт у неё цвета обложек
-            await contentView.webContents.executeJavaScript(pageMotionScript(store.get('reduceMotion', false) === true));
+            await contentView.webContents.executeJavaScript(pageMotionScript(reduceMotionNow()));
             await contentView.webContents.executeJavaScript(homePageScript());
             await contentView.webContents.executeJavaScript(waveScript(playback.playedThisRun, quietOptions(), store.get('waveNoRussian', false) === true));
             await contentView.webContents.executeJavaScript(playerAreaScript());
@@ -1588,7 +1610,9 @@ async function init() {
         } else if (key === 'fullShuffle') {
             void contentView.webContents.executeJavaScript(fullShuffleScript(data.value === true)).catch(console.error);
         } else if (key === 'reduceMotion') {
-            void contentView.webContents.executeJavaScript(pageMotionScript(data.value === true)).catch(console.error);
+            void contentView.webContents.executeJavaScript(pageMotionScript(reduceMotionNow(data.value === true))).catch(console.error);
+        } else if (key === 'effectsMode') {
+            applyEffectsMode();
         } else if (key === 'appearance') {
             applyThemeToContent();
         } else if (key === 'waveNoRussian') {
@@ -1643,6 +1667,44 @@ function hiddenBlocksCSS(): string {
         store.get('hideArtistUpsells', true) ? '.creatorSubscriptionsButton.header__creatorUpsell,.artistConnectItem.m-upsellNextPro,.dropdownMenu [href*="checkout.soundcloud.com"],.spotlight:has(.spotlight__upsellBanner),.spotlight__upsellBanner,.spotlight__upsellCTA,.sidebarContent:has(.velvetCakeIframe),.artistConnectContainer .tileGallery__sliderPeekForward,.artistConnectContainer .tileGallery__sliderPeekBackward,.MuiBox-root:has(a[href*="getstarted/fan-support"]){display:none!important}' : '',
     ].join('\n');
 }
+function currentEffectsMode() {
+    return normalizeEffectsMode(store.get('effectsMode'));
+}
+function currentAppearance() {
+    return effectiveAppearance(store.get('appearance'), currentEffectsMode());
+}
+function reduceMotionNow(flag: boolean = store.get('reduceMotion', false) === true): boolean {
+    return effectiveReduceMotion(flag, currentEffectsMode());
+}
+// Режим применяется сразу, без перезагрузки: фон, стекло и анимации сайта
+function applyEffectsMode(): void {
+    applyThemeToContent();
+    if (contentView && !contentView.webContents.isDestroyed()) {
+        void contentView.webContents.executeJavaScript(pageMotionScript(reduceMotionNow())).catch(console.error);
+    }
+}
+// Меню режимов под кнопкой палитры в шапке: родное, поэтому закрывается кликом вне и Esc и управляется стрелками
+function showAppearanceMenu(anchor: { x: number; y: number }): void {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const current = currentEffectsMode();
+    const label = (key: 'effectsFull' | 'effectsLight' | 'effectsSolid' | 'effectsOff' | 'effectsMore') => translationService.translate(key);
+    const choose = (mode: 'full' | 'light' | 'solid' | 'off') => () => {
+        if (currentEffectsMode() === mode) return;
+        store.set('effectsMode', mode);
+        applyEffectsMode();
+        const settings = settingsManager?.getView()?.webContents;
+        if (settings && !settings.isDestroyed()) settings.send('effects-mode-changed', mode);
+    };
+    const item = (mode: 'full' | 'light' | 'solid' | 'off', key: 'effectsFull' | 'effectsLight' | 'effectsSolid' | 'effectsOff'): Electron.MenuItemConstructorOptions => ({ label: label(key), type: 'radio', checked: current === mode, click: choose(mode) });
+    Menu.buildFromTemplate([
+        item('full', 'effectsFull'),
+        item('light', 'effectsLight'),
+        item('solid', 'effectsSolid'),
+        item('off', 'effectsOff'),
+        { type: 'separator' },
+        { label: label('effectsMore'), click: () => settingsManager?.toggle('appearance') },
+    ]).popup({ window: mainWindow, x: Math.round(anchor.x), y: Math.round(anchor.y) });
+}
 function applyThemeToContent() {
     if (!contentView || contentView.webContents.isDestroyed()) return;
     const css = [
@@ -1650,8 +1712,10 @@ function applyThemeToContent() {
         // Стандартные свойства: ::-webkit-scrollbar рисуется главным потоком и отстаёт от прокрутки.
         'html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) rgba(255,255,255,.05)}',
         hiddenBlocksCSS(),
+        NARROW_CSS,
         // Оформление: стекло, скругления и прозрачный фон сайта под переливами
-        appearanceCss(normalizeAppearance(store.get('appearance'))),
+        appearanceCss(currentAppearance()),
+        effectsModeCss(currentEffectsMode()),
     ].join('\n');
     // До первой загрузки сайта страницы нет: стили и скрипты всё равно пропали бы, их ставит did-finish-load
     if (contentView.webContents.getURL()) {
@@ -1660,7 +1724,7 @@ function applyThemeToContent() {
         void contentView.webContents.executeJavaScript('for(const n of [document.documentElement,document.body]){n.classList.remove("theme-light");n.classList.add("theme-dark")}').catch(console.error);
         void contentView.webContents.executeJavaScript(pageFeaturesScript(store.get('hideArtistUpsells', true) === true)).catch(console.error);
         // Переливы WebGL за сайтом: ставятся или обновляются без перезагрузки
-        void contentView.webContents.executeJavaScript(auroraScript(store.get('appearance'))).catch(console.error);
+        void contentView.webContents.executeJavaScript(auroraScript(currentAppearance())).catch(console.error);
     }
 }
 

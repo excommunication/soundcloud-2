@@ -16,6 +16,7 @@ function setup(settings: Record<string, unknown> = {}, canGoForward = true) {
         header: () => header,
         navigateBack: vi.fn(),
         headerTexts: () => ({ headerBack: 'Назад' }),
+        showAppearanceMenu: vi.fn(),
     };
     registerWindowIpc(ipc, deps);
     return { ipc, own, window, page, header, deps };
@@ -66,5 +67,15 @@ describe('обработчики окна', () => {
         await expect(ipc.invoke('get-minimize-to-tray', own)).resolves.toBe(true);
         await expect(ipc.invoke('get-navigation-controls-enabled', own)).resolves.toBe(false);
         await expect(ipc.invoke('get-header-texts', own)).resolves.toEqual({ headerBack: 'Назад' });
+    });
+
+    it('меню оформления открывает только своя шапка и только с числами', async () => {
+        const { ipc, own, deps } = setup();
+        const stranger = fakeEvent();
+        await ipc.send('show-appearance-menu', stranger, { x: 1, y: 1 });
+        await ipc.send('show-appearance-menu', own, { x: 'a', y: 1 });
+        expect(deps.showAppearanceMenu).not.toHaveBeenCalled();
+        await ipc.send('show-appearance-menu', own, { x: 120.4, y: 32 });
+        expect(deps.showAppearanceMenu).toHaveBeenCalledWith({ x: 120.4, y: 32 });
     });
 });

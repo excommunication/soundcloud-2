@@ -17,3 +17,7 @@ it('сервер джемов: пусто или https-адрес, осталь�
     for (const value of ['', 'https://sc2-jam.a.workers.dev', 'http://localhost:8787']) expect(validateSettingChange({ key: 'jamServer', value })).toBe(true);
     for (const value of ['http://evil.com', 'https://u:p@a.com', 'мусор', 5, null, 'https://a.com/?x=1']) expect(validateSettingChange({ key: 'jamServer', value })).toBe(false);
 });
+it('режим оформления принимает только известные значения', () => {
+    for (const value of ['full', 'light', 'off']) expect(validateSettingChange({ key: 'effectsMode', value })).toBe(true);
+    for (const value of ['on', '', 1, null]) expect(validateSettingChange({ key: 'effectsMode', value })).toBe(false);
+});

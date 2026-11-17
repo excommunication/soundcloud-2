@@ -4045,6 +4045,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@media(prefers-reduced-motion:reduce){#sc-wave .scw-play{transition:none;transform:none!important}}',
         '.scw-tiles.scw-shelf{grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}',
         '@media(max-width:1200px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4,minmax(0,1fr))}}',
+        '@media(max-width:920px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}#sc-wave .scw-tiles.scw-shelf{gap:12px}}',
         '.scw-card{position:relative;min-width:0}',
         // Прокрутка к карточке и раскрытому списку не прячет их под шапкой сайта
         '.scw-card,.scw-mix{scroll-margin:72px 0 16px}',
