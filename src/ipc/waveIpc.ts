@@ -78,6 +78,15 @@ export function registerWaveIpc(ipc: IpcRegistry, deps: WaveIpcDeps): void {
         const ms = (input: unknown): number => (typeof input === 'number' && Number.isFinite(input) && input >= 0 ? Math.min(Math.round(input), 600000) : 0);
         diagnostics.record('wave.crossfade', { stage, prepMs: ms(value.prepMs), leftMs: ms(value.leftMs) });
     });
+    // Откат места в треке без действия человека: источник из списка и дельта, без трека
+    ipc.removeAllListeners('soundcloud:seek-back');
+    ipc.on('soundcloud:seek-back', (event, entry: unknown) => {
+        if (!isTrustedSoundCloudSender(event) || !entry || typeof entry !== 'object') return;
+        const value = entry as Record<string, unknown>;
+        const reason = ['seek-restore', 'seek-core', 'seek-unknown'].find((item) => item === value.source);
+        if (!reason || typeof value.deltaMs !== 'number' || !Number.isFinite(value.deltaMs)) return;
+        diagnostics.record('playback.seek-back', { reason, seekBackMs: Math.min(Math.round(value.deltaMs), 86400000) });
+    });
     // Отметки волны («Не нравится», скрытые артисты, «Не сейчас», «Больше такого»): ставит страница, снимает и F1
     for (const channel of ['soundcloud:wave-exclusions:load', 'soundcloud:wave-exclusions:set', 'get-wave-exclusions', 'remove-wave-exclusion', 'soundcloud:wave-taste', 'soundcloud:wave-shelf:load', 'soundcloud:wave-shelf:save', 'soundcloud:wave-library:load', 'soundcloud:wave-library:save', 'soundcloud:wave-library:heard', 'soundcloud:wave-library:recent']) ipc.removeHandler(channel);
     ipc.handle('soundcloud:wave-exclusions:load', (event, userId: unknown) =>

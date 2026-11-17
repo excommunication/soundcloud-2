@@ -89,3 +89,44 @@ describe('Джем: кнопка-иконка без подписи', () => {
         section.dispose();
     });
 });
+
+describe('Джем: очередь «Далее»', () => {
+    afterEach(() => {
+        document.body.textContent = '';
+    });
+    const track = (id: number, extra: object = {}) => ({ id, url: 'https://soundcloud.com/a/t' + id, title: 'Трек ' + id, artist: 'Артист', artwork: 'https://i1.sndcdn.com/a' + id + '.jpg', durationMs: 1000, qid: String(id), addedBy: 'Вася', ...extra });
+    function open(queue: object[], you = 'm0') {
+        let emit: (event: unknown) => void = () => undefined;
+        const api = { create: async () => ({ ok: true }), join: async () => ({ ok: true }), leave: async () => undefined, send: async () => undefined, snapshot: async () => null, onState: (cb: (event: unknown) => void) => { emit = cb; return () => undefined; } };
+        const section = installJam({ lang: 'ru', disposed: () => false, api: () => api, current: () => null, seek: () => undefined, setPlaying: () => undefined });
+        section.open();
+        const members = [{ id: 'm0', name: 'Я', avatar: '', isHost: true, canControl: false }, { id: 'm1', name: 'Вася', avatar: '', isHost: false, canControl: false }];
+        emit({ type: 'status', status: 'open' });
+        emit({ type: 'state', state: { code: 'ABC234', members, queue, now: null, settings: { everyoneCanAdd: true, everyoneCanControl: false }, seq: 3 }, you, offset: 0, synced: true });
+        return { section, text: () => document.querySelector('.scj')!.textContent ?? '' };
+    }
+    it('у друга «добавил Вася», у меня «добавил ты», обложка из sndcdn', async () => {
+        const { section, text } = open([track(1), track(2, { addedBy: 'Я' })]);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(text()).toContain('Далее · 2');
+        expect(text()).toContain('добавил Вася');
+        expect(text()).toContain('добавил ты');
+        expect(document.querySelector('.scj-qitem img')?.getAttribute('src')).toBe('https://i1.sndcdn.com/a1.jpg');
+        section.dispose();
+    });
+    it('пустая очередь: подсказка, как добавить трек', async () => {
+        const { section, text } = open([]);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(text()).toContain('Очередь пуста');
+        expect(text()).toContain('Добавить играющий трек');
+        section.dispose();
+    });
+    it('чужой трек участник без прав убрать не может, свой может', async () => {
+        const { section } = open([track(1), track(2, { addedBy: 'Вася' })], 'm1');
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const rows = [...document.querySelectorAll('.scj-qitem')];
+        expect(rows).toHaveLength(2);
+        expect(rows.every((row) => row.querySelector('[aria-label="Убрать"]'))).toBe(true);
+        section.dispose();
+    });
+});

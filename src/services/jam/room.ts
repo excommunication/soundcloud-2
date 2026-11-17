@@ -34,6 +34,11 @@ export function canAdd(state: JamState, id: string): boolean {
     return canControl(state, id) || (!!memberOf(state, id) && state.settings.everyoneCanAdd);
 }
 
+/** Пора ли стереть комнату по таймеру простоя: пока есть хотя бы одно соединение, нет */
+export function shouldExpire(openConnections: number): boolean {
+    return openConnections <= 0;
+}
+
 /** Новый участник. Первый в комнате становится хозяином, если хозяина ещё нет. Полная комната: error 'full' */
 export function addMember(state: JamState, member: Omit<JamMember, 'isHost' | 'canControl'>, asHost = false): Outcome & { member?: JamMember } {
     if (state.members.length >= JAM_LIMITS.members) return { state, events: [], reply: [{ t: 'error', code: 'full' }], kick: [] };
@@ -125,7 +130,7 @@ export function reduce(state: JamState, sender: JamMember, msg: JamClientMsg, no
             if (!canAdd(state, me.id)) return refuse(state, 'forbidden');
             if (state.queue.length >= JAM_LIMITS.queue) return refuse(state, 'queue-full');
             const seq = state.seq + 1;
-            const item: JamQueueItem = { ...msg.track, qid: seq.toString(36), addedBy: me.name };
+            const item: JamQueueItem = { ...msg.track, qid: seq.toString(36), addedBy: me.name, ...(me.avatar ? { addedAvatar: me.avatar } : {}) };
             const queue = [...state.queue, item];
             if (queueBytes(queue) > JAM_LIMITS.queueBytes) return refuse(state, 'queue-full');
             return done({ ...state, queue, seq }, [{ t: 'qadd', item, seq }]);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JAM_LIMITS, type JamClientMsg, type JamMember, type JamState, type JamTrack } from './protocol';
-import { addMember, applyEvent, canAdd, canControl, memberOf, newState, reduce, removeMember, type Outcome } from './room';
+import { addMember, applyEvent, canAdd, canControl, memberOf, newState, reduce, removeMember, shouldExpire, type Outcome } from './room';
 
 const track = (id: number, extra: Partial<JamTrack> = {}): JamTrack => ({ id, url: 'https://soundcloud.com/a/t' + id, title: 'T' + id, artist: 'A', artwork: '', durationMs: 200000, ...extra });
 
@@ -214,5 +214,24 @@ describe('состояние клиента сходится с сервером
 describe('ping', () => {
     it('сервер отвечает своим временем', () => {
         expect(run(room(), 'a', { t: 'ping', c: 42 }, 777).reply).toEqual([{ t: 'pong', c: 42, s: 777 }]);
+    });
+});
+
+describe('кто добавил и стирание комнаты', () => {
+    it('добавленный трек несёт имя и аватарку добавившего', () => {
+        let state = newState('ABC234');
+        state = addMember(state, { id: 'h', name: 'H', avatar: 'https://i1.sndcdn.com/h.jpg' }, true).state;
+        state = addMember(state, { id: 'a', name: 'A', avatar: '' }).state;
+        state = reduce(state, memberOf(state, 'h')!, { t: 'settings', everyoneCanAdd: true }, 1).state;
+        const mine = reduce(state, memberOf(state, 'h')!, { t: 'add', track: track(1) }, 2).state;
+        const theirs = reduce(mine, memberOf(mine, 'a')!, { t: 'add', track: track(2) }, 3).state;
+        expect(theirs.queue[0]).toMatchObject({ addedBy: 'H', addedAvatar: 'https://i1.sndcdn.com/h.jpg' });
+        expect(theirs.queue[1].addedBy).toBe('A');
+        expect('addedAvatar' in theirs.queue[1]).toBe(false);
+    });
+    it('комната не стирается, пока есть хотя бы одно соединение', () => {
+        expect(shouldExpire(0)).toBe(true);
+        expect(shouldExpire(1)).toBe(false);
+        expect(shouldExpire(5)).toBe(false);
     });
 });

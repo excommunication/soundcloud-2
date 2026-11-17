@@ -42,7 +42,7 @@ import { registerPageIpc, type PlaybackState } from './ipc/pageIpc';
 import { registerWaveIpc } from './ipc/waveIpc';
 import { registerVibeIpc } from './ipc/vibeIpc';
 import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
-import { registerJamIpc } from './ipc/jamIpc';
+import { jamServerOf, registerJamIpc } from './ipc/jamIpc';
 import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
@@ -1280,11 +1280,17 @@ async function init() {
         now: () => Date.now(),
         random: () => Math.random(),
         timers: { set: (fn, ms) => setTimeout(fn, ms), clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>) },
+        // Комната помнится на диске (в main: токен хозяина на страницу не отдаётся) и поднимается при запуске
+        saved: { load: () => store.get('jamSession', null), save: (value) => (value ? store.set('jamSession', value) : store.delete('jamSession')) },
+        reachable: async (httpBase) => (await fetch(httpBase + '/', { signal: AbortSignal.timeout(8000) })).ok,
     }, (event) => {
         if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.send('jam:event', event);
     });
-    app.once('before-quit', () => jamClient.leave());
+    // Закрытие приложения не выход из комнаты: запись остаётся, при запуске клиент вернётся
+    app.once('before-quit', () => jamClient.suspend());
     registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', ''), clipboard });
+    const jamBase = jamServerOf(store.get('jamServer', ''));
+    if (jamBase) jamClient.restore(jamBase);
     // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
     // длительность; ответы помнятся до перезапуска
     const lyricsCache = new Map<string, Lyrics | null>();
@@ -1365,7 +1371,7 @@ async function init() {
     clearInterval(recapTimer);
     recapTimer = setInterval(() => void historyManager?.checkRecap(), 30 * 60 * 1000);
     if (platform() === 'win32') {
-        thumbarService = new ThumbarService(translationService, RESOURCES_PATH, playbackController);
+        thumbarService = new ThumbarService(translationService, RESOURCES_PATH, playbackController, (fields) => diagnostics.record('thumbar.set', fields));
         mainWindow.on('show', () => {
             thumbarService.restore(mainWindow);
             iconicThumbnail?.restore();

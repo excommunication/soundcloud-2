@@ -82,6 +82,14 @@ export function clipArtwork(url: string): string {
     return /-t500x500\.(jpg|png)(\?|$)/.test(url) ? url.replace(/-t500x500\.(jpg|png)/, '-original.$1') : url;
 }
 /** Размер кадра 9:16 в окне: во всю высоту, а в узком окне во всю ширину */
+/**
+ * Нужна ли упрощённая подача текста в режиме роликов. Режим включают осознанно, поэтому «Меньше анимаций» и режимы
+ * эффектов (Облегчённо, Супер лайт, Без эффектов) экономят только фон и переливы, а подачу текста не трогают.
+ * Упрощает её лишь системная настройка Windows «Отключить анимации».
+ */
+export function clipSimpleText(_reduceMotion: boolean, _effectsMode: string, osReduce: boolean): boolean {
+    return osReduce === true;
+}
 export function verticalFrame(width: number, height: number): { width: number; height: number } {
     if (!(width > 0) || !(height > 0)) return { width: 0, height: 0 };
     const byHeight = Math.round((height * 9) / 16);
@@ -454,9 +462,6 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc-open svg{width:17px;height:17px;fill:currentColor}',
             '.playControls .scc-open{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);margin:0 4px;align-self:center}',
             '.playControls .scc-open svg{width:16px;height:16px}',
-            'html.scm-reduce .scc,html.scm-reduce .scc *{transition:none!important;animation:none!important}',
-            'html.scm-reduce .scc-art,html.scm-reduce .scc-bg{transform:none!important}',
-            'html.scm-reduce .scc-fx,html.scm-reduce .scc-tint{display:none!important}',
             '@media (prefers-reduced-motion:reduce){.scc,.scc *{transition:none!important;animation:none!important}.scc-art{transform:none!important}.scc-fx,.scc-tint{display:none!important}}',
         ].join('\n');
         document.head.append(style);
@@ -529,7 +534,8 @@ export function installClip(core: ClipCore): ClipSection {
     // Эффекты на бит и значок с QR (2.11.0): по умолчанию выключены, помнятся между запусками
     let fx = read('sc2-clip-fx') === 'on';
     let qrOn = read('sc2-clip-qr') === 'on';
-    const reduced = (): boolean => document.documentElement.classList.contains('scm-reduce') || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    // Только системное «Отключить анимации»: флажок «Меньше анимаций» и режимы эффектов (класс scm-reduce) режим роликов не упрощают
+    const reduced = (): boolean => clipSimpleText(false, 'full', typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     let layer: HTMLElement | null = null;
     let timer: ReturnType<typeof setInterval> | undefined;

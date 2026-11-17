@@ -47,7 +47,9 @@ export function effectsModeCss(mode: EffectsMode): string {
     }
     if (mode !== 'off') return '';
     return [
-        '*,*::before,*::after{animation:none!important;transition:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}',
+        // Режим роликов (.scc) не гасится: текст песни там анимируется всегда, это не фон
+        '*:not(.scc,.scc *),*:not(.scc,.scc *)::before,*:not(.scc,.scc *)::after{animation:none!important;transition:none!important}',
+        '*,*::before,*::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}',
         'html{background:#121212!important}',
         '#sca-bg{display:none!important}',
     ].join('\n');

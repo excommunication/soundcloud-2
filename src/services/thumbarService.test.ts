@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-vi.mock('electron', () => ({ nativeImage: { createFromPath: () => ({}) } }));
+vi.mock('electron', () => ({ app: { getAppPath: () => '' }, nativeImage: { createFromPath: () => ({ isEmpty: () => false }), createEmpty: () => ({ isEmpty: () => true }), createFromBuffer: () => ({ isEmpty: () => false }) } }));
 import type { BrowserWindow } from 'electron';
 import type { PlaybackController } from './playbackController';
 import type { TranslationService } from './translationService';

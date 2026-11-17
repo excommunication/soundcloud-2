@@ -4,18 +4,18 @@ import { BACKUP_REASONS } from './backupPolicy';
 import { CLIP_FAIL_REASONS } from './clipFail';
 import { CROSSFADE_STAGES } from './wave/quiet';
 
-const events = new Set(['session.start', 'session.end', 'performance', 'runtime.error', 'runtime.warn', 'renderer.gone', 'renderer.unresponsive', 'renderer.responsive', 'page.loaded', 'page.load-failed', 'page.soft-navigation', 'auth.google-rejected', 'auth.window', 'auth.google-page', 'auth.rejected-page', 'auth.load-failed', 'auth.closed', 'memory.reload', 'auth.browser-login-start', 'auth.browser-login-open', 'auth.browser-login-done', 'auth.browser-login-failed', 'auth.browser-login-cancel', 'system.suspend', 'system.resume', 'gpu.status', 'process.gone', 'wave.empty', 'wave.filtered', 'wave.crossfade', 'radar.built', 'site.modules-missing', 'backup.saved', 'backup.failed', 'backup.restored', 'backup.restore-failed', 'clip.record-failed']);
+const events = new Set(['session.start', 'session.end', 'performance', 'runtime.error', 'runtime.warn', 'renderer.gone', 'renderer.unresponsive', 'renderer.responsive', 'page.loaded', 'page.load-failed', 'page.soft-navigation', 'auth.google-rejected', 'auth.window', 'auth.google-page', 'auth.rejected-page', 'auth.load-failed', 'auth.closed', 'memory.reload', 'auth.browser-login-start', 'auth.browser-login-open', 'auth.browser-login-done', 'auth.browser-login-failed', 'auth.browser-login-cancel', 'system.suspend', 'system.resume', 'gpu.status', 'process.gone', 'wave.empty', 'wave.filtered', 'wave.crossfade', 'radar.built', 'site.modules-missing', 'backup.saved', 'backup.failed', 'backup.restored', 'backup.restore-failed', 'clip.record-failed', 'thumbar.set', 'playback.seek-back']);
 const numbers = new Set([
     'cpuPercent', 'workingSetMiB', 'privateMiB', 'processes', 'loopP95Ms', 'loopMaxMs', 'updates', 'trackChanges', 'sinceUpdateMs', 'sinceProgressMs', 'exitCode', 'errorCode', 'line',
     'droppedEvents', 'uptimeSeconds', 'waveSeen', 'waveArtistTracks', 'waveMoodTags', 'waveExcluded', 'waveCopies', 'waveCyrillic', 'waveFamily', 'waveAccepted', 'waveNeighborAsked', 'waveNeighborFound', 'waveNeighborAccepted', 'waveNeighborFailed', 'backupMs', 'backupKiB', 'prepMs', 'leftMs',
-    'radarReleases', 'radarOwn', 'radarChannel', 'radarUploads', 'radarFan', 'radarLate', 'radarAccounts', 'radarChecked', 'radarFailed',
+    'radarReleases', 'radarOwn', 'radarChannel', 'radarUploads', 'radarFan', 'radarLate', 'radarAccounts', 'radarChecked', 'radarFailed', 'buttons', 'iconsMissing', 'seekBackMs',
 ]);
 // Шаг плавного перехода: код из списка, без трека
 const crossfadeStages = new Set<string>(CROSSFADE_STAGES);
 const flags = new Set(['playing', 'hasTrack', 'windowVisible', 'windowMinimized', 'settingsOpen', 'previousUnclean', 'adblock', 'proxy', 'dirty', 'discord', 'githubBadge', 'gpuInProcess', 'gpuAuto', 'gpuNvidiaDetected', 'gpuFallback', 'auto', 'manual', 'partial',
-    'sitePlayer', 'siteApi', 'siteSound', 'siteTranslation']);
+    'ok', 'sitePlayer', 'siteApi', 'siteSound', 'siteTranslation']);
 // Причины отказа резервной копии: код без пути и содержимого файла
-const reasons = new Set<string>(['clean-exit', 'abnormal-exit', 'killed', 'crashed', 'oom', 'launch-failed', 'integrity-failure', 'memory-eviction', ...BACKUP_REASONS, ...CLIP_FAIL_REASONS]);
+const reasons = new Set<string>(['clean-exit', 'abnormal-exit', 'killed', 'crashed', 'oom', 'launch-failed', 'integrity-failure', 'memory-eviction', 'thumbar-ok', 'thumbar-icons-fallback', 'thumbar-rejected', 'thumbar-exception', 'thumbar-hidden', 'seek-restore', 'seek-core', 'seek-unknown', ...BACKUP_REASONS, ...CLIP_FAIL_REASONS]);
 const errorTypes = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'URIError', 'AggregateError']);
 const sourceFiles = new Set([
     'main', 'presenceService', 'proxyService', 'adblockService', 'webhookService', 'settingsManager', 'notificationManager', 'rendererRecovery', 'playbackController', 'viewStyles', 'gpu', 'utility', 'process',

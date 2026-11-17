@@ -72,6 +72,18 @@ export function beatAmount(value: number): number {
     return Math.pow(Math.min(100, v) / 100, 1.6);
 }
 
+/** Состояние повтора по классам кнопки сайта: m-one повтор трека, m-all повтор очереди. Уходит на страницу текстом */
+export function repeatMode(classes: string): 'off' | 'one' | 'all' {
+    const list = String(classes).split(/\s+/);
+    return list.includes('m-one') ? 'one' : list.includes('m-all') ? 'all' : 'off';
+}
+
+/** Подсказка кнопки повтора. Уходит на страницу текстом */
+export function repeatLabel(mode: 'off' | 'one' | 'all', ru: boolean): string {
+    const names = ru ? { off: 'выкл', all: 'очередь', one: 'трек' } : { off: 'off', all: 'queue', one: 'track' };
+    return (ru ? 'Повтор: ' : 'Repeat: ') + names[mode];
+}
+
 /** Нужно ли экономить кадры без фокуса: да, если окно не в фокусе и пользователь не включил «Не ограничивать кадры».
  *  Уходит на страницу текстом, поэтому ни от чего снаружи не зависит */
 export function shouldThrottleIdle(idle: boolean, keepFramesUnfocused: boolean, recording?: boolean): boolean {
@@ -723,6 +735,9 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} button.skipControl.disabled{opacity:.35}`,
         `${bar} button.shuffleControl.m-shuffling,${bar} button.repeatControl.m-one,${bar} button.repeatControl.m-all{color:#fff!important}`,
         `${bar} button.shuffleControl.m-shuffling::after,${bar} button.repeatControl.m-one::after,${bar} button.repeatControl.m-all::after{content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--sc2-accent,#fff)}`,
+        // Повтор виден сразу (2.12.4): включённый — иконка цвета акцента на мягком круге, у «повтора трека» ещё цифра 1
+        `${bar} button.repeatControl.m-one,${bar} button.repeatControl.m-all{color:var(--sc2-accent,#fff)!important;background:color-mix(in srgb,var(--sc2-accent,#fff) 20%,transparent)!important}`,
+        `${bar} button.repeatControl.m-one::before{content:"1";position:absolute;right:3px;top:3px;min-width:12px;height:12px;border-radius:6px;padding:0 3px;box-sizing:border-box;background:var(--sc2-accent,#fff);color:#0b0c10;font:700 9px/12px system-ui,sans-serif;text-align:center;z-index:2}`,
         `${bar} .playbackTimeline__timePassed,${bar} .playbackTimeline__duration{font-size:11px!important;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.55)!important}`,
         // Правая часть бара: все кнопки одинаковые круги на стекле
         `${bar} .playbackSoundBadge__actions{display:inline-flex!important;align-items:center;gap:6px}`,
@@ -1613,7 +1628,19 @@ export function auroraPage(config: AuroraConfig): void {
         const chip = document.querySelector('.playControls .scj-chip');
         return [window.innerWidth, actions?.querySelectorAll('button,a').length ?? 0, chip?.textContent ?? '', fxButton?.isConnected ? 1 : 0].join('|');
     }
+    // Подсказка и подпись для скринридера у кнопки повтора: выкл / очередь / трек
+    function syncRepeat(): void {
+        const button = document.querySelector<HTMLElement>('.playControls .repeatControl');
+        if (!button) return;
+        const label = repeatLabel(repeatMode(button.className), ruFx);
+        if (button.title !== label) button.title = label;
+        if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+    }
+    document.addEventListener('click', (event) => {
+        if ((event.target as Element | null)?.closest?.('.repeatControl')) setTimeout(syncRepeat, 80);
+    }, true);
     function fitTick(force = false): void {
+        syncRepeat();
         const key = fitSignature();
         if (!force && key === fitKey) return;
         fitKey = key;
@@ -2154,5 +2181,5 @@ export function auroraScript(input: unknown, mode?: string): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
     const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX, mode };
-    return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + shouldThrottleIdle.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
+    return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + shouldThrottleIdle.toString() + '\n' + repeatMode.toString() + '\n' + repeatLabel.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }

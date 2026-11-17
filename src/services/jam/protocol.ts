@@ -21,7 +21,8 @@ export const JAM_LIMITS = {
     /** Сообщений в окно на один сокет */
     rate: 30,
     rateWindowMs: 10000,
-    idleMs: 6 * 60 * 60 * 1000,
+    /** Комната стирается после 7 суток без активности (и только если в ней нет ни одного соединения) */
+    idleMs: 7 * 24 * 60 * 60 * 1000,
     durationMs: 24 * 60 * 60 * 1000,
 } as const;
 
@@ -40,6 +41,8 @@ export interface JamQueueItem extends JamTrack {
     qid: string;
     /** Имя того, кто добавил */
     addedBy: string;
+    /** Аватарка добавившего (только sndcdn.com по https); нет — у старых серверов и у тех, у кого её нет */
+    addedAvatar?: string;
 }
 export interface JamMember {
     id: string;
@@ -167,7 +170,10 @@ function parseItem(value: unknown): JamQueueItem | null {
     const track = parseTrack(value);
     const qid = str(value.qid, 16, 1);
     const addedBy = cleanName(value.addedBy);
-    return track && qid !== null && addedBy !== null ? { ...track, qid, addedBy } : null;
+    if (!track || qid === null || addedBy === null) return null;
+    // Необязательное поле: старый сервер его не шлёт, чужая ссылка вне sndcdn.com отбрасывается
+    const addedAvatar = cleanAvatar(value.addedAvatar);
+    return addedAvatar ? { ...track, qid, addedBy, addedAvatar } : { ...track, qid, addedBy };
 }
 function parseSettings(value: unknown): JamSettings | null {
     if (!isObject(value) || typeof value.everyoneCanAdd !== 'boolean' || typeof value.everyoneCanControl !== 'boolean') return null;

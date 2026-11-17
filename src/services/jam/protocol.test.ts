@@ -118,3 +118,19 @@ describe('сообщения сервера', () => {
         expect(parseServerMsg(JSON.stringify({ t: 'hello', you: 'h', serverNow: 1, state: { ...state, members: Array.from({ length: 51 }, () => state.members[0]) } }))).toBeNull();
     });
 });
+
+describe('кто добавил и срок жизни комнаты', () => {
+    const item = { ...track, qid: '1', addedBy: 'Вася' };
+    it('addedAvatar необязателен: старые серверы его не шлют, чужой хост отбрасывается', () => {
+        const old = parseServerMsg({ t: 'qadd', item, seq: 1 });
+        expect(old).toMatchObject({ t: 'qadd', item: { addedBy: 'Вася' } });
+        expect(old && old.t === 'qadd' && 'addedAvatar' in old.item).toBe(false);
+        const withAvatar = parseServerMsg({ t: 'qadd', item: { ...item, addedAvatar: 'https://i1.sndcdn.com/a.jpg' }, seq: 1 });
+        expect(withAvatar && withAvatar.t === 'qadd' && withAvatar.item.addedAvatar).toBe('https://i1.sndcdn.com/a.jpg');
+        const evil = parseServerMsg({ t: 'qadd', item: { ...item, addedAvatar: 'https://evil.com/a.jpg' }, seq: 1 });
+        expect(evil && evil.t === 'qadd' && evil.item.addedAvatar).toBeUndefined();
+    });
+    it('простой комнаты: 7 суток', () => {
+        expect(JAM_LIMITS.idleMs).toBe(7 * 24 * 60 * 60 * 1000);
+    });
+});

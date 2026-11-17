@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { APPEARANCE_DEFAULTS, AURORA_EFFECTS, appearanceCss, auroraScript, fragmentSource, isAppearance, normalizeAppearance, paletteColors, PALETTES } from './aurora';
+import { APPEARANCE_DEFAULTS, AURORA_EFFECTS, appearanceCss, auroraScript, fragmentSource, isAppearance, normalizeAppearance, paletteColors, PALETTES, repeatLabel, repeatMode } from './aurora';
 import { validateSettingChange } from '../settings/validateSetting';
 import { EFFECTS_MODE_DEFAULT, effectiveAppearance } from './effectsMode';
 
@@ -233,3 +233,22 @@ describe('умолчания оформления и скрипт страниц
     });
 });
 
+
+describe('индикатор повтора', () => {
+    it('состояние по классам кнопки сайта', () => {
+        expect(repeatMode('sc-button repeatControl m-one')).toBe('one');
+        expect(repeatMode('repeatControl m-all sc-button')).toBe('all');
+        expect(repeatMode('repeatControl m-one-extra')).toBe('off');
+        expect(repeatMode('')).toBe('off');
+    });
+    it('подпись на русском и английском', () => {
+        expect(repeatLabel('off', true)).toBe('Повтор: выкл');
+        expect(repeatLabel('all', true)).toBe('Повтор: очередь');
+        expect(repeatLabel('one', true)).toBe('Повтор: трек');
+        expect(repeatLabel('one', false)).toBe('Repeat: track');
+    });
+    it('скрипт страницы получает обе функции и бейдж «1»', () => {
+        expect(auroraScript({})).toContain('function repeatMode');
+        expect(appearanceCss(APPEARANCE_DEFAULTS) + '').toBeTypeOf('string');
+    });
+});

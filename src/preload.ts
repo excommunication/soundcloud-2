@@ -315,6 +315,10 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     reportCrossfade: (entry: unknown) => {
         ipcRenderer.send('soundcloud:wave-crossfade', entry);
     },
+    // Позиция ушла назад без действия человека: источник из списка и дельта в журнал диагностики, проверяет main
+    reportSeekBack: (entry: unknown) => {
+        ipcRenderer.send('soundcloud:seek-back', entry);
+    },
     // Сайт поменялся: чего страница не нашла (плеер, API, модель трека, перевод); флаги проверяет main
     reportSite: (state: unknown) => {
         ipcRenderer.send('soundcloud:site-state', state);
