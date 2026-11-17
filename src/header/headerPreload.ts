@@ -8,6 +8,7 @@ const SEND_CHANNELS = new Set([
     'navigate-back',
     'navigate-forward',
     'refresh-page',
+    'show-appearance-menu',
     'title-bar-double-click',
     'toggle-history',
     'toggle-queue',

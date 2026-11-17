@@ -613,6 +613,8 @@ export function appearanceCss(appearance: Appearance): string {
             'filter:blur(36px);opacity:calc(.14 + var(--sca-bass,0) * .5 + var(--sca-kick,0) * .25);transform:scale(calc(1 + var(--sca-kick,0) * .12),calc(1 + var(--sca-kick,0) * .3));transform-origin:50% 100%;will-change:transform,opacity}',
         '#sca-club .beam{bottom:-12vh;width:16vw;min-width:160px;height:135vh;transform-origin:50% 100%;filter:blur(30px);mix-blend-mode:screen;opacity:calc(.03 + var(--sca-energy,0) * .2);' +
             'animation:sca-sweep var(--sca-sweep,10s) ease-in-out infinite alternate;will-change:transform}',
+        // Окно без фокуса (игра поверх, другое окно): лучи стоят, компоситор не крутит размытые слои
+        'html.sca-idle #sca-club .beam,html.sca-idle .scw-glow>i{animation-play-state:paused}',
         '#sca-club .beam.l{left:16%;--from:-26deg;--to:16deg;background:linear-gradient(to top,color-mix(in srgb,var(--sca-c3,#6f8bff) 80%,transparent),transparent 75%)}',
         '#sca-club .beam.r{right:16%;--from:24deg;--to:-14deg;animation-delay:calc(var(--sca-sweep,10s) * -.5);background:linear-gradient(to top,color-mix(in srgb,var(--sca-c1,#3a6bff) 80%,transparent),transparent 75%)}',
         '@keyframes sca-sweep{from{transform:rotate(var(--from))}to{transform:rotate(var(--to))}}',
@@ -1102,8 +1104,12 @@ export function auroraPage(config: AuroraConfig): void {
     function resize(): void {
         if (!canvas || !gl) return;
         const s = scale() * (cfg.appearance.quality === 'eco' ? 1 : thin) * Math.min(2, window.devicePixelRatio || 1);
-        const w = Math.max(64, Math.round(window.innerWidth * s));
-        const h = Math.max(64, Math.round(window.innerHeight * s));
+        // Потолок числа пикселей шейдера: на 4K и высоком DPI холст был в миллионы точек, и фон грузил видеокарту
+        // (а при GPU в главном процессе её перегрузка роняет весь клиент). Холст растягивается CSS, фон мягкий и без потери
+        const budget = cfg.appearance.quality === 'high' ? 1_600_000 : 900_000;
+        const fit = Math.min(1, Math.sqrt(budget / Math.max(1, window.innerWidth * window.innerHeight * s * s)));
+        const w = Math.max(64, Math.round(window.innerWidth * s * fit));
+        const h = Math.max(64, Math.round(window.innerHeight * s * fit));
         if (canvas.width !== w || canvas.height !== h) {
             canvas.width = w;
             canvas.height = h;
@@ -1341,11 +1347,26 @@ export function auroraPage(config: AuroraConfig): void {
         if (!thump.isConnected) document.body.append(thump);
     }
     let lastAudio = 0;
+    let idleShown = false;
+    let idleAt = 0;
     function draw(now: number): void {
         frame = requestAnimationFrame(draw);
         if (document.hidden) {
             perfAt = 0;
             return;
+        }
+        // Без фокуса (пользователь в игре или другом окне): не больше ~8 кадров в секунду на всё, лучи на паузе.
+        // Звук не затрагивается: анализатор только читает
+        const idle = (host as { __scAppIdle?: boolean }).__scAppIdle === true;
+        if (idle !== idleShown) {
+            idleShown = idle;
+            document.documentElement.classList.toggle('sca-idle', idle);
+            last = 0;
+        }
+        if (idle) {
+            if (now - idleAt < 120) return;
+            idleAt = now;
+            perfAt = 0;
         }
         // Звук и детектор бита идут каждый кадр, а не с частотой фона (2.8.0): на «Балансе» фон рисуется 30 раз в секунду,
         // и удар опаздывал до 33 мс и дрожал. Вспышки интерфейса тоже пишутся сразу
@@ -1755,6 +1776,7 @@ export function auroraPage(config: AuroraConfig): void {
     frame = requestAnimationFrame(draw);
     window.addEventListener('pointermove', onMove, { passive: true });
     const coverTimer = setInterval(() => {
+        if (document.hidden) return;
         sampleCover();
         hideVoidModules();
     }, 1500);
@@ -1778,7 +1800,7 @@ export function auroraPage(config: AuroraConfig): void {
             document.removeEventListener('click', onLikeClick, true);
             document.removeEventListener('pointermove', onSpot);
             document.removeEventListener('pointerout', onSpotLeave);
-            document.documentElement.classList.remove('sca-line', 'sca-playing');
+            document.documentElement.classList.remove('sca-line', 'sca-playing', 'sca-idle');
             try {
                 if (tappedGain && analyser) tappedGain.disconnect(analyser);
             } catch {

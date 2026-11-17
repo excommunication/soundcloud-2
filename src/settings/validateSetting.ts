@@ -3,6 +3,7 @@ import { isGpuCompatibilityMode, type GpuCompatibilityMode } from '../services/g
 import { isRadarDay, isRadarTime, isTimeZone } from '../services/radarSchedule';
 import { isMyMusicSetting, type MyMusicSetting } from '../services/libraryMix';
 import { isAppearance, type Appearance } from '../services/aurora';
+import { isEffectsMode, type EffectsMode } from '../services/effectsMode';
 import { jamServerBase } from '../services/jam/client';
 
 const booleanKeys = new Set(['adBlocker', 'proxyEnabled', 'webhookEnabled', 'displaySCSmallIcon', 'displayGithubLink', 'discordRichPresence', 'displayButtons', 'minimizeToTray', 'navigationControlsEnabled', 'trackParserEnabled', 'richPresencePreviewEnabled', 'hidePromotions', 'hideEventsNearYou', 'hideArtistUpsells', 'hideHeaderExtras', 'fullShuffle', 'quietEdges', 'crossfade', 'autoUpdateEnabled', 'discordIncognito', 'reduceMotion', 'waveNoRussian', 'vibeWeb', ...HOME_BLOCK_KEYS]);
@@ -12,7 +13,7 @@ type StringKey = 'proxyHost' | 'proxyPort' | 'proxyUsername' | 'proxyPassword' |
 export type DiscordTextKey = 'discordLine1' | 'discordLine2' | 'discordCoverText' | 'discordHiddenArtists' | 'discordHiddenGenres';
 export const DISCORD_TEXT_KEYS: ReadonlySet<string> = new Set<DiscordTextKey>(['discordLine1', 'discordLine2', 'discordCoverText', 'discordHiddenArtists', 'discordHiddenGenres']);
 export type SettingChange = { key: BooleanKey; value: boolean } | { key: StringKey; value: string } | { key: 'webhookTriggerPercentage' | 'statusDisplayType' | 'crossfadeSeconds'; value: number } | { key: 'siteLanguage'; value: 'ru' | 'en' } | { key: 'gpuCompatibilityMode'; value: GpuCompatibilityMode }
-    | { key: 'radarDay'; value: number } | { key: 'radarTime' | 'radarZone'; value: string } | { key: 'myMusic'; value: MyMusicSetting } | { key: 'appearance'; value: Appearance };
+    | { key: 'radarDay'; value: number } | { key: 'radarTime' | 'radarZone'; value: string } | { key: 'myMusic'; value: MyMusicSetting } | { key: 'appearance'; value: Appearance } | { key: 'effectsMode'; value: EffectsMode };
 
 export function validateSettingChange(input: unknown): input is SettingChange {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
@@ -33,6 +34,8 @@ export function validateSettingChange(input: unknown): input is SettingChange {
     if (key === 'myMusic') return isMyMusicSetting(value);
     // Оформление: эффект, палитра, ползунки; объект целиком
     if (key === 'appearance') return isAppearance(value);
+    // Режим оформления: полные эффекты, облегчённо, без эффектов
+    if (key === 'effectsMode') return isEffectsMode(value);
     if (typeof value !== 'string') return false;
     if (key === 'proxyPassword') return value.length <= 4096;
     if (key === 'proxyHost' || key === 'proxyUsername') return value.length <= 256 && !/[\r\n\0]/.test(value);

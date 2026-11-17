@@ -7,13 +7,15 @@ import { cleanAvatar, cleanName, codeFromInput, parseClientMsg } from '../servic
 
 /** Адрес сервера джемов, вшитый в сборку. Пусто, пока сервер не развёрнут: после `npx wrangler deploy` впиши сюда
  *  адрес вида https://sc2-jam.<аккаунт>.workers.dev, и настройка «Сервер джемов» в F1 останется только для смены */
-export const JAM_SERVER_DEFAULT = '';
+export const JAM_SERVER_DEFAULT = 'https://sc2-jam.sc2-prada.workers.dev';
 
 export interface JamIpcDeps {
     trustedSite: SenderCheck;
     client: JamClient;
     /** Значение настройки jamServer */
     setting(): unknown;
+    /** Вшитый адрес; по умолчанию JAM_SERVER_DEFAULT (в тестах подменяется) */
+    fallback?: string;
 }
 
 /** Какой сервер использовать: настройка важнее вшитого адреса; null — не настроен или адрес негодный */
@@ -27,14 +29,14 @@ export function registerJamIpc(ipc: IpcRegistry, deps: JamIpcDeps): void {
 
     ipc.handle('jam:create', async (event, name: unknown, avatar: unknown): Promise<JamStartResult> => {
         if (!deps.trustedSite(event)) return { ok: false, error: 'invalid' };
-        const base = jamServerOf(deps.setting());
+        const base = jamServerOf(deps.setting(), deps.fallback);
         if (!base) return { ok: false, error: 'not-configured' };
         const me = who(name, avatar);
         return deps.client.create(base, me.name, me.avatar);
     });
     ipc.handle('jam:join', (event, code: unknown, name: unknown, avatar: unknown): JamStartResult => {
         if (!deps.trustedSite(event)) return { ok: false, error: 'invalid' };
-        const base = jamServerOf(deps.setting());
+        const base = jamServerOf(deps.setting(), deps.fallback);
         if (!base) return { ok: false, error: 'not-configured' };
         const clean = codeFromInput(code);
         if (!clean) return { ok: false, error: 'invalid' };
@@ -55,6 +57,6 @@ export function registerJamIpc(ipc: IpcRegistry, deps: JamIpcDeps): void {
     // Страница открылась (или перезагрузилась) посреди джема: текущее состояние и настроен ли сервер
     ipc.handle('jam:snapshot', (event): { configured: boolean; events: JamUiEvent[] } | null => {
         if (!deps.trustedSite(event)) return null;
-        return { configured: !!jamServerOf(deps.setting()), events: deps.client.snapshot() };
+        return { configured: !!jamServerOf(deps.setting(), deps.fallback), events: deps.client.snapshot() };
     });
 }

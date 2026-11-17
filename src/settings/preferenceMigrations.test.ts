@@ -57,3 +57,13 @@ it('раскладку главной применяет один раз, воз
     applyPreferenceMigrations(store);
     expect(store.values.homeRecent).toBe(true);
 });
+it('режим оформления: нет или испорчен, значит «Полные»; выбранный остаётся', () => {
+    for (const values of [{}, { effectsMode: 'blink' }]) {
+        const store = memoryStore(values);
+        applyPreferenceMigrations(store);
+        expect(store.values.effectsMode).toBe('full');
+    }
+    const store = memoryStore({ effectsMode: 'off' });
+    applyPreferenceMigrations(store);
+    expect(store.values.effectsMode).toBe('off');
+});

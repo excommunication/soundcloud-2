@@ -14,13 +14,14 @@ function setup(setting: unknown = 'https://sc2-jam.x.workers.dev') {
         send: vi.fn(() => true),
         snapshot: vi.fn(() => []),
     };
-    registerJamIpc(ipc, { trustedSite: trusting(site), client: client as unknown as JamClient, setting: () => setting });
+    registerJamIpc(ipc, { trustedSite: trusting(site), client: client as unknown as JamClient, setting: () => setting, fallback: '' });
     return { ipc, site, stranger, client };
 }
 
 describe('джем: мост к main', () => {
-    it('вшитый адрес пока пуст, настройка важнее него', () => {
-        expect(JAM_SERVER_DEFAULT).toBe('');
+    it('вшитый адрес валиден, настройка важнее него', () => {
+        expect(jamServerOf('')).not.toBeNull();
+        expect(JAM_SERVER_DEFAULT.startsWith('https://')).toBe(true);
         expect(jamServerOf('', '')).toBeNull();
         expect(jamServerOf('', 'https://a.workers.dev')?.http).toBe('https://a.workers.dev');
         expect(jamServerOf('https://b.workers.dev', 'https://a.workers.dev')?.http).toBe('https://b.workers.dev');

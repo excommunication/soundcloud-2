@@ -11,6 +11,8 @@ export interface WindowIpcDeps {
     header(): MessageTarget | null;
     navigateBack(): void;
     headerTexts(): Record<string, string>;
+    /** Меню режимов оформления; точка в координатах окна, под кнопкой палитры */
+    showAppearanceMenu(anchor: { x: number; y: number }): void;
 }
 
 export function registerWindowIpc(ipc: IpcRegistry, deps: WindowIpcDeps): void {
@@ -95,6 +97,14 @@ export function registerWindowIpc(ipc: IpcRegistry, deps: WindowIpcDeps): void {
             page.stop();
             deps.header()?.send('refresh-state-changed', false);
         }
+    });
+
+    // Кнопка палитры: меню режимов оформления; координаты приходят со страницы, поэтому проверяются
+    ipc.on('show-appearance-menu', (event, anchor: unknown) => {
+        if (!isTrustedLocalSender(event)) return;
+        const { x, y } = (anchor && typeof anchor === 'object' ? anchor : {}) as Record<string, unknown>;
+        if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return;
+        deps.showAppearanceMenu({ x: Math.max(0, Math.min(x, 10000)), y: Math.max(0, Math.min(y, 200)) });
     });
 
     // Подсказки кнопок шапки на языке приложения

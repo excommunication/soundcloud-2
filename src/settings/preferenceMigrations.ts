@@ -1,5 +1,6 @@
 import { HOME_BLOCK_KEYS, homeBlockDefaults } from '../services/homeBlocks';
 import { isGpuCompatibilityMode } from '../services/gpuProcessMode';
+import { isEffectsMode, EFFECTS_MODE_DEFAULT } from '../services/effectsMode';
 import { DEFAULT_RADAR_SCHEDULE, isTimeZone, systemTimeZone } from '../services/radarSchedule';
 
 interface PreferenceStore {
@@ -15,6 +16,8 @@ export function applyPreferenceMigrations(store: PreferenceStore): void {
         // В тестовой версии false записывалось как умолчание. Новый явный выбор off больше не меняется.
         store.set('gpuCompatibilityMode', store.get('gpuCompatibility') === true ? 'on' : 'auto');
     }
+    // Режим оформления появился позже: у старых профилей его нет, а испорченное значение читается как «Полные»
+    if (!isEffectsMode(store.get('effectsMode'))) store.set('effectsMode', EFFECTS_MODE_DEFAULT);
     if (store.get('adBlockerDefaultApplied') !== true) {
         store.set('adBlocker', true);
         store.set('adBlockerDefaultApplied', true);
