@@ -57,6 +57,10 @@ async function initializeSettings() {
             }
         });
     }
+    // Кнопки-ссылки на другой раздел (например «Оформление» → «Оптимизация»)
+    for (const link of document.querySelectorAll('[data-goto]')) {
+        link.addEventListener('click', () => navButtons.find((button) => button.dataset.target === link.dataset.goto)?.click());
+    }
     // Включённые прокси или вебхук легко забыть, поэтому у раздела точка
     function updateAdvancedMarker() {
         const active = document.getElementById('proxyEnabled').checked || document.getElementById('webhookEnabled').checked;

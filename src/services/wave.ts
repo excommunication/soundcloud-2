@@ -4004,7 +4004,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // Узкое окно (2.9.0): по ширине самого блока (правила для потомков: контейнер сам себя не запрашивает), а не окна. Раньше обложка оставалась 236 px, а название сжималось
         // до одной буквы в строке. Сначала меньше обложка и кнопки, потом обложка уходит наверх и блок идёт столбцом
         '@container scw (max-width:820px){#sc-wave .scw-body{--scw-cover-size:150px}html body #sc-wave .scw-track{font-size:18px;line-height:24px}#sc-wave .scw-meta{gap:8px}#sc-wave .scw-why{flex-basis:100%;order:-1}}',
-        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:min(200px,56cqw)}html body #sc-wave .scw-body{flex-direction:column;align-items:stretch}#sc-wave .scw-cover{order:-1;align-self:center}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
+        // 2.12.3: до 620 px блока плашка остаётся горизонтальной и компактной (обложка справа 96..128 px, кнопки и волна слева), а не столбцом
+        // с огромной обложкой по центру; «Далее» идёт под плашкой и её не растягивает
+        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:clamp(96px,24cqw,128px)}html body #sc-wave .scw-body{flex-direction:row;align-items:stretch;gap:16px}#sc-wave .scw-cover{align-self:flex-start}#sc-wave .scw-wf{height:56px}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
         '@container scw (max-width:420px){html body #sc-wave .scw-step{display:none}#sc-wave .scw-meta.outside{flex-wrap:wrap}}',
         // Низкое окно (860x600): компактная карточка в строку, чтобы она помещалась над плеером
         '@media (max-height:700px){#sc-wave .scw-body{--scw-cover-size:128px}html body #sc-wave .scw-body{padding:12px!important;gap:14px!important}html body #sc-wave .scw-track{font-size:17px;line-height:22px}#sc-wave .scw-wf{height:48px}#sc-wave .scw-meta{margin-top:4px}}',
@@ -4062,6 +4064,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '@container scw (max-width:799px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}}',
         '@container scw (max-width:479px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}}',
         '@container scw (max-width:899px){#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4,minmax(0,1fr))}}',
+        // 2.12.3: окно 901..1100 px (справа ещё панель «Лайки», блок волны 500..640 px): плашка слева, «Далее» справа колонкой из двух плиток.
+        // Шапка, подборки и прочее на всю ширину. Раскладка на #sc-wave по ширине окна: сам контейнер себя не запрашивает. Шире 1100 и уже 901 ничего не меняется
+        '@media (max-width:1100px) and (min-width:901px){#sc-wave{display:grid;grid-template-columns:minmax(0,1fr) 168px;column-gap:20px;align-items:start}#sc-wave>*{grid-column:1/-1}#sc-wave>.scw-body{grid-column:1;grid-row:span 2;--scw-cover-size:96px}#sc-wave>.scw-up-h{grid-column:2;margin-top:0}#sc-wave>.scw-tiles:not(.scw-shelf){grid-column:2;grid-template-columns:minmax(0,1fr);gap:12px}#sc-wave>.scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(n+3){display:none}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile{grid-template-columns:48px minmax(0,1fr)}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile>.scw-art{width:48px}html body #sc-wave>.scw-body .scw-step{display:none}}',
         '.scw-card{position:relative;min-width:0}',
         // Прокрутка к карточке и раскрытому списку не прячет их под шапкой сайта
         '.scw-card,.scw-mix{scroll-margin:72px 0 16px}',

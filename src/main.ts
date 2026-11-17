@@ -1258,6 +1258,8 @@ async function init() {
         // Красная полоса на значке в панели задач: в самом ролике никаких меток записи нет
         recording: (on) => {
             if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(on ? 1 : -1, on ? { mode: 'error' } : undefined);
+            // Запись снимает экран: страница не должна замедляться, когда окно перекрыто или без фокуса
+            if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
         },
         now: () => Date.now(),
     });

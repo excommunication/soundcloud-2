@@ -157,8 +157,20 @@ h1 {
 .nav-list button.has-active .nav-dot {
     display: block;
 }
+/* Подпись-разделитель между основными вкладками и остальными разделами */
+.nav-sep {
+    margin: 12px 12px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
 /* Узкое окно: разделы строкой сверху */
 @container (max-width: 560px) {
+    .nav-sep {
+        display: none;
+    }
     .dialog-main {
         flex-direction: column;
     }

@@ -32,34 +32,77 @@ describe('NARROW_CSS', () => {
     it('скобки сбалансированы', () => {
         expect(NARROW_CSS.split('{').length).toBe(NARROW_CSS.split('}').length);
     });
-    it('все правила внутри медиа-запросов', () => {
-        expect(NARROW_CSS.trimStart().startsWith('@media')).toBe(true);
+    it('правила уровня страницы ограничены плеером и меню «…», остальное в медиа-запросах', () => {
         expect(NARROW_CSS.trimEnd().endsWith('}')).toBe(true);
+        let depth = 0;
+        let top = '';
+        let rule = '';
+        for (const ch of NARROW_CSS) {
+            if (ch === '{') depth++;
+            if (depth === 0) rule += ch;
+            if (ch === '}' && --depth === 0) {
+                top += rule.trim() + '\n';
+                rule = '';
+            }
+        }
+        for (const selector of top.split('\n').filter((line) => line && !line.startsWith('@media'))) {
+            expect(selector).toMatch(/\.playControls|\.sca-more/);
+        }
     });
 });
 
 describe('wave.ts узкое/низкое окно', () => {
     const src = readFileSync(join(__dirname, 'wave.ts'), 'utf8');
     it('компактная обложка и низкий режим', () => {
-        expect(src).toContain('min(200px,56cqw)');
+        expect(src).toContain('clamp(96px,24cqw,128px)');
+        expect(src).not.toContain('min(200px,56cqw)');
         expect(src).toContain('@media (max-height:700px)');
         expect(src).toContain('--scw-cover-size:128px');
         expect(src).toContain('container-type:inline-size;container-name:scw');
         expect(src).toContain('@container scw (max-width:620px)');
     });
+    it('901..1100 px: плашка слева, «Далее» справа двумя колонками на #sc-wave', () => {
+        const rule = /'@media \(max-width:1100px\) and \(min-width:901px\)\{#sc-wave\{[^']*'/.exec(src)?.[0] ?? '';
+        expect(rule).toContain('display:grid;grid-template-columns:minmax(0,1fr) 168px');
+        expect(rule).toContain('#sc-wave>.scw-body{grid-column:1');
+        expect(rule).toContain('#sc-wave>.scw-up-h{grid-column:2');
+        expect(rule).toContain('.scw-tiles:not(.scw-shelf){grid-column:2');
+        expect(rule).not.toContain('flex-direction:column');
+    });
+    it('в узком диапазоне .scw-body остаётся строкой, не столбцом', () => {
+        expect(src).not.toMatch(/\.scw-body\{[^}]*flex-direction:column/);
+        const rule = /'@container scw \(max-width:620px\)\{[^']*'/.exec(src)?.[0] ?? '';
+        expect(rule).toContain('flex-direction:row');
+        expect(rule).not.toContain('flex-direction:column');
+        expect(rule).not.toContain('order:-1');
+    });
 });
 
-describe('плеер: второстепенные кнопки прячутся по мере сужения', () => {
-    it('до 1280/1100/960 px', () => {
-        expect(block(NARROW_CSS, '@media (max-width:1280px)')).toContain('[data-act="drop"]');
-        const mid = block(NARROW_CSS, '@media (max-width:1100px){');
-        expect(mid).toContain('[data-act="wave"]');
-        expect(mid).toContain('.sc-button-follow');
-        expect(block(NARROW_CSS, '@media (max-width:960px)')).toContain('[data-act="next"]');
+describe('плеер: лишние кнопки уходят в меню «…», а не обрезаются', () => {
+    const aurora = readFileSync(join(__dirname, 'aurora.ts'), 'utf8');
+    it('CSS не прячет кнопки по ширине окна, прячет только класс sca-ovf', () => {
+        expect(NARROW_CSS).not.toContain('[data-act="drop"]');
+        expect(NARROW_CSS).not.toContain('[data-act="wave"]');
+        expect(NARROW_CSS).not.toContain('[data-act="next"]');
+        expect(NARROW_CSS).not.toContain('.sc-button-follow');
+        expect(NARROW_CSS).toContain('.sca-ovf.sca-ovf{display:none!important}');
     });
-    it('лайк, «Не нравится» и очередь не прячутся', () => {
-        expect(NARROW_CSS).not.toContain('[data-act="dislike"]');
-        expect(NARROW_CSS).not.toMatch(/display:none!important[^}]*like/);
+    it('кнопка «…» и меню оформлены, бейдж трека сжимается', () => {
+        expect(NARROW_CSS).toContain('button.sca-more');
+        expect(NARROW_CSS).toContain('.sca-more-pop');
+        expect(NARROW_CSS).toContain('.playControls__soundBadge{min-width:0!important}');
+    });
+    it('лайк и кнопка эффектов не уходят в «…»', () => {
+        expect(NARROW_CSS).not.toMatch(/sca-ovf[^}]*like/);
+        expect(NARROW_CSS).toContain('button.sca-fx{display:inline-grid!important');
+        const order = /const OVF_ORDER = \[([^\]]*)\]/.exec(aurora)?.[1] ?? '';
+        expect(order).toContain("'drop'");
+        expect(order).not.toContain("'like'");
+        expect(order).not.toContain("'fx'");
+        expect(aurora).toContain('function fitBar()');
+    });
+    it('«С другом» на ≤1100px остаётся иконкой без подписи', () => {
+        expect(block(NARROW_CSS, '@media (max-width:1100px){')).toContain('.scj-chip.bar .scj-n{display:none}');
     });
 });
 

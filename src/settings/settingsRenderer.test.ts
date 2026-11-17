@@ -385,3 +385,38 @@ it('волна на главной включается с вкладки «Мо
     wave.click();
     expect(send).toHaveBeenCalledWith('setting-changed', { key: 'homeWave', value: false });
 });
+
+it('вкладки: у каждого раздела есть кнопка, элементы управления лежат на своих полках', async () => {
+    const { send } = await openSettings({ effectsMode: 'full', reduceMotion: false, jamServer: '' });
+    const targets = [...document.querySelectorAll<HTMLButtonElement>('.nav-list button')].map((button) => button.dataset.target);
+    for (const tab of ['general', 'appearance', 'wave', 'jam', 'optimize', 'advanced']) expect(targets).toContain(tab);
+    // Каждая кнопка ведёт на существующую панель, ровно по одной
+    for (const target of targets) expect(document.querySelectorAll(`section#${target}`)).toHaveLength(1);
+    const shelf = (selector: string): string | undefined => document.querySelector(selector)?.closest('section')?.id;
+    expect(shelf('#effectsMode')).toBe('optimize');
+    expect(shelf('#reduceMotion')).toBe('optimize');
+    expect(shelf('#gpuCompatibilityMode')).toBe('optimize');
+    expect(shelf('[data-fx="keepFramesUnfocused"]')).toBe('optimize');
+    expect(shelf('[data-fx="beat"]')).toBe('appearance');
+    expect(shelf('#jamServer')).toBe('jam');
+    expect(shelf('#proxyEnabled')).toBe('advanced');
+    // Все id из разметки уникальны, ни один элемент не вне панелей и подвала
+    const ids = [...document.querySelectorAll('[id]')].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const control of document.querySelectorAll('input, select, textarea')) expect(control.closest('section, footer')).not.toBeNull();
+    // Переход по вкладке и кнопка-ссылка из «Оформления»
+    (document.querySelector('[data-goto="optimize"]') as HTMLButtonElement).click();
+    expect(document.getElementById('optimize')?.hidden).toBe(false);
+    expect(document.getElementById('appearance')?.hidden).toBe(true);
+    // Обработчики на новом месте работают
+    const mode = document.getElementById('effectsMode') as HTMLSelectElement;
+    mode.value = 'solid';
+    mode.dispatchEvent(new Event('change'));
+    expect(send).toHaveBeenCalledWith('setting-changed', { key: 'effectsMode', value: 'solid' });
+    (document.getElementById('reduceMotion') as HTMLInputElement).click();
+    expect(send).toHaveBeenCalledWith('setting-changed', { key: 'reduceMotion', value: true });
+    const jam = document.getElementById('jamServer') as HTMLInputElement;
+    jam.value = 'https://sc2-jam.a.workers.dev';
+    jam.dispatchEvent(new Event('change'));
+    expect(send).toHaveBeenCalledWith('setting-changed', { key: 'jamServer', value: 'https://sc2-jam.a.workers.dev' });
+});

@@ -74,8 +74,9 @@ export function beatAmount(value: number): number {
 
 /** Нужно ли экономить кадры без фокуса: да, если окно не в фокусе и пользователь не включил «Не ограничивать кадры».
  *  Уходит на страницу текстом, поэтому ни от чего снаружи не зависит */
-export function shouldThrottleIdle(idle: boolean, keepFramesUnfocused: boolean): boolean {
-    return idle === true && keepFramesUnfocused !== true;
+export function shouldThrottleIdle(idle: boolean, keepFramesUnfocused: boolean, recording?: boolean): boolean {
+    // Во время записи ролика окно считается в фокусе: экран снимают, и фон не должен рваться до 8 к/с
+    return idle === true && keepFramesUnfocused !== true && recording !== true;
 }
 
 /** Готовые палитры: три цвета, первый главный */
@@ -1360,6 +1361,7 @@ export function auroraPage(config: AuroraConfig): void {
         }
         host.append(fxButton);
         applyFx();
+        onFitResize();
     }
     let fxPop: HTMLElement | null = null;
     let fxPopTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1423,6 +1425,156 @@ export function auroraPage(config: AuroraConfig): void {
         fxTipTimer = setTimeout(() => fxTip?.classList.remove('on'), 1600);
     }
     applyFx();
+    // Ряд кнопок справа (2.12.2): когда он не помещается, второстепенные кнопки уходят в меню «…», а не обрезаются и не
+    // наползают на название. Лайк, кнопка эффектов и сама «…» остаются всегда. Порядок ухода: «К дропу», «Больше такого»,
+    // «Волна от трека», «Следующим», подписка, «Не нравится», очередь. Скрытая кнопка живая: пункт меню нажимает её
+    const OVF_ORDER = ['drop', 'more', 'wave', 'next', 'follow', 'dislike', 'queue'];
+    const OVF_SELECTOR: Record<string, string> = {
+        drop: '[data-act="drop"]',
+        more: '[data-act="more"]',
+        wave: '[data-act="wave"]',
+        next: '[data-act="next"]',
+        follow: '.sc-button-follow',
+        dislike: '[data-act="dislike"]',
+        queue: '[class*="showQueue"]',
+    };
+    const OVF_LABEL: Record<string, string> = ruFx
+        ? { drop: 'К дропу', more: 'Больше такого', wave: 'Волна от трека', next: 'Следующим', follow: 'Подписаться', dislike: 'Не нравится', queue: 'Очередь' }
+        : { drop: 'To the drop', more: 'More like this', wave: 'Wave from track', next: 'Play next', follow: 'Follow', dislike: 'Not interested', queue: 'Queue' };
+    let moreButton: HTMLButtonElement | null = null;
+    let morePop: HTMLElement | null = null;
+    let fitBusy = false;
+    let fitKey = '';
+    const OVF_DOTS = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg>';
+    function ovfItems(actions: Element): Array<{ key: string; node: HTMLElement }> {
+        const list: Array<{ key: string; node: HTMLElement }> = [];
+        for (const key of OVF_ORDER) {
+            const node = actions.querySelector<HTMLElement>(OVF_SELECTOR[key]);
+            if (node) list.push({ key, node });
+        }
+        return list;
+    }
+    function closeMore(): void {
+        morePop?.classList.remove('on');
+        moreButton?.setAttribute('aria-expanded', 'false');
+    }
+    function openMore(): void {
+        const actions = moreButton?.parentElement;
+        if (!moreButton || !actions) return;
+        const hiddenItems = ovfItems(actions).filter((item) => item.node.classList.contains('sca-ovf'));
+        if (!hiddenItems.length) return;
+        morePop ??= Object.assign(document.createElement('div'), { className: 'sca-more-pop' });
+        morePop.setAttribute('role', 'menu');
+        morePop.textContent = '';
+        for (const item of hiddenItems) {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'sca-more-item';
+            row.setAttribute('role', 'menuitem');
+            const icon = item.node.querySelector('svg');
+            if (icon) row.append(icon.cloneNode(true));
+            const text = document.createElement('span');
+            text.textContent = item.node.getAttribute('aria-label') || item.node.getAttribute('title') || OVF_LABEL[item.key];
+            row.append(text);
+            row.addEventListener('click', (event) => {
+                event.stopPropagation();
+                closeMore();
+                item.node.click();
+            });
+            morePop.append(row);
+        }
+        if (!morePop.isConnected) document.body.append(morePop);
+        const box = moreButton.getBoundingClientRect();
+        morePop.style.right = Math.max(8, window.innerWidth - box.right) + 'px';
+        morePop.style.bottom = window.innerHeight - box.top + 8 + 'px';
+        morePop.classList.add('on');
+        moreButton.setAttribute('aria-expanded', 'true');
+        morePop.querySelector<HTMLElement>('button')?.focus();
+    }
+    function ensureMoreButton(actions: HTMLElement): HTMLButtonElement {
+        if (!moreButton) {
+            moreButton = document.createElement('button');
+            moreButton.type = 'button';
+            moreButton.className = 'sca-more';
+            moreButton.innerHTML = OVF_DOTS;
+            moreButton.title = ruFx ? 'Ещё' : 'More';
+            moreButton.setAttribute('aria-label', moreButton.title);
+            moreButton.setAttribute('aria-haspopup', 'menu');
+            moreButton.setAttribute('aria-expanded', 'false');
+            moreButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (morePop?.classList.contains('on')) closeMore();
+                else openMore();
+            });
+        }
+        if (moreButton.parentElement !== actions) actions.append(moreButton);
+        return moreButton;
+    }
+    // Не помещается: название трека сжато меньше ~110 px или хвост ряда вылез за край окна
+    function barTight(elements: HTMLElement, actions: HTMLElement): boolean {
+        const edge = Math.min(document.documentElement.clientWidth, elements.getBoundingClientRect().right) - 8;
+        const tail = fxButton?.isConnected ? fxButton : actions;
+        if (tail.getBoundingClientRect().right > edge + 0.5) return true;
+        const badge = actions.closest<HTMLElement>('.playbackSoundBadge');
+        if (!badge) return false;
+        const avatar = badge.querySelector<HTMLElement>('.playbackSoundBadge__avatar');
+        const free = badge.getBoundingClientRect().width - actions.getBoundingClientRect().width - (avatar?.getBoundingClientRect().width ?? 40) - 16;
+        return free < 110;
+    }
+    function fitBar(): void {
+        if (fitBusy) return;
+        const elements = document.querySelector<HTMLElement>('.playControls .playControls__elements');
+        const actions = elements?.querySelector<HTMLElement>('.playbackSoundBadge__actions');
+        if (!elements || !actions) return;
+        fitBusy = true;
+        try {
+            const more = ensureMoreButton(actions);
+            const items = ovfItems(actions);
+            for (const item of items) item.node.classList.remove('sca-ovf');
+            more.classList.remove('on');
+            if (barTight(elements, actions)) {
+                more.classList.add('on');
+                for (const item of items) {
+                    item.node.classList.add('sca-ovf');
+                    if (!barTight(elements, actions)) break;
+                }
+            }
+            if (!more.classList.contains('on') || !actions.querySelector('.sca-ovf')) closeMore();
+        } finally {
+            fitBusy = false;
+        }
+    }
+    // Пересчёт по изменению размера и по составу ряда (сайт и док перерисовывают кнопки сами)
+    function fitSignature(): string {
+        const actions = document.querySelector('.playControls .playbackSoundBadge__actions');
+        const chip = document.querySelector('.playControls .scj-chip');
+        return [window.innerWidth, actions?.querySelectorAll('button,a').length ?? 0, chip?.textContent ?? '', fxButton?.isConnected ? 1 : 0].join('|');
+    }
+    function fitTick(force = false): void {
+        const key = fitSignature();
+        if (!force && key === fitKey) return;
+        fitKey = key;
+        fitBar();
+    }
+    let fitFrame = 0;
+    const onFitResize = (): void => {
+        cancelAnimationFrame(fitFrame);
+        fitFrame = requestAnimationFrame(() => fitTick(true));
+    };
+    window.addEventListener('resize', onFitResize);
+    const onMoreAway = (event: Event): void => {
+        if (!morePop?.classList.contains('on')) return;
+        if (event.target instanceof Node && (morePop.contains(event.target) || moreButton?.contains(event.target))) return;
+        closeMore();
+    };
+    const onMoreKey = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape' && morePop?.classList.contains('on')) {
+            closeMore();
+            moreButton?.focus();
+        }
+    };
+    document.addEventListener('pointerdown', onMoreAway, true);
+    document.addEventListener('keydown', onMoreKey, true);
     let club: HTMLElement | null = null;
     let thump: HTMLElement | null = null;
     function ensureClub(): void {
@@ -1457,7 +1609,7 @@ export function auroraPage(config: AuroraConfig): void {
         }
         // Без фокуса (пользователь в игре или другом окне): не больше ~8 кадров в секунду на всё, лучи на паузе.
         // Звук не затрагивается: анализатор только читает
-        const idle = shouldThrottleIdle((host as { __scAppIdle?: boolean }).__scAppIdle === true, cfg.appearance.keepFramesUnfocused);
+        const idle = shouldThrottleIdle((host as { __scAppIdle?: boolean }).__scAppIdle === true, cfg.appearance.keepFramesUnfocused, (host as { __scClipRec?: boolean }).__scClipRec === true);
         if (idle !== idleShown) {
             idleShown = idle;
             document.documentElement.classList.toggle('sca-idle', idle);
@@ -1879,6 +2031,7 @@ export function auroraPage(config: AuroraConfig): void {
         if (document.hidden) return;
         sampleCover();
         hideVoidModules();
+        fitTick();
     }, 1500);
     host.__scAuroraPalette = (colors: string[]) => {
         if (!Array.isArray(colors) || !colors.length) return;
@@ -1889,7 +2042,14 @@ export function auroraPage(config: AuroraConfig): void {
         update: apply,
         dispose() {
             cancelAnimationFrame(frame);
+            cancelAnimationFrame(fitFrame);
             clearInterval(coverTimer);
+            window.removeEventListener('resize', onFitResize);
+            document.removeEventListener('pointerdown', onMoreAway, true);
+            document.removeEventListener('keydown', onMoreKey, true);
+            for (const node of document.querySelectorAll('.playControls .sca-ovf')) node.classList.remove('sca-ovf');
+            moreButton?.remove();
+            morePop?.remove();
             window.removeEventListener('pointermove', onMove);
             canvas?.remove();
             line?.remove();
@@ -1921,5 +2081,5 @@ export function auroraScript(input: unknown): string {
     const appearance = normalizeAppearance(input);
     const shaders = Object.fromEntries((Object.keys(SHADERS) as Array<keyof typeof SHADERS>).map((effect) => [effect, fragmentSource(effect)]));
     const config: AuroraConfig = { appearance, colors: paletteColors(appearance), shaders, vertex: VERTEX };
-    return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
+    return '(function(){\n' + glowPalette.toString() + '\n' + beatAmount.toString() + '\n' + shouldThrottleIdle.toString() + '\n' + beatInit.toString() + '\n' + beatStep.toString() + '\n' + envelopeTempo.toString() + '\n(' + auroraPage.toString() + ')(' + JSON.stringify(config) + ');\n})();';
 }
