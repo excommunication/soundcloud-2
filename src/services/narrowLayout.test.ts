@@ -48,3 +48,40 @@ describe('wave.ts узкое/низкое окно', () => {
         expect(src).toContain('@container scw (max-width:620px)');
     });
 });
+
+describe('плеер: второстепенные кнопки прячутся по мере сужения', () => {
+    it('до 1280/1100/960 px', () => {
+        expect(block(NARROW_CSS, '@media (max-width:1280px)')).toContain('[data-act="drop"]');
+        const mid = block(NARROW_CSS, '@media (max-width:1100px){');
+        expect(mid).toContain('[data-act="wave"]');
+        expect(mid).toContain('.sc-button-follow');
+        expect(block(NARROW_CSS, '@media (max-width:960px)')).toContain('[data-act="next"]');
+    });
+    it('лайк, «Не нравится» и очередь не прячутся', () => {
+        expect(NARROW_CSS).not.toContain('[data-act="dislike"]');
+        expect(NARROW_CSS).not.toMatch(/display:none!important[^}]*like/);
+    });
+});
+
+describe('«Далее» и полка: одинаковые квадратные обложки, сетка по ширине блока', () => {
+    const wave = readFileSync(join(__dirname, 'wave.ts'), 'utf8');
+    const aurora = readFileSync(join(__dirname, 'aurora.ts'), 'utf8');
+    it('у обложки есть aspect-ratio:1 и object-fit:cover', () => {
+        expect(wave).toContain('.scw-art{position:relative;aspect-ratio:1;');
+        expect(wave).toContain('object-fit:cover');
+        expect(aurora).toMatch(/\.scw-tile>\.scw-art\{flex:none;width:100%;aspect-ratio:1;/);
+        expect(aurora).toContain('.scw-tile>.scw-art img{width:100%;height:100%;object-fit:cover}');
+        expect(aurora).toContain('background-size:cover');
+    });
+    it('подписи плитки в одну строку с многоточием', () => {
+        expect(aurora).toMatch(/\.scw-tile>\.scw-t3\{[^}]*white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
+    });
+    it('колонки считаются по контейнеру, а не по окну', () => {
+        expect(wave).toContain('@container scw (max-width:799px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3');
+        expect(wave).toContain('@container scw (max-width:479px)');
+        expect(wave).toContain('@container scw (max-width:899px){#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4');
+        expect(wave).not.toContain("'@media(max-width:1200px){#sc-wave .scw-tiles");
+        expect(wave).not.toContain("'@media(max-width:920px){#sc-wave .scw-tiles");
+        expect(wave).toContain('@container scw (max-width:899px){#sc-wave .scw-shelf>.scw-mix{grid-row:var(--scw-row4)}');
+    });
+});

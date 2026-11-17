@@ -4,10 +4,10 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { installRendererRecovery } from './rendererRecovery';
 afterEach(() => vi.useRealTimers());
 
-function setup(online = () => true, quitting = () => false) {
+function setup(online = () => true, quitting = () => false, pageHidden = () => false) {
     vi.useFakeTimers();
     const contents = Object.assign(new EventEmitter(), { reload: vi.fn(), isDestroyed: () => false, forcefullyCrashRenderer: vi.fn() });
-    const actions = { isQuitting: quitting, onCrash: vi.fn(), onRepeatedCrash: vi.fn(), online: vi.fn(online), onGaveUp: vi.fn() };
+    const actions = { isQuitting: quitting, onCrash: vi.fn(), onRepeatedCrash: vi.fn(), online: vi.fn(online), onGaveUp: vi.fn(), pageHidden };
     const dispose = installRendererRecovery(contents as unknown as WebContents, actions);
     const crash = (): void => void contents.emit('render-process-gone', {}, { reason: 'crashed' });
     const failLoad = (code = -106): void => void contents.emit('did-fail-load', {}, code, 'ERR', 'https://soundcloud.com/', true);
@@ -44,7 +44,7 @@ it('первое падение перезагружает сразу, даль�
     expect(contents.reload).toHaveBeenCalledTimes(5);
 });
 
-it('зависшая страница перезапускается через 30 секунд, ответившая раньше остаётся', async () => {
+it('зависшая страница перезапускается через 45 секунд, ответившая раньше остаётся', async () => {
     const { contents } = setup();
     contents.emit('unresponsive');
     await vi.advanceTimersByTimeAsync(20_000);
@@ -52,8 +52,15 @@ it('зависшая страница перезапускается через 
     await vi.advanceTimersByTimeAsync(60_000);
     expect(contents.forcefullyCrashRenderer).not.toHaveBeenCalled();
     contents.emit('unresponsive');
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(45_000);
     expect(contents.forcefullyCrashRenderer).toHaveBeenCalledTimes(1);
+});
+
+it('страница скрытого или свёрнутого окна не убивается за «зависание»', async () => {
+    const { contents } = setup(() => true, () => false, () => true);
+    contents.emit('unresponsive');
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(contents.forcefullyCrashRenderer).not.toHaveBeenCalled();
 });
 
 it('без сети загрузка повторяется, как только сеть появилась; при недоступном сайте по паузам, а не каждые 15 секунд', async () => {

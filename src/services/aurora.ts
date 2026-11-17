@@ -40,6 +40,8 @@ export interface Appearance {
     beat: number;
     /** Короткий звук на лайк */
     likeSound: boolean;
+    /** Не снижать кадры и не ставить лучи на паузу, когда окно не в фокусе (свёрнутое окно всё равно стоит) */
+    keepFramesUnfocused: boolean;
 }
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -58,6 +60,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
     hoverMotion: true,
     beat: 40,
     likeSound: true,
+    keepFramesUnfocused: false,
 };
 
 /** Положение ползунка «Интенсивность бита» 0..100 -> множитель 0..1. Кривая степенная: низ заметно тише, максимум прежний.
@@ -67,6 +70,12 @@ export function beatAmount(value: number): number {
     const v = Number(value);
     if (!(v > 0)) return 0;
     return Math.pow(Math.min(100, v) / 100, 1.6);
+}
+
+/** Нужно ли экономить кадры без фокуса: да, если окно не в фокусе и пользователь не включил «Не ограничивать кадры».
+ *  Уходит на страницу текстом, поэтому ни от чего снаружи не зависит */
+export function shouldThrottleIdle(idle: boolean, keepFramesUnfocused: boolean): boolean {
+    return idle === true && keepFramesUnfocused !== true;
 }
 
 /** Готовые палитры: три цвета, первый главный */
@@ -93,7 +102,7 @@ export function normalizeAppearance(input: unknown): Appearance {
         return isNumberIn(item, min, max) ? Math.round(item) : (APPEARANCE_DEFAULTS[key] as number);
     };
     const colors = Array.isArray(value.colors) && value.colors.length === 3 && value.colors.every(isHex) ? (value.colors.map((c: string) => c.toLowerCase()) as [string, string, string]) : APPEARANCE_DEFAULTS.colors;
-    const bool = (key: 'calmOnPause' | 'parallax' | 'hoverMotion' | 'likeSound'): boolean => (typeof value[key] === 'boolean' ? (value[key] as boolean) : APPEARANCE_DEFAULTS[key]);
+    const bool = (key: 'calmOnPause' | 'parallax' | 'hoverMotion' | 'likeSound' | 'keepFramesUnfocused'): boolean => (typeof value[key] === 'boolean' ? (value[key] as boolean) : APPEARANCE_DEFAULTS[key]);
     return {
         effect: pick(AURORA_EFFECTS, value.effect, APPEARANCE_DEFAULTS.effect),
         palette: pick(AURORA_PALETTES, value.palette, APPEARANCE_DEFAULTS.palette),
@@ -110,6 +119,7 @@ export function normalizeAppearance(input: unknown): Appearance {
         hoverMotion: bool('hoverMotion'),
         beat: num('beat', 0, 100),
         likeSound: bool('likeSound'),
+        keepFramesUnfocused: bool('keepFramesUnfocused'),
     };
 }
 
@@ -586,7 +596,11 @@ export function appearanceCss(appearance: Appearance): string {
         `${w} .scw-tiles:not(.scw-shelf){gap:16px}`,
         `${w} .scw-tile{display:flex;flex-direction:column;gap:2px;padding:10px;margin:0;border-radius:var(--sc2-r3);background:var(--sc2-panel);backdrop-filter:var(--sc2-blur);box-shadow:inset 0 0 0 1px var(--sc2-line);transition:transform var(--sc2-mid) var(--sc2-ease),box-shadow var(--sc2-mid)}`,
         `${w} .scw-tile:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.16)}`,
-        `${w} .scw-tile>.scw-art{width:100%;margin:0 0 8px;border-radius:var(--sc2-r2);overflow:hidden}`,
+        // Обложки одинаковые: квадрат на всю ширину карточки, картинка заполняет его (cover), не сжимается во flex-колонке; подписи в одну строку
+        `${w} .scw-tile>.scw-art{flex:none;width:100%;aspect-ratio:1;margin:0 0 8px;border-radius:var(--sc2-r2);overflow:hidden}`,
+        `${w} .scw-tile>.scw-art .scw-img{background-size:cover;background-position:center}`,
+        `${w} .scw-tile>.scw-art img{width:100%;height:100%;object-fit:cover}`,
+        `${w} .scw-tile>.scw-t1,${w} .scw-tile>.scw-t2,${w} .scw-tile>.scw-t3{display:block;flex:none;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`,
         `${w} .scw-tile>.scw-art .scw-img{transition:transform .5s var(--sc2-ease),opacity .2s}`,
         `${w} .scw-tile:hover>.scw-art .scw-img{transform:scale(1.06)}`,
         `${w} .scw-t1{font-weight:800}`,
@@ -1443,7 +1457,7 @@ export function auroraPage(config: AuroraConfig): void {
         }
         // Без фокуса (пользователь в игре или другом окне): не больше ~8 кадров в секунду на всё, лучи на паузе.
         // Звук не затрагивается: анализатор только читает
-        const idle = (host as { __scAppIdle?: boolean }).__scAppIdle === true;
+        const idle = shouldThrottleIdle((host as { __scAppIdle?: boolean }).__scAppIdle === true, cfg.appearance.keepFramesUnfocused);
         if (idle !== idleShown) {
             idleShown = idle;
             document.documentElement.classList.toggle('sca-idle', idle);
