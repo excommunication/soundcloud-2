@@ -1,5 +1,5 @@
 // «Джем» (2.12.0): общее прослушивание. Плавающая панель с комнатой, очередью и участниками, кнопка с числом слушателей
-// в нижнем баре (рядом с режимом «Для роликов») или в слоте [data-sc2-slot="jam"] новой главной, Ctrl+J. Раздел страницы:
+// в нижнем баре (рядом с режимом «Для роликов») или в слоте [data-sc2-slot="jam"] новой главной, Ctrl+Shift+J (Ctrl+J занят «К дропу»). Раздел страницы:
 // installJam уходит на страницу текстом вместе с волной (pageHelpers в wave.ts), поэтому всё, что он зовёт, объявлено
 // в нём самом или лежит в jamHelpers (математика из jam/sync.ts, на модуль через пространство имён не ссылаемся).
 // Сеть не здесь: комната и WebSocket живут в main (jam/client.ts), страница зовёт soundcloudAPI.jam и получает события.
@@ -66,7 +66,7 @@ export function installJam(core: JamCore): JamSection {
               members: 'Слушатели', queue: 'Очередь', empty: 'Очередь пуста', addNow: 'Добавить играющий трек', host: 'хозяин', canControl: 'может управлять',
               kick: 'Выгнать', remove: 'Убрать', playNow: 'Играть', up: 'Выше', everyoneAdd: 'Все могут добавлять', everyoneControl: 'Все могут управлять',
               nowPlaying: 'Играет', nothing: 'Ничего не играет', resync: 'Синхронизироваться', connecting: 'Подключаюсь…', reconnecting: 'Связь потеряна, переподключаюсь…',
-              invite: 'Друг вводит этот код в «Джем» (Ctrl+J)', close: 'Закрыть', you: 'ты', addedBy: 'добавил',
+              invite: 'Друг вводит этот код в «Джем» (Ctrl+Shift+J)', close: 'Закрыть', you: 'ты', addedBy: 'добавил',
               errors: {
                   'not-configured': 'Сервер джемов не настроен', invalid: 'Неверный код', busy: 'Сервер занят, попробуй ещё раз', unreachable: 'Сервер джемов недоступен',
                   'not-found': 'Такого джема нет или он закончился', full: 'В джеме нет мест', kicked: 'Тебя убрали из джема', expired: 'Джем закончился', network: 'Связь с джемом потеряна',
@@ -80,7 +80,7 @@ export function installJam(core: JamCore): JamSection {
               members: 'Listeners', queue: 'Queue', empty: 'The queue is empty', addNow: 'Add the playing track', host: 'host', canControl: 'can control',
               kick: 'Remove', remove: 'Remove', playNow: 'Play', up: 'Move up', everyoneAdd: 'Everyone can add', everyoneControl: 'Everyone can control',
               nowPlaying: 'Now playing', nothing: 'Nothing is playing', resync: 'Sync now', connecting: 'Connecting…', reconnecting: 'Connection lost, reconnecting…',
-              invite: 'A friend enters this code in “Jam” (Ctrl+J)', close: 'Close', you: 'you', addedBy: 'added by',
+              invite: 'A friend enters this code in “Jam” (Ctrl+Shift+J)', close: 'Close', you: 'you', addedBy: 'added by',
               errors: {
                   'not-configured': 'Jam server is not set up', invalid: 'Wrong code', busy: 'The server is busy, try again', unreachable: 'The jam server is unreachable',
                   'not-found': 'No such jam, or it has ended', full: 'The jam is full', kicked: 'You were removed from the jam', expired: 'The jam has ended', network: 'Lost connection to the jam',
@@ -522,7 +522,7 @@ export function installJam(core: JamCore): JamSection {
         const node = el('button', 'scj-chip bar');
         node.type = 'button';
         node.innerHTML = ICON + '<span class="scj-n"></span>';
-        node.title = T.aria + ' (Ctrl+J)';
+        node.title = T.aria + ' (Ctrl+Shift+J)';
         node.setAttribute('aria-label', T.aria);
         node.setAttribute('aria-haspopup', 'dialog');
         node.addEventListener('click', () => (panel ? close() : open()));
@@ -560,7 +560,7 @@ export function installJam(core: JamCore): JamSection {
             close();
             return;
         }
-        if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey && event.code === 'KeyJ') {
+        if (event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey && event.code === 'KeyJ') {
             event.preventDefault();
             if (panel) close();
             else open();
