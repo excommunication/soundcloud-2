@@ -319,7 +319,7 @@ window.SETTINGS_EN = {
     'Процент проигрывания': 'Played percentage',
     'Пример данных': 'Sample data',
     'Сервер джемов': 'Jam server',
-    'Адрес для совместного прослушивания (Ctrl+J на сайте). Пусто — адрес, вшитый в клиент': 'Address for listening together (Ctrl+J on the site). Empty: the address built into the client',
+    'Адрес для совместного прослушивания (Ctrl+Shift+J на сайте). Пусто — адрес, вшитый в клиент': 'Address for listening together (Ctrl+Shift+J on the site). Empty: the address built into the client',
     'https://sc2-jam.имя.workers.dev': 'https://sc2-jam.name.workers.dev',
     'Адрес сервера джемов': 'Jam server address',
     'Журнал диагностики': 'Diagnostic log',

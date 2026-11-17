@@ -38,13 +38,14 @@ function applyTexts(next) {
         element.title = text;
         if (aria) element.setAttribute('aria-label', text);
     };
-    label('#back-btn', texts.headerBack);
-    label('#forward-btn', texts.headerForward);
-    label('#refresh-btn', isRefreshing ? texts.headerStop : texts.headerRefresh);
+    label('#back-btn', texts.headerBack, true);
+    label('#forward-btn', texts.headerForward, true);
+    label('#refresh-btn', isRefreshing ? texts.headerStop : texts.headerRefresh, true);
     label('.title-bar', texts.headerTitleBar);
     label('#history-btn', recapReady && texts.headerHistoryRecap ? texts.headerHistoryRecap : texts.headerHistory, true);
     label('#queue-btn', texts.headerQueue, true);
     label('#settings-btn', texts.headerSettings, true);
+    label('#appearance-btn', texts.headerAppearance, true);
     label('#minimize-btn', texts.headerMinimize, true);
     label('#close-btn', texts.headerClose, true);
     updateWindowControls();
@@ -68,11 +69,18 @@ function updateNavigationState(state = {}) {
         if (navButtons.refresh) {
             navButtons.refresh.classList.toggle('refreshing', isRefreshing);
             navButtons.refresh.title = isRefreshing ? texts.headerStop : texts.headerRefresh;
+            navButtons.refresh.setAttribute('aria-label', navButtons.refresh.title);
         }
     }
 
-    if (navButtons.back) navButtons.back.classList.toggle('disabled', !canGoBack && !historyOpen);
-    if (navButtons.forward) navButtons.forward.classList.toggle('disabled', !canGoForward);
+    if (navButtons.back) {
+        navButtons.back.classList.toggle('disabled', !canGoBack && !historyOpen);
+        navButtons.back.setAttribute('aria-disabled', String(!canGoBack && !historyOpen));
+    }
+    if (navButtons.forward) {
+        navButtons.forward.classList.toggle('disabled', !canGoForward);
+        navButtons.forward.setAttribute('aria-disabled', String(!canGoForward));
+    }
 }
 
 // Helper function to update window controls

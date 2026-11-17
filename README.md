@@ -14,7 +14,7 @@
 
 <a href="https://github.com/excommunication/soundcloud-2/releases/latest/download/SoundCloud-2-Setup.exe"><b>Скачать для Windows</b></a>
 
-Один установщик, интернет для установки не нужен. Версия 2.11.2, Windows 10 и 11, x64.
+Один установщик, интернет для установки не нужен. Версия 2.12.0, Windows 10 и 11, x64.
 
 </div>
 

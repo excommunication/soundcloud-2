@@ -1,7 +1,7 @@
 // Меню трея SoundCloud 2: показывает трек из main и шлёт действия; ничего не знает о сайте
 const TEXT = {
-    en: { open: 'Open SoundCloud 2', appearance: 'Appearance', settings: 'Settings', incognito: 'Discord incognito', quit: 'Quit', idle: 'Nothing playing', play: 'Play', pause: 'Pause' },
-    ru: { open: 'Открыть SoundCloud 2', appearance: 'Оформление', settings: 'Настройки', incognito: 'Инкогнито в Discord', quit: 'Выход', idle: 'Ничего не играет', play: 'Играть', pause: 'Пауза' },
+    en: { open: 'Open SoundCloud 2', appearance: 'Appearance', settings: 'Settings', incognito: 'Discord incognito', quit: 'Quit', idle: 'Nothing playing', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', like: 'Like' },
+    ru: { open: 'Открыть SoundCloud 2', appearance: 'Оформление', settings: 'Настройки', incognito: 'Инкогнито в Discord', quit: 'Выход', idle: 'Ничего не играет', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', like: 'Лайк' },
 };
 const PLAY = 'M4 2.5v11L13.5 8z';
 const PAUSE = 'M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z';
@@ -19,6 +19,7 @@ function render(state) {
     art.style.backgroundImage = /^https:\/\//.test(track.artwork || '') ? 'url("' + track.artwork.replace(/["\\]/g, '') + '")' : '';
     document.getElementById('play-icon').firstElementChild.setAttribute('d', track.isPlaying ? PAUSE : PLAY);
     document.getElementById('play').setAttribute('aria-label', track.isPlaying ? texts.pause : texts.play);
+    for (const act of ['previous', 'next', 'like']) document.querySelector('[data-act="' + act + '"]')?.setAttribute('aria-label', texts[act]);
     document.getElementById('like').setAttribute('aria-pressed', String(track.isLiked === true));
     document.getElementById('incognito').checked = state.incognito === true;
 }
