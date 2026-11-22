@@ -53,6 +53,15 @@ export function installSwap(core: SwapCore): SwapSection {
     let lastStarted = 0;
     let lastPos = 0;
     let lastDrm = false;
+    // Трек, который человек включил сам (клик, Enter, пробел недавно до смены), не подменяется: играет именно он.
+    // Замена только у того, что переключилось само
+    let lastInput = 0;
+    let chosenId = 0;
+    const markInput = (): void => {
+        lastInput = Date.now();
+    };
+    document.addEventListener('pointerdown', markInput, true);
+    document.addEventListener('keydown', markInput, true);
 
     const needs = (track: WaveTrack | undefined): boolean => {
         const access = trackAccess(track);
@@ -135,13 +144,14 @@ export function installSwap(core: SwapCore): SwapSection {
                 }
             }
             lastId = id;
+            chosenId = Date.now() - lastInput < 4000 ? id : 0;
             lastStarted = Date.now();
             lastDrm = trackAccess(sound?.attributes) === 'drm';
             lastPos = 0;
         } else lastPos = Math.max(lastPos, position);
         const items = p.getQueue().slice();
         const index = p.getQueueState().currentIndex;
-        if (needs(trackOf(items[index]))) void swap(index, true);
+        if (needs(trackOf(items[index])) && trackOf(items[index])?.id !== chosenId) void swap(index, true);
         for (let i = index + 1; i <= index + 3 && i < items.length; i++) if (needs(trackOf(items[i]))) void swap(i, false);
     }
     const timer = setInterval(() => {
@@ -154,6 +164,8 @@ export function installSwap(core: SwapCore): SwapSection {
     return {
         dispose() {
             clearInterval(timer);
+            document.removeEventListener('pointerdown', markInput, true);
+            document.removeEventListener('keydown', markInput, true);
         },
     };
 }
