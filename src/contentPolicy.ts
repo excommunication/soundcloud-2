@@ -119,6 +119,17 @@ export function isAllowedPermission(permission: string, origin: string): boolean
     return (permission === 'mediaKeySystem' || permission === 'display-capture') && isSoundCloudUrl(origin);
 }
 
+/** Политика страницы SoundCloud без media-src для потоков YouTube: аудио полного трека (Go+) иначе блокировалось бы.
+ *  Добавляется только googlevideo.com в media-src (и connect-src), остальное не меняется */
+export function allowFullTrackMedia(policy: string): string {
+    const withHost = (value: string): string => (/googlevideo\.com/.test(value) ? value : value.trim() + ' https://*.googlevideo.com');
+    const media = /(^|;)(\s*)media-src\s+([^;]*)/i;
+    if (media.test(policy)) return policy.replace(media, (_all, lead: string, space: string, value: string) => lead + space + 'media-src ' + withHost(value));
+    // Без media-src действует default-src: отдельное правило повторяет его и добавляет googlevideo
+    const fallback = /(^|;)\s*default-src\s+([^;]*)/i.exec(policy);
+    return fallback ? policy + '; media-src ' + withHost(fallback[2]) : policy;
+}
+
 export function protectContent(contents: WebContents, options: ProtectOptions | ((url: string) => Promise<void>)): void {
     const opts: ProtectOptions = typeof options === 'function' ? { openExternal: options } : options;
     const { openExternal } = opts;
@@ -139,6 +150,15 @@ export function protectContent(contents: WebContents, options: ProtectOptions | 
     const userAgent = firefoxUserAgent(process.platform);
     // Окна входа по id: заголовки как у Firefox получают только их запросы, сайт и его reCAPTCHA остаются Chrome
     const authWindows = new Set<number>();
+    contents.session.webRequest.onHeadersReceived((details, callback) => {
+        const headers = details.responseHeaders;
+        if (headers && details.resourceType === 'mainFrame' && isSoundCloudUrl(details.url)) {
+            for (const key of Object.keys(headers)) {
+                if (key.toLowerCase() === 'content-security-policy') headers[key] = (headers[key] ?? []).map(allowFullTrackMedia);
+            }
+        }
+        callback({ responseHeaders: headers });
+    });
     contents.session.webRequest.onBeforeSendHeaders((details, callback) => {
         const id = details.webContentsId;
         callback({ requestHeaders: id !== undefined && authWindows.has(id) ? firefoxHeaders(details.requestHeaders, userAgent) : details.requestHeaders });

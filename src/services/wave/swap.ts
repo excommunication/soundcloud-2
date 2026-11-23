@@ -64,8 +64,11 @@ export function installSwap(core: SwapCore): SwapSection {
     document.addEventListener('keydown', markInput, true);
 
     const needs = (track: WaveTrack | undefined): boolean => {
+        // Отрывок Go+ (SNIP) не подменяется: человек слушает оригинал, пусть и тридцать секунд. Замена только там, где
+        // трек не играет вовсе: закрыт в стране (BLOCK) или защищённый поток не работает
         const access = trackAccess(track);
-        return access === 'snip' || (access === 'drm' && drmBroken);
+        if (access === 'snip') return track?.policy === 'BLOCK' || (track?.streamable === false && track?.policy !== 'SNIP');
+        return access === 'drm' && drmBroken;
     };
     async function replacementFor(track: WaveTrack): Promise<WaveTrack | null> {
         if (found.has(track.id)) return found.get(track.id) ?? null;
@@ -88,6 +91,8 @@ export function installSwap(core: SwapCore): SwapSection {
             // Та же песня: та же семья по разбору названия; лучше та же версия и длительность рядом, без отрывков
             const scored = pool
                 .filter((item) => family && familyKey(item) === family && trackAccess(item) === 'ok')
+                // Только настоящая копия: длительность в пределах трёх секунд, иначе лучше не менять совсем
+                .filter((item) => !length || !trackDuration(item) || Math.abs(trackDuration(item) - length) <= 3000)
                 .map((item) => {
                     const near = length && trackDuration(item) ? Math.abs(trackDuration(item) - length) / 1000 : 30;
                     const score = (versionKey(item) === version ? 10 : 0) - Math.min(near, 60) / 6 + Math.log10(1 + (item.playback_count ?? 0));

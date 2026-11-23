@@ -6,6 +6,7 @@ import { DISCORD_TEXT_KEYS, type SettingChange } from './settings/validateSettin
 import { applyPreferenceMigrations } from './settings/preferenceMigrations';
 import { isTrustedLocalSender, trustLocalFile } from './trustedViews';
 import { PlaybackController } from './services/playbackController';
+import { FullTrackService } from './services/fullTrack';
 import { AdblockService } from './services/adblockService';
 import { ViewStyles } from './services/viewStyles';
 import { ARTIST_TOOLS_CSS, pageFeaturesScript } from './services/pageFeatures';
@@ -1295,6 +1296,26 @@ async function init() {
     // длительность; ответы помнятся до перезапуска
     const lyricsCache = new Map<string, Lyrics | null>();
     const lyricsAgent = 'SoundCloud2 (https://github.com/excommunication/soundcloud-2)';
+    // Полный трек вместо отрывка Go+: ищет YouTube через yt-dlp, работает только с yt-cookies.txt в папке данных
+    const fullTracks = new FullTrackService({
+        dataDir: app.getPath('userData'),
+        nodePath: process.execPath,
+        download: async (url) => {
+            const response = await net.fetch(url, { signal: AbortSignal.timeout(120000) });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return Buffer.from(await response.arrayBuffer());
+        },
+    });
+    ipcMain.removeHandler('soundcloud:full-track');
+    ipcMain.handle('soundcloud:full-track', async (event, input: unknown) => {
+        if (!isTrustedSoundCloudSender(event) || !input || typeof input !== 'object') return null;
+        const value = input as Record<string, unknown>;
+        const title = typeof value.title === 'string' ? value.title.slice(0, 300) : '';
+        const uploader = typeof value.uploader === 'string' ? value.uploader.slice(0, 120) : '';
+        const durationMs = typeof value.durationMs === 'number' && Number.isFinite(value.durationMs) ? Math.max(0, Math.min(value.durationMs, 3600000)) : 0;
+        const found = await fullTracks.resolve({ title, uploader, durationMs });
+        return found ? { url: found.url } : null;
+    });
     ipcMain.removeHandler('soundcloud:lyrics');
     ipcMain.handle('soundcloud:lyrics', async (event, input: unknown) => {
         if (!isTrustedSoundCloudSender(event) || !input || typeof input !== 'object') return null;

@@ -365,6 +365,7 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
         status: (): Promise<unknown> => ipcRenderer.invoke('soundcloud:vibe:status'),
     },
     // Текст играющего трека: ищет main (LRCLIB, запасной Genius), ввод проверяет он же
+    fullTrack: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:full-track', query),
     lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
     // Запись ролика из режима «Для роликов»: разрешение на захват кадра страницы и сохранение файла; ввод проверяет main
     clipRecord: {

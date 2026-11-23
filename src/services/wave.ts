@@ -40,6 +40,7 @@ import * as jamSectionModule from './wave/jam';
 import * as qrModule from './wave/qr';
 import { CLIP_FONT } from './wave/clipFont';
 import * as swapSectionModule from './wave/swap';
+import * as fullSectionModule from './wave/full';
 import * as forYouSectionModule from './wave/forYou';
 import * as waveVibeModule from './waveVibe';
 import type { VibePlan } from './waveVibe';
@@ -77,6 +78,7 @@ const { installJam, jamHelpers } = jamSectionModule;
 const { createSeekWatch, restorePosition, seekBackDelta } = seekGuardModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
+const { installFull } = fullSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
 const { installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes } = waveSourcesModule;
@@ -228,6 +230,8 @@ export interface WaveWindow extends Window {
         // Текст играющего трека (LRCLIB, запасной Genius): ищет main
         lyrics?(query: { title: string; uploader: string; durationMs: number }): Promise<unknown>;
         clipRecord?: { arm(state: string): Promise<unknown>; save(data: ArrayBuffer, name: string, ext: string): Promise<unknown> };
+        // Полный трек вместо отрывка Go+: ссылку на аудио с YouTube ищет main (нужен yt-cookies.txt в папке данных)
+        fullTrack?(query: { title: string; uploader: string; durationMs: number }): Promise<{ url: string } | null>;
         // «Джем»: мост к комнате в main, разбирает раздел wave/jam.ts
         jam?: object;
     };
@@ -917,6 +921,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         searchTracks,
         makeItem: (track, seedTitle) => makeItems([{ track, reason: { kind: 'version', seed: seedTitle } }])[0] ?? null,
         showToast,
+    });
+    // Полный трек вместо отрывка Go+: раздел в wave/full.ts
+    const fullSection = installFull({
+        player: () => player,
+        disposed: () => disposed,
+        resolve: async (query) => (await host.soundcloudAPI?.fullTrack?.(query).catch(() => null)) ?? null,
     });
     // «Для тебя»: карточки артистов и подборок SoundCloud под блоком волны, раздел в wave/forYou.ts
     const forYouSection = installForYou({
@@ -6029,6 +6039,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         clipSection.dispose();
         jamSection.dispose();
         swapSection.dispose();
+        fullSection.dispose();
         forYouSection.dispose();
         document.getElementById('sc-vibe-style')?.remove();
         delete host.__scWaveNoRussian;
@@ -6095,7 +6106,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, trackAccess, installForYou, installJam, ...jamHelpers,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery, createSeekWatch, restorePosition, seekBackDelta,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
