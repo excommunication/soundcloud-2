@@ -12,7 +12,7 @@ import { registerWindowIpc } from './windowIpc';
 
 // Каналы, которые main.ts регистрировал до разреза по темам (bc01cad): ни один не должен потеряться или задвоиться
 const LISTENERS = [
-    'add-account', 'apply-changes', 'cancel-refresh', 'close-window', 'logout-account', 'maximize-window', 'minimize-window', 'navigate-back', 'navigate-forward',
+    'add-account', 'apply-changes', 'cancel-refresh', 'close-window', 'logout-account', 'maximize-window', 'minimize-window', 'navigate-back', 'navigate-forward', 'open-likes',
     'refresh-page', 'setting-changed', 'soundcloud:beat-amount', 'soundcloud:effects-mode', 'show-appearance-menu', 'soundcloud:early-blocks', 'soundcloud:open-history', 'soundcloud:playback', 'soundcloud:player-area',
     'soundcloud:profile-update', 'soundcloud:seek-back', 'soundcloud:site-state', 'soundcloud:site-translation', 'soundcloud:track-meta', 'soundcloud:track-update', 'soundcloud:wave-crossfade', 'soundcloud:wave-empty', 'soundcloud:wave-filtered',
     'soundcloud:wave-journal:add', 'soundcloud:wave-signals:add', 'switch-account', 'title-bar-double-click', 'toggle-history', 'toggle-queue', 'toggle-settings',
@@ -48,6 +48,6 @@ describe('каналы обработчиков', () => {
         expect([...ipc.handlers.keys()].sort()).toEqual([...HANDLERS].sort());
         expect([...ipc.listeners.values()].every((list) => list.length === 1)).toBe(true);
         // 89: 88 с update-screen-action (2.9.0) и show-appearance-menu (меню режимов оформления)
-        expect(LISTENERS.length + HANDLERS.length).toBe(92);
+        expect(LISTENERS.length + HANDLERS.length).toBe(93);
     });
 });

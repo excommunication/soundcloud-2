@@ -63,7 +63,7 @@ export const NARROW_CSS = [
     '#sc-wave .scw-moods .scw-chip{flex:none}',
     '}',
     '@media (max-width:1100px){',
-    'html body .playControls .playControls__timeline{min-width:96px!important}',
+    'html body .playControls .playControls__timeline{min-width:150px!important;flex:1 1 150px}',
     '}',
     '@media (max-width:900px){',
     'html,body{overflow-x:clip}',

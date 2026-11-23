@@ -84,7 +84,7 @@ export function installFull(core: FullCore): FullSection {
         } catch (error) {
             console.warn('Полный трек: шаг не удался', error);
         }
-    }, 1000);
+    }, 2500);
     return {
         dispose() {
             clearInterval(timer);

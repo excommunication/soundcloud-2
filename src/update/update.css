@@ -225,16 +225,37 @@ button[hidden] {
     background: #fff;
     filter: brightness(0.92);
 }
-/* Проверка: кольцо крутится неполной дугой, процентов ещё нет */
+/* Проверка: как на заставке запуска, рёбрышки облака вырастают волной, под ними бежит полоса с бликом */
 .busy .dial {
-    animation: spin 1.1s linear infinite;
+    opacity: 0;
 }
-.busy .arc {
-    stroke-dashoffset: 250 !important;
+.busy .bars i {
+    animation: grow 1.4s cubic-bezier(0.22, 1.2, 0.36, 1) infinite;
+    animation-delay: calc(var(--i) * 55ms) !important;
 }
-@keyframes spin {
+@keyframes grow {
+    0% {
+        transform: scaleY(0.12);
+    }
+    45%,
+    70% {
+        transform: scaleY(1);
+    }
+    100% {
+        transform: scaleY(0.12);
+    }
+}
+.busy .fill {
+    width: 38% !important;
+    transition: none;
+    animation: slide 1.5s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes slide {
+    from {
+        transform: translateX(-100%);
+    }
     to {
-        transform: rotate(360deg);
+        transform: translateX(263%);
     }
 }
 /* Последняя версия или ошибка: полоса не нужна */
@@ -246,7 +267,8 @@ button[hidden] {
     .card,
     .bars i,
     .installing .ring,
-    .busy .dial,
+    .busy .bars i,
+    .busy .fill,
     .fill::after {
         animation: none;
     }

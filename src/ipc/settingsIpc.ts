@@ -42,6 +42,14 @@ export function registerSettingsIpc(ipc: IpcRegistry, deps: SettingsIpcDeps): vo
         if (settingsManager.getView()) settingsManager.toggle();
         void deps.page().executeJavaScript('window.__scQueue?.()').catch(console.error);
     });
+    ipc.removeAllListeners('open-likes');
+    ipc.on('open-likes', (event) => {
+        if (!isTrustedLocalSender(event)) return;
+        deps.history()?.hide();
+        const settingsManager = deps.settings();
+        if (settingsManager.getView()) settingsManager.toggle();
+        void deps.page().executeJavaScript("location.pathname !== '/you/likes' && location.assign('https://soundcloud.com/you/likes')").catch(console.error);
+    });
     ipc.on('toggle-history', (event) => {
         if (isTrustedLocalSender(event)) deps.toggleHistory();
     });

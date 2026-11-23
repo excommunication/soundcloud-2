@@ -453,6 +453,18 @@ export function appearanceCss(appearance: Appearance): string {
             `.sidebarModule{border-radius:${r}px;padding:4px 12px!important;margin-bottom:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}`,
             `.l-listen-hero,.fullHero,.profileHeader,.fullListenHero{border-radius:${r}px;overflow:hidden;margin-top:8px}`,
             `.headerSearch__input{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.08)!important}`,
+            // Библиотека (2.12.8): вкладки таблеткой в стиле клиента, секции без жёстких линий, плитки-карточки со стеклом
+            `.collectionNav,.g-tabs{display:flex;flex-wrap:wrap;gap:6px;border:0!important;padding:4px 0 6px!important;margin:0 0 12px!important}`,
+            `.collectionNav .g-tabs-item,.g-tabs .g-tabs-item{margin:0!important;border:0!important}`,
+            `.collectionNav .g-tabs-link,.g-tabs .g-tabs-link{display:inline-flex!important;align-items:center;height:36px;padding:0 16px!important;border:0!important;border-radius:999px;font-weight:600;font-size:14px;color:rgba(255,255,255,.7)!important;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);transition:background-color .16s ease,color .16s ease,transform .16s ease}`,
+            `.collectionNav .g-tabs-link:hover,.g-tabs .g-tabs-link:hover{background:rgba(255,255,255,.12);color:#fff!important}`,
+            `.collectionNav .g-tabs-link.active,.g-tabs .g-tabs-link.active{background:#fff!important;color:#0b0c10!important;box-shadow:none}`,
+            `.collectionNav .g-tabs-link::after,.g-tabs .g-tabs-link::after,.g-tabs .g-tabs-link::before{display:none!important}`,
+            `.collectionSection{margin-bottom:28px!important;border:0!important}`,
+            `.collectionSection__title,.collectionSection__titleLink{font-size:20px!important;font-weight:700!important;letter-spacing:-.2px}`,
+            `.collectionSection .badgeList__item,.collectionSection .playableTile{padding:10px!important;border-radius:${r}px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);transition:background-color .18s ease,transform .18s ease}`,
+            `.collectionSection .badgeList__item:hover,.collectionSection .playableTile:hover{background:rgba(255,255,255,.09);transform:translateY(-2px)}`,
+            `.collectionSection .playableTile__artwork,.collectionSection .sc-artwork{border-radius:${Math.max(6, r - 6)}px!important;overflow:hidden}`,
             // Строки списков: лёгкая подложка на наведении
             `.soundList__item:hover,.trackList__item:hover,.compactTrackList__item:hover,.systemPlaylistTrackList__item:hover{background:rgba(255,255,255,.04)!important;border-radius:${Math.max(4, r - 4)}px}`,
             // Блок волны и строка по описанию: стекло вокруг
@@ -461,6 +473,7 @@ export function appearanceCss(appearance: Appearance): string {
     // Нижний бар: живая линия прогресса вместо полосы сайта (клики идут сайту, холст их пропускает), свечение и дыхание
     // обложки, пока играет музыка; на паузе обложки чуть уменьшаются и тускнеют
     rows.push(
+        'html.scm-resizing *,html.scm-resizing *::before,html.scm-resizing *::after{animation-play-state:paused!important;transition:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}',
         '.playbackTimeline__progressWrapper{position:relative}',
         '#sca-line{position:absolute;left:0;top:50%;width:100%;height:26px;transform:translateY(-50%);pointer-events:none;z-index:2}',
         'html.sca-line .playbackTimeline__progressBackground,html.sca-line .playbackTimeline__progressBar,html.sca-line .playbackTimeline__progressHandle{opacity:0!important}',
@@ -1647,7 +1660,21 @@ export function auroraPage(config: AuroraConfig): void {
         fitBar();
     }
     let fitFrame = 0;
+    // Изменение размера окна: на время тяжёлые эффекты (стекло, анимации, пересоздание холста) отключаются, иначе страница
+    // перестраивается на каждый кадр и рывками отстаёт от рамки окна
+    let resizing = false;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     const onFitResize = (): void => {
+        if (!resizing) {
+            resizing = true;
+            document.documentElement.classList.add('scm-resizing');
+        }
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            resizing = false;
+            document.documentElement.classList.remove('scm-resizing');
+            resize();
+        }, 180);
         cancelAnimationFrame(fitFrame);
         fitFrame = requestAnimationFrame(() => fitTick(true));
     };
@@ -1745,7 +1772,8 @@ export function auroraPage(config: AuroraConfig): void {
             }
         }
         if (!useEffect(cfg.appearance.effect)) return;
-        resize();
+        // Пока тянут край окна, холст не пересоздаётся каждый кадр: он растянут CSS, размер применится после остановки
+        if (!resizing) resize();
         drawLine(now, sound.playing, amount);
         // Темп трека ведёт скорость: 120 ударов в минуту это обычная скорость, громкость ещё прибавляет
         const tempo = beat.bpm ? Math.min(1.5, Math.max(0.7, beat.bpm / 120)) : 1;
@@ -2139,6 +2167,8 @@ export function auroraPage(config: AuroraConfig): void {
         dispose() {
             cancelAnimationFrame(frame);
             cancelAnimationFrame(fitFrame);
+            clearTimeout(resizeTimer);
+            document.documentElement.classList.remove('scm-resizing');
             clearInterval(coverTimer);
             window.removeEventListener('resize', onFitResize);
             document.removeEventListener('pointerdown', onMoreAway, true);

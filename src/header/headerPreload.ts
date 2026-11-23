@@ -11,6 +11,7 @@ const SEND_CHANNELS = new Set([
     'show-appearance-menu',
     'title-bar-double-click',
     'toggle-history',
+    'open-likes',
     'toggle-queue',
     'toggle-settings',
 ]);

@@ -14,6 +14,7 @@
     CLOUD.forEach((h, i) => {
         const bar = document.createElement('i');
         bar.style.setProperty('--h', String(h));
+        bar.style.setProperty('--i', String(i));
         bar.style.animationDelay = -((i * 0.37) % 1.6) + 's';
         barsBox.append(bar);
     });

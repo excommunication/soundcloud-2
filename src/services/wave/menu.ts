@@ -402,9 +402,16 @@ export function installMenu(core: MenuCore): MenuSection {
         });
         document.body.append(root);
         const left = Math.max(8, Math.min(x, window.innerWidth - root.offsetWidth - 8));
-        const above = y + root.offsetHeight > window.innerHeight - 8;
+        // Меню выше окна не вылезает: высота ограничивается, лишнее прокручивается; место выбирается там, где больше
+        const room = window.innerHeight - 16;
+        if (root.offsetHeight > room) {
+            root.style.maxHeight = room + 'px';
+            root.style.overflowY = 'auto';
+        }
+        const height = root.offsetHeight;
+        const above = y + height > window.innerHeight - 8 && y - height >= 8;
         root.style.left = left + 'px';
-        root.style.top = Math.max(8, above ? y - root.offsetHeight : y) + 'px';
+        root.style.top = Math.max(8, Math.min(above ? y - height : y, window.innerHeight - height - 8)) + 'px';
         // Раскрывается из точки клика
         root.style.transformOrigin = Math.max(0, x - left) + 'px ' + (above ? 'bottom' : 'top');
         menu = root;

@@ -43,6 +43,7 @@ function applyTexts(next) {
     label('#refresh-btn', isRefreshing ? texts.headerStop : texts.headerRefresh, true);
     label('.title-bar', texts.headerTitleBar);
     label('#history-btn', recapReady && texts.headerHistoryRecap ? texts.headerHistoryRecap : texts.headerHistory, true);
+    label('#likes-btn', texts.headerLikes, true);
     label('#queue-btn', texts.headerQueue, true);
     label('#settings-btn', texts.headerSettings, true);
     label('#appearance-btn', texts.headerAppearance, true);
@@ -169,6 +170,7 @@ document.getElementById('history-btn')?.addEventListener('click', () => {
     ipcRenderer.send('toggle-history');
 });
 document.getElementById('queue-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-queue'));
+document.getElementById('likes-btn')?.addEventListener('click', () => ipcRenderer.send('open-likes'));
 // Настройки открываются и закрываются так же, как по F1
 document.getElementById('settings-btn')?.addEventListener('click', () => ipcRenderer.send('toggle-settings'));
 // Оформление: та же панель, сразу на разделе фона и палитры
