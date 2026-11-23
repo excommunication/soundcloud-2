@@ -22,7 +22,7 @@ body {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 40%, #0d1222 0%, #070a12 60%, #04060b 100%);
+    background: radial-gradient(120% 90% at 50% 40%, #181818 0%, #121212 60%, #0c0c0c 100%);
     color: var(--text);
     font-family: 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -33,38 +33,25 @@ body {
     inset: 0;
     overflow: hidden;
 }
-.blob {
+.halo {
     position: absolute;
-    width: 60vmax;
-    height: 60vmax;
+    left: 50%;
+    bottom: 0;
+    width: 700px;
+    height: 330px;
+    margin: 0 0 -215px -350px;
     border-radius: 50%;
-    filter: blur(90px);
-    opacity: 0.3;
-    animation: drift 9s ease-in-out infinite alternate;
+    background: radial-gradient(closest-side, rgba(255, 85, 0, 0.44), rgba(255, 51, 0, 0.13) 55%, transparent);
+    animation: halo 3.2s ease-in-out infinite alternate;
 }
-.blob.a {
-    left: -10vmax;
-    top: -18vmax;
-    background: #3a5bff;
-}
-.blob.b {
-    right: -16vmax;
-    bottom: -22vmax;
-    background: #b14cff;
-    animation-delay: -3s;
-}
-.blob.c {
-    left: 30vw;
-    top: 40vh;
-    width: 34vmax;
-    height: 34vmax;
-    background: #19c3ff;
-    opacity: 0.16;
-    animation-delay: -6s;
-}
-@keyframes drift {
+@keyframes halo {
+    from {
+        transform: scale(0.92);
+        opacity: 0.75;
+    }
     to {
-        transform: translate(4vmax, 3vmax) scale(1.08);
+        transform: scale(1.08);
+        opacity: 1;
     }
 }
 .card {
@@ -75,13 +62,6 @@ body {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    border-radius: 28px;
-    background: rgba(18, 21, 34, 0.55);
-    backdrop-filter: blur(30px) saturate(1.5);
-    box-shadow:
-        0 40px 90px -40px rgba(0, 0, 0, 0.9),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
     animation: rise 0.5s var(--ease) both;
 }
 @keyframes rise {
@@ -115,51 +95,37 @@ body {
 }
 /* Длина окружности r=54: 339.3. Смещение ставит update.js */
 .arc {
-    stroke: #fff;
+    stroke: #ff5500;
     stroke-linecap: round;
     stroke-dasharray: 339.3;
     stroke-dashoffset: 339.3;
-    filter: drop-shadow(0 0 8px rgba(160, 185, 255, 0.75));
+    filter: drop-shadow(0 0 8px rgba(255, 85, 0, 0.6));
     transition: stroke-dashoffset 0.35s var(--ease);
 }
 .logo {
-    width: 72px;
-    overflow: visible;
-    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
+    filter: drop-shadow(0 0 18px rgba(255, 85, 0, 0.5));
 }
-.logo rect,
-.logo path {
-    fill: #fff;
+.bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 46px;
 }
-.bars rect {
-    transform-box: fill-box;
+.bars i {
+    display: block;
+    width: 3.6px;
+    height: calc(var(--h) * 46px);
+    border-radius: 2px;
+    background: #ff5500;
     transform-origin: 50% 100%;
-    animation: eq 1.1s ease-in-out infinite alternate;
-}
-.bars rect:nth-child(2) {
-    animation-delay: -0.3s;
-}
-.bars rect:nth-child(3) {
-    animation-delay: -0.7s;
-}
-.bars rect:nth-child(4) {
-    animation-delay: -0.15s;
-}
-.bars rect:nth-child(5) {
-    animation-delay: -0.55s;
-}
-.bars rect:nth-child(6) {
-    animation-delay: -0.9s;
-}
-.bars rect:nth-child(7) {
-    animation-delay: -0.4s;
+    animation: eq 1.6s ease-in-out infinite alternate;
 }
 @keyframes eq {
     from {
         transform: scaleY(1);
     }
     to {
-        transform: scaleY(0.55);
+        transform: scaleY(0.7);
     }
 }
 /* Версия скачана, идёт установка: кольцо полное и дышит */
@@ -169,7 +135,7 @@ body {
 @keyframes breathe {
     to {
         transform: scale(1.05);
-        filter: drop-shadow(0 0 22px rgba(150, 175, 255, 0.55));
+        filter: drop-shadow(0 0 22px rgba(255, 85, 0, 0.5));
     }
 }
 h1 {
@@ -199,7 +165,7 @@ p {
     height: 100%;
     width: 0;
     border-radius: 2px;
-    background: linear-gradient(90deg, #7f9bff, #c9a8ff 60%, #fff);
+    background: linear-gradient(90deg, #ff8800, #ff3300);
     transition: width 0.35s var(--ease);
     overflow: hidden;
 }
@@ -208,7 +174,7 @@ p {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 240, 220, 0.63), transparent);
     transform: translateX(-100%);
     animation: shine 1.6s ease-in-out infinite;
 }
@@ -252,8 +218,8 @@ button[hidden] {
     gap: 8px;
 }
 #action {
-    background: #fff;
-    color: #0b0c10;
+    background: #ff5500;
+    color: #fff;
 }
 #action:hover {
     background: #fff;
@@ -276,9 +242,9 @@ button[hidden] {
     display: none;
 }
 @media (prefers-reduced-motion: reduce) {
-    .blob,
+    .halo,
     .card,
-    .bars rect,
+    .bars i,
     .installing .ring,
     .busy .dial,
     .fill::after {

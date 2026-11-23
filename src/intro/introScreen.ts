@@ -2,12 +2,12 @@ import { WebContentsView, type BrowserWindow } from 'electron';
 import { join } from 'path';
 import { trustLocalFile } from '../trustedViews';
 
-/** Самая короткая заставка: сборка логотипа должна успеть доиграть */
-export const INTRO_MIN_MS = 2200;
+/** Самая короткая заставка: если сайт готов раньше, сборка логотипа доигрывается ускоренно */
+export const INTRO_MIN_MS = 900;
 /** Сайт так и не загрузился: заставка уходит сама */
 export const INTRO_MAX_MS = 9000;
-/** Сколько идёт бросок, взрыв и раскрытие клиента */
-export const INTRO_OUT_MS = 3700;
+/** Сколько идёт растворение логотипа и раскрытие клиента */
+export const INTRO_OUT_MS = 1500;
 /** Крайний срок после ухода заставки: что бы ни случилось, вид заставки к этому времени снят и клиент доступен */
 export const INTRO_HARD_MS = 3000;
 

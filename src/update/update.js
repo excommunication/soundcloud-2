@@ -8,6 +8,15 @@
     const ring = document.getElementById('ring');
     const later = document.getElementById('later');
     const action = document.getElementById('action');
+    // Облако из рёбрышек, как на заставке запуска: высоты по профилю логотипа
+    const CLOUD = [0.3, 0.36, 0.44, 0.4, 0.52, 0.48, 0.6, 0.7, 0.84, 0.94, 0.99, 1.0, 0.98, 0.92, 0.8, 0.74, 0.7, 0.62, 0.48];
+    const barsBox = document.getElementById('bars');
+    CLOUD.forEach((h, i) => {
+        const bar = document.createElement('i');
+        bar.style.setProperty('--h', String(h));
+        bar.style.animationDelay = -((i * 0.37) % 1.6) + 's';
+        barsBox.append(bar);
+    });
     // Длина окружности кольца, r = 54
     const LENGTH = 339.3;
     later.addEventListener('click', () => api.later());

@@ -24,8 +24,8 @@ body {
     initial-value: 0px;
 }
 .veil.open {
-    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 2px));
-    mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 2px));
+    -webkit-mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 90px));
+    mask-image: radial-gradient(circle at var(--x) var(--y), transparent var(--r), #000 calc(var(--r) + 90px));
 }
 .halo {
     position: absolute;
