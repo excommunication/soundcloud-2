@@ -949,6 +949,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         disposed: () => disposed,
         userId: () => ensureUser().catch(() => 0),
         get: async (url) => (api ? (await Promise.race([api.callEndpointByUrl('resolve', url), wait(10000).then(() => null)]))?.body ?? null : null),
+        history: async (limit) => (api ? await Promise.race([call('playHistoryTracks', {}, { limit }), wait(10000).then(() => null)]).catch(() => null) : null),
     });
     // «Для тебя»: карточки артистов и подборок SoundCloud под блоком волны, раздел в wave/forYou.ts
     const forYouSection = installForYou({

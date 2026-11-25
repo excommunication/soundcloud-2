@@ -4731,3 +4731,27 @@ it('режим «Для роликов» 2.9.0: кнопка карточки о
     expect(document.querySelector('.scc')).toBeNull();
     expect(open.getAttribute('aria-pressed')).toBe('false');
 });
+
+it('«Недавно играло» в обзоре библиотеки показывает свою историю прослушивания вызовом api со входом', async () => {
+    history.replaceState(null, '', '/you/library');
+    document.body.innerHTML =
+        '<div class="collectionSection"><div class="collectionSection__top"><h2 class="collectionSection__title">Недавно играло</h2></div>' +
+        '<div class="lazyLoadingList"><ul><li class="badgeList__item"><div class="playableTile"><div class="sc-artwork"></div></div></li></ul></div></div>';
+    const played = [
+        { played_at: Date.now() - 5 * 60000, track: { id: 501, permalink_url: 'https://soundcloud.com/travisscott-2/sicko-mode', title: 'SICKO MODE', artwork_url: 'https://i1.sndcdn.com/artworks-a-large.jpg', user: { username: 'Travis Scott' } } },
+        { played_at: Date.now() - 3 * 3600000, track: { id: 502, permalink_url: 'https://soundcloud.com/a/b', title: 'Second', user: { username: 'A' } } },
+        { played_at: Date.now() - 4 * 3600000, track: { id: 501, permalink_url: 'https://soundcloud.com/travisscott-2/sicko-mode', title: 'SICKO MODE', user: { username: 'Travis Scott' } } },
+    ];
+    const site = fakeSite(relatedTracks, (name) => (name === 'playHistoryTracks' ? { collection: played } : undefined));
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(2000);
+    const grid = document.querySelector('.scl-recent');
+    expect(grid).not.toBeNull();
+    expect([...document.querySelectorAll('.scl-rc-title')].map((node) => node.textContent)).toEqual(['SICKO MODE', 'Second']);
+    expect(document.querySelector('.scl-rc-art')?.getAttribute('style')).toContain('artworks-a-t300x300.jpg');
+    expect(document.querySelector('.scl-rc-when')?.textContent).toBe('5 min ago');
+    expect(document.querySelector('.collectionSection')?.classList.contains('scl-recent-on')).toBe(true);
+    expect(document.querySelector('.collectionSection__title')?.textContent).toBe('Listening history');
+    expect(document.querySelector<HTMLAnchorElement>('.scl-rc-all')?.getAttribute('href')).toBe('/you/history');
+    expect(site.api.callEndpoint.mock.calls.some(([name, , query]) => name === 'playHistoryTracks' && (query as { limit?: number }).limit === 40)).toBe(true);
+});

@@ -45,6 +45,8 @@ export interface LikesCore {
     userId(): Promise<number>;
     /** GET api-v2 с правилами сайта (ключ клиента и вход подставляет сайт); null при сбое */
     get(url: string): Promise<unknown>;
+    /** Своя история прослушивания (/me/play-history/tracks) вызовом api сайта со входом; null при сбое */
+    history(limit: number): Promise<unknown>;
 }
 export interface LikesSection {
     /** Огонёк серии в чужом заголовке (блок «Моя волна»): таблетка добавляется в конец host, даты лайков подгружаются */
@@ -324,7 +326,7 @@ export function installLikes(core: LikesCore): LikesSection {
         if (recentLoading || recent || core.disposed()) return;
         recentLoading = true;
         try {
-            const body = (await core.get('https://api-v2.soundcloud.com/me/play-history/tracks?limit=40')) as { collection?: unknown } | null;
+            const body = (await core.history(40)) as { collection?: unknown } | null;
             const list = Array.isArray(body?.collection) ? body.collection : [];
             const seen = new Set<string>();
             const out: RecentTrack[] = [];
@@ -354,9 +356,9 @@ export function installLikes(core: LikesCore): LikesSection {
         }
     }
     function recentSection(): HTMLElement | null {
-        for (const section of document.querySelectorAll<HTMLElement>('.collectionSection')) {
+        for (const section of document.querySelectorAll<HTMLElement>('.collectionSection, .collection__section:not(:has(.collectionSection))')) {
             const title = section.querySelector('.collectionSection__title, .collectionSection__heading, h2, h3');
-            const link = section.querySelector('a[href="/you/history"]');
+            const link = section.querySelector('a[href*="/you/history"]');
             if (link || /недавно играло|recently played/i.test(title?.textContent ?? '')) return section;
         }
         return null;
