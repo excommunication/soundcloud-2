@@ -4249,6 +4249,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-tip span{display:block;opacity:.7}',
         // Меню по ПКМ собрано из классов родного меню «…», вид и тема приходят от сайта
         '.scw-menu .scw-mi{display:flex;align-items:center;gap:8px;width:100%;text-align:left;white-space:nowrap}',
+        '.scw-menu .scw-msep{height:1px;margin:5px 10px;background:rgba(255,255,255,.1)}',
         '.scw-menu .scw-mi svg{display:block;width:16px;height:16px;fill:currentColor}',
         '.scw-menu{animation:scw-menu-in .14s cubic-bezier(.2,0,0,1)}',
         '@keyframes scw-menu-in{from{opacity:0;transform:scale(.96)}}',
@@ -4435,7 +4436,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     function renderHead(): HTMLElement {
         const head = el('div', 'scw-head');
         const titles = el('div', '');
-        titles.append(el('div', 'scw-title', T.wave), el('div', 'scw-hint', hintText()));
+        const title = el('div', 'scw-title', T.wave);
+        // Огонёк серии лайков рядом с названием (раздел wave/likes.ts). Разделы, созданные раньше раздела лайков, могут
+        // перерисовать блок до его появления: тогда огонька просто нет до следующей отрисовки
+        try {
+            likesSection.streak(title);
+        } catch {
+            // раздел лайков ещё не создан
+        }
+        titles.append(title, el('div', 'scw-hint', hintText()));
         const controls = el('div', 'scw-controls');
         const seg = el('div', 'scw-seg');
         seg.setAttribute('role', 'radiogroup');

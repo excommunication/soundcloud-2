@@ -97,6 +97,8 @@ export interface MenuSection {
 }
 
 export function installMenu(core: MenuCore): MenuSection {
+    /** Разделитель групп в списке пунктов меню */
+    const MENU_SEPARATOR = '-';
     const {
         texts: T, known, excludedTracks, excludedArtists, laterTracks, laterArtists, moreTracks, marked, familyHidden, setExcluded, setFamily, addTrack, currentCandidate,
         fromTrack, trackOf, artistOf, artistOwnTracks, artistCatalog, playlistTracks, resolveUrl, beginSeed, ensureProfile, ensureExclusions, ensureStyle, showToast, onScroll, el,
@@ -292,27 +294,41 @@ export function installMenu(core: MenuCore): MenuSection {
         const pinItem = (): [string, string, string] => (pinned(target) ? ['unpin', T.menuUnpin, 'undo'] : ['pin', T.menuPin, 'pin']);
         if (target.kind === 'genre') return [['wave-genre', T.menuWaveGenre, 'wave'], pinItem()];
         const hasArtist = target.kind === 'artist' || !!target.artistUrl || !!target.track;
-        if (target.kind === 'track') items.push(['wave-track', T.menuWaveTrack, 'wave']);
-        const lyricsLabel = target.kind === 'track' ? core.lyricsLabel(target) : null;
-        if (lyricsLabel) items.push(['lyrics', lyricsLabel, 'lyrics']);
-        if (target.kind === 'playlist') items.push(['wave-playlist', T.menuWavePlaylist, 'wave'], pinItem());
-        if (hasArtist) items.push(['wave-artist', T.menuWaveArtist, target.kind === 'artist' ? 'wave' : 'artist'], ['artist-all', T.menuArtistAll, 'catalog']);
-        if (target.kind === 'artist') items.push(pinItem());
-        if (target.kind === 'track') {
-            items.push(['queue-next', T.menuQueueNext, 'pick']);
-            items.push(['queue-last', T.menuQueueLast, 'pick']);
-            items.push(core.pickedIndex(target) >= 0 ? ['unpick', T.menuUnpick, 'undo'] : ['pick', T.menuPick, 'pick']);
-            items.push(trackMarked(moreTracks, target) ? ['unmore', T.menuUnmore, 'undo'] : ['more', T.more, 'more']);
-            items.push(trackMarked(laterTracks, target) ? ['unlater', T.menuUnlater, 'undo'] : ['later', T.later, 'later']);
-            items.push(trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block']);
-            items.push(['versions', T.menuVersions, 'versions']);
-            const downloadLabel = core.download.label();
-            if (downloadLabel) items.push(['download', downloadLabel, 'download']);
-            items.push(familyHidden(target) ? ['show-family', T.menuShowFamily, 'undo'] : ['hide-family', T.menuHideFamily, 'block']);
+        const track = target.kind === 'track';
+        // Группы через разделитель: очередь, волна, сам трек, скрыть. Пустая группа не рисуется
+        const queue: Array<[string, string, string]> = [];
+        const wave: Array<[string, string, string]> = [];
+        const about: Array<[string, string, string]> = [];
+        const hide: Array<[string, string, string]> = [];
+        if (track) {
+            queue.push(['queue-next', T.menuQueueNext, 'pick'], ['queue-last', T.menuQueueLast, 'pick']);
+            queue.push(core.pickedIndex(target) >= 0 ? ['unpick', T.menuUnpick, 'undo'] : ['pick', T.menuPick, 'pick']);
+            wave.push(['wave-track', T.menuWaveTrack, 'wave']);
         }
-        if (target.kind === 'artist') items.push(artistMarked(laterArtists, target) ? ['unlater-artist', T.menuUnlater, 'undo'] : ['later-artist', T.later, 'later']);
-        if (hasArtist) items.push(artistExcluded(target) ? ['show-artist', T.menuShowArtist, 'undo'] : ['hide-artist', T.menuHideArtist, 'hide']);
-        if (target.url) items.push(['copy-link', T.menuCopyLink, 'link']);
+        if (target.kind === 'playlist') wave.push(['wave-playlist', T.menuWavePlaylist, 'wave'], pinItem());
+        if (hasArtist) wave.push(['wave-artist', T.menuWaveArtist, target.kind === 'artist' ? 'wave' : 'artist'], ['artist-all', T.menuArtistAll, 'catalog']);
+        if (target.kind === 'artist') wave.push(pinItem());
+        if (track) {
+            wave.push(trackMarked(moreTracks, target) ? ['unmore', T.menuUnmore, 'undo'] : ['more', T.more, 'more']);
+            const lyricsLabel = core.lyricsLabel(target);
+            if (lyricsLabel) about.push(['lyrics', lyricsLabel, 'lyrics']);
+            about.push(['versions', T.menuVersions, 'versions']);
+            const downloadLabel = core.download.label();
+            if (downloadLabel) about.push(['download', downloadLabel, 'download']);
+        }
+        if (target.url) about.push(['copy-link', T.menuCopyLink, 'link']);
+        if (track) {
+            hide.push(trackMarked(laterTracks, target) ? ['unlater', T.menuUnlater, 'undo'] : ['later', T.later, 'later']);
+            hide.push(trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block']);
+            hide.push(familyHidden(target) ? ['show-family', T.menuShowFamily, 'undo'] : ['hide-family', T.menuHideFamily, 'block']);
+        }
+        if (target.kind === 'artist') hide.push(artistMarked(laterArtists, target) ? ['unlater-artist', T.menuUnlater, 'undo'] : ['later-artist', T.later, 'later']);
+        if (hasArtist) hide.push(artistExcluded(target) ? ['show-artist', T.menuShowArtist, 'undo'] : ['hide-artist', T.menuHideArtist, 'hide']);
+        for (const group of [queue, wave, about, hide]) {
+            if (!group.length) continue;
+            if (items.length) items.push([MENU_SEPARATOR, '', '']);
+            items.push(...group);
+        }
         return items;
     }
     function runMenu(act: string, target: MenuTarget): void {
@@ -379,6 +395,12 @@ export function installMenu(core: MenuCore): MenuSection {
         const list = el('div', 'moreActions sc-list-nostyle sc-border-box sc-pt-1x sc-pb-1x');
         const group = el('div', 'moreActions__group');
         for (const [act, label, icon] of menuItems(target)) {
+            if (act === MENU_SEPARATOR) {
+                const line = el('div', 'scw-msep');
+                line.setAttribute('role', 'separator');
+                group.append(line);
+                continue;
+            }
             const item = el('button', 'sc-button moreActions__button sc-button-medium sc-button-tertiary scw-mi');
             item.type = 'button';
             item.setAttribute('role', 'menuitem');
@@ -525,7 +547,7 @@ export function installMenu(core: MenuCore): MenuSection {
         },
         actsOn: (node) => {
             const target = menuTarget(node);
-            return target ? menuItems(target).map((item) => item[0]) : [];
+            return target ? menuItems(target).map((item) => item[0]).filter((act) => act !== MENU_SEPARATOR) : [];
         },
         watchFrames,
         dispose: () => {

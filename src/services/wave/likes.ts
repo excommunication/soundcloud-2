@@ -47,6 +47,8 @@ export interface LikesCore {
     get(url: string): Promise<unknown>;
 }
 export interface LikesSection {
+    /** Огонёк серии в чужом заголовке (блок «Моя волна»): таблетка добавляется в конец host, даты лайков подгружаются */
+    streak(host: HTMLElement): void;
     dispose(): void;
 }
 
@@ -179,6 +181,27 @@ export function installLikes(core: LikesCore): LikesSection {
             '.scl-streak.scl-cold .scl-flame{filter:grayscale(.85) brightness(.85);opacity:.7}' +
             '.scl-streak.scl-cold .scl-flame *{animation:none}' +
             '.scl-streak.scl-wait .scl-spark{display:none}.scl-streak.scl-wait .scl-flame{opacity:.8}' +
+            // История прослушивания в обзоре: свой список вместо плиток сайта, плотная сетка на всю ширину
+            '.scl-recent-on>:not(.scl-recent):not(.scl-rc-all):has(.playableTile,.badgeList__item,.sc-artwork){display:none!important}' +
+            '.scl-recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin:4px 0 6px}' +
+            '.scl-rc{min-width:0;padding:8px 8px 10px;border-radius:var(--sc2-r3,16px);background:var(--sc2-surface-1,rgba(255,255,255,.05));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.08));' +
+            'transition:background-color var(--sc2-mid,240ms) var(--sc2-ease,ease),transform var(--sc2-mid,240ms) var(--sc2-ease,ease)}' +
+            '.scl-rc:hover,.scl-rc:focus-within{background:var(--sc2-surface-2,rgba(255,255,255,.09));transform:translateY(-3px)}' +
+            '.scl-rc-art{position:relative;aspect-ratio:1;border-radius:var(--sc2-r2,12px);background:rgba(255,255,255,.06) center/cover no-repeat;cursor:pointer;overflow:hidden}' +
+            '.scl-rc-play{position:absolute;right:8px;bottom:8px;width:40px;height:40px;display:grid;place-items:center;padding:0;border:0;border-radius:999px;cursor:pointer;color:#0b0c10;background:#fff;' +
+            'box-shadow:0 8px 22px -8px rgba(0,0,0,.8);opacity:0;transform:translateY(6px) scale(.9);transition:opacity var(--sc2-fast,140ms) ease,transform var(--sc2-mid,240ms) var(--sc2-ease,ease)}' +
+            '.scl-rc-play svg{width:18px;height:18px;fill:currentColor;margin-left:2px}' +
+            '.scl-rc:hover .scl-rc-play,.scl-rc:focus-within .scl-rc-play{opacity:1;transform:none}.scl-rc-play:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}' +
+            '.scl-rc-when{position:absolute;left:6px;top:6px;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:600;line-height:20px;color:#fff;background:rgba(10,12,18,.55);' +
+            'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}' +
+            '.scl-rc-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:9px;padding:0 2px;font-size:13px;line-height:17px;font-weight:600;color:var(--sc2-text,#fff)!important;text-decoration:none!important}' +
+            '.scl-rc-artist{margin-top:2px;padding:0 2px;font-size:12px;line-height:16px;color:var(--sc2-text-3,rgba(255,255,255,.55));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+            '.scl-rc-all{display:inline-block;margin-top:4px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--sc2-text-2,rgba(255,255,255,.72))!important;text-decoration:none!important;background:var(--sc2-surface-1,rgba(255,255,255,.05))}' +
+            '.scl-rc-all:hover{background:var(--sc2-surface-2,rgba(255,255,255,.09));color:#fff!important}' +
+            '@media (hover:none){.scl-rc-play{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.scl-rc,.scl-rc-play{transition:none!important;transform:none!important}}' +
+            // В заголовке «Моей волны»: в строку с названием, по его высоте
+            '.scw-title .scl-streak{height:28px;line-height:28px;margin-left:12px;vertical-align:top;font-size:12px}.scw-title .scl-streak b{font-size:14px}' +
+            '.scw-title .scl-streak .scl-flame{width:18px;height:18px}.scw-title .scl-streak.scl-hot .scl-flame{width:20px;height:20px}' +
             '@media (prefers-reduced-motion:reduce){.scl-flame *{animation:none!important}.scl-streak{transition:none}}' +
             'html.scm-reduce .scl-flame *{animation:none!important}';
         document.head.append(style);
@@ -203,14 +226,30 @@ export function installLikes(core: LikesCore): LikesSection {
     function streakPill(): void {
         const heading = document.querySelector<HTMLElement>('.collection__likesSection .collectionSection__subHeading, .collectionSection__top .collectionSection__subHeading');
         if (!heading) return;
-        const streak = likeStreak(dates.values(), Date.now());
         let pill = heading.parentElement?.querySelector<HTMLElement>('.scl-streak') ?? null;
         if (!pill) {
-            pill = document.createElement('span');
-            pill.className = 'scl-streak';
-            pill.setAttribute('role', 'status');
+            pill = makePill();
             heading.after(pill);
         }
+        fillPill(pill);
+    }
+    function makePill(): HTMLElement {
+        const pill = document.createElement('span');
+        pill.className = 'scl-streak';
+        pill.setAttribute('role', 'status');
+        return pill;
+    }
+    // Таблетки серии вне вкладки лайков (заголовок «Моей волны»): пока даты не пришли, их нет; потом обновляются вместе
+    function fillHomePills(): void {
+        for (const pill of document.querySelectorAll<HTMLElement>('.scl-streak.scl-home')) fillPill(pill);
+    }
+    function fillPill(pill: HTMLElement): void {
+        if (!dates.size) {
+            pill.hidden = true;
+            return;
+        }
+        pill.hidden = false;
+        const streak = likeStreak(dates.values(), Date.now());
         const key = streak.days + ':' + streak.today + ':' + streak.best;
         if (pill.dataset.key === key) return;
         pill.dataset.key = key;
@@ -258,6 +297,138 @@ export function installLikes(core: LikesCore): LikesSection {
         art.append(button);
         sync();
     }
+    // «Недавно играло» в обзоре библиотеки: вместо плейлистов и профилей сайта — последние прослушанные треки из истории
+    // (тот же api, что у вкладки «История»), компактной сеткой; клик включает трек, не уводя со страницы
+    interface RecentTrack {
+        path: string;
+        title: string;
+        artist: string;
+        art: string;
+        at: number;
+    }
+    let recent: RecentTrack[] | null = null;
+    let recentLoading = false;
+    let wasOnOverview = false;
+    const RECENT_LIMIT = 12;
+    const agoShort = (time: number): string => {
+        const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+        if (minutes < 1) return ru ? 'только что' : 'just now';
+        if (minutes < 60) return ru ? minutes + ' мин назад' : minutes + ' min ago';
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return ru ? hours + ' ч назад' : hours + ' h ago';
+        const days = Math.floor(hours / 24);
+        if (days === 1) return ru ? 'вчера' : 'yesterday';
+        return ru ? days + ' дн. назад' : days + ' d ago';
+    };
+    async function loadRecent(): Promise<void> {
+        if (recentLoading || recent || core.disposed()) return;
+        recentLoading = true;
+        try {
+            const body = (await core.get('https://api-v2.soundcloud.com/me/play-history/tracks?limit=40')) as { collection?: unknown } | null;
+            const list = Array.isArray(body?.collection) ? body.collection : [];
+            const seen = new Set<string>();
+            const out: RecentTrack[] = [];
+            for (const entry of list) {
+                const value = entry as { played_at?: unknown; track?: { permalink_url?: unknown; title?: unknown; artwork_url?: unknown; user?: { username?: unknown; avatar_url?: unknown } } } | null;
+                const track = value?.track;
+                const path = typeof track?.permalink_url === 'string' ? pathOf(track.permalink_url) : '';
+                if (!path || seen.has(path) || !/^\/[a-z0-9_-]{1,100}\/[a-z0-9_-]{1,255}$/.test(path)) continue;
+                seen.add(path);
+                const rawArt = typeof track?.artwork_url === 'string' ? track.artwork_url : typeof track?.user?.avatar_url === 'string' ? track.user.avatar_url : '';
+                const at = typeof value?.played_at === 'number' ? value.played_at : typeof value?.played_at === 'string' ? Date.parse(value.played_at) : 0;
+                out.push({
+                    path,
+                    title: typeof track?.title === 'string' ? track.title : '',
+                    artist: typeof track?.user?.username === 'string' ? track.user.username : '',
+                    art: /^https:\/\/[a-z0-9.-]+\.sndcdn\.com\//.test(rawArt) ? rawArt.replace('-large.', '-t300x300.') : '',
+                    at: Number.isFinite(at) ? at : 0,
+                });
+                if (out.length >= RECENT_LIMIT) break;
+            }
+            recent = out;
+            schedule();
+        } catch {
+            // истории нет: остаётся то, что показал сайт
+        } finally {
+            recentLoading = false;
+        }
+    }
+    function recentSection(): HTMLElement | null {
+        for (const section of document.querySelectorAll<HTMLElement>('.collectionSection')) {
+            const title = section.querySelector('.collectionSection__title, .collectionSection__heading, h2, h3');
+            const link = section.querySelector('a[href="/you/history"]');
+            if (link || /недавно играло|recently played/i.test(title?.textContent ?? '')) return section;
+        }
+        return null;
+    }
+    const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a.5.5 0 0 0 .77.42l10.2-6.5a.5.5 0 0 0 0-.84L8.77 5.08A.5.5 0 0 0 8 5.5z"/></svg>';
+    function paintRecent(): void {
+        const onOverview = /^\/you\/library\/?$/.test(location.pathname) || /^\/you\/?$/.test(location.pathname);
+        // Новый заход в обзор: история перечитывается, там могли появиться новые треки
+        if (onOverview && !wasOnOverview) recent = null;
+        wasOnOverview = onOverview;
+        if (!onOverview) return;
+        const section = recentSection();
+        if (!section) return;
+        void loadRecent();
+        if (!recent || !recent.length || section.querySelector('.scl-recent')) return;
+        ensureStyle();
+        section.classList.add('scl-recent-on');
+        const heading = section.querySelector<HTMLElement>('.collectionSection__title, .collectionSection__heading, h2, h3');
+        if (heading) {
+            const link = heading.querySelector('a') ?? heading;
+            if (!link.querySelector('*')) link.textContent = ru ? 'История прослушивания' : 'Listening history';
+        }
+        const grid = document.createElement('div');
+        grid.className = 'scl-recent';
+        grid.setAttribute('role', 'list');
+        for (const item of recent) {
+            const card = document.createElement('div');
+            card.className = 'scl-rc';
+            card.setAttribute('role', 'listitem');
+            const art = document.createElement('div');
+            art.className = 'scl-rc-art';
+            if (item.art) art.style.backgroundImage = 'url("' + item.art + '")';
+            const play = document.createElement('button');
+            play.type = 'button';
+            play.className = 'scl-rc-play';
+            play.title = ru ? 'Слушать' : 'Play';
+            play.setAttribute('aria-label', (ru ? 'Слушать: ' : 'Play: ') + item.title);
+            play.innerHTML = PLAY;
+            const open = (event: Event): void => {
+                event.preventDefault();
+                event.stopPropagation();
+                const host = window as unknown as { __scOpenTrack?: (path: string, go?: boolean) => Promise<string> };
+                if (host.__scOpenTrack) void host.__scOpenTrack(item.path, false);
+                else location.assign(item.path);
+            };
+            play.addEventListener('click', open);
+            art.addEventListener('click', open);
+            art.append(play);
+            if (item.at) {
+                const when = document.createElement('span');
+                when.className = 'scl-rc-when';
+                when.textContent = agoShort(item.at);
+                when.title = new Date(item.at).toLocaleString(ru ? 'ru-RU' : 'en-US');
+                art.append(when);
+            }
+            const title = document.createElement('a');
+            title.className = 'scl-rc-title';
+            title.href = item.path;
+            title.textContent = item.title;
+            title.title = item.title;
+            const artist = document.createElement('div');
+            artist.className = 'scl-rc-artist';
+            artist.textContent = item.artist;
+            card.append(art, title, artist);
+            grid.append(card);
+        }
+        const all = document.createElement('a');
+        all.className = 'scl-rc-all';
+        all.href = '/you/history';
+        all.textContent = ru ? 'Вся история →' : 'Full history →';
+        section.append(grid, all);
+    }
     let frame = 0;
     let wasOnLikes = false;
     function paint(): void {
@@ -267,6 +438,8 @@ export function installLikes(core: LikesCore): LikesSection {
         // Повторный заход на вкладку: свежая первая страница лайков, чтобы сегодняшний лайк продлил серию
         const entered = onLikes && !wasOnLikes;
         wasOnLikes = onLikes;
+        fillHomePills();
+        paintRecent();
         if (!onLikes) return;
         void load(entered && loaded);
         ensureStyle();
@@ -332,10 +505,21 @@ export function installLikes(core: LikesCore): LikesSection {
     observer.observe(document.body, { childList: true, subtree: true });
     schedule();
     return {
+        streak(host) {
+            if (core.disposed()) return;
+            ensureStyle();
+            void load();
+            host.querySelector('.scl-streak')?.remove();
+            const pill = makePill();
+            pill.classList.add('scl-home');
+            host.append(pill);
+            fillPill(pill);
+        },
         dispose() {
             observer.disconnect();
             clearTimeout(frame);
-            for (const node of document.querySelectorAll('.scl-chip, .scl-badge, .scl-unlike, .scl-streak')) node.remove();
+            for (const node of document.querySelectorAll('.scl-chip, .scl-badge, .scl-unlike, .scl-streak, .scl-recent, .scl-rc-all')) node.remove();
+            for (const node of document.querySelectorAll('.scl-recent-on')) node.classList.remove('scl-recent-on');
             for (const node of document.querySelectorAll('.scl-gone')) node.classList.remove('scl-gone');
             document.documentElement.classList.remove(PAGE);
             document.getElementById(STYLE_ID)?.remove();
