@@ -1,5 +1,5 @@
-/* Экран обновления (2.8.0): тот же тёмный фон с цветными пятнами, что у заставки, логотип в кольце загрузки,
-   столбики логотипа «играют», пока идёт загрузка. Когда версия скачана, кольцо замыкается и мягко пульсирует */
+/* Окно обновления (2.13.3): компактная карточка в правом нижнем углу над плеером, а не экран на всё окно. Логотип в
+   кольце загрузки, рядом заголовок, статус, полоса и кнопки. Когда версия скачана, кольцо замыкается и дышит */
 * {
     margin: 0;
     padding: 0;
@@ -16,67 +16,48 @@
 html,
 body {
     height: 100%;
+    background: transparent;
 }
 body {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 10px;
     overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 40%, #181818 0%, #121212 60%, #0c0c0c 100%);
     color: var(--text);
     font-family: 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
 }
-.back {
-    position: fixed;
-    inset: 0;
-    overflow: hidden;
-}
-.halo {
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 700px;
-    height: 330px;
-    margin: 0 0 -215px -350px;
-    border-radius: 50%;
-    background: radial-gradient(closest-side, rgba(255, 85, 0, 0.44), rgba(255, 51, 0, 0.13) 55%, transparent);
-    animation: halo 3.2s ease-in-out infinite alternate;
-}
-@keyframes halo {
-    from {
-        transform: scale(0.92);
-        opacity: 0.75;
-    }
-    to {
-        transform: scale(1.08);
-        opacity: 1;
-    }
-}
 .card {
     position: relative;
-    width: 340px;
-    padding: 34px 32px 26px;
-    display: flex;
-    flex-direction: column;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 68px 1fr;
     align-items: center;
-    text-align: center;
-    animation: rise 0.5s var(--ease) both;
+    gap: 14px;
+    padding: 14px 16px 14px 14px;
+    border-radius: 18px;
+    background:
+        radial-gradient(120% 140% at 0% 100%, rgba(255, 85, 0, 0.16), transparent 55%),
+        rgba(20, 20, 24, 0.96);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+        0 18px 40px -16px rgba(0, 0, 0, 0.85);
+    animation: rise 0.36s var(--ease) both;
 }
 @keyframes rise {
     from {
         opacity: 0;
-        transform: translateY(14px) scale(0.97);
+        transform: translateY(12px) scale(0.97);
     }
 }
 .ring {
     position: relative;
-    width: 132px;
-    height: 132px;
+    width: 68px;
+    height: 68px;
     display: grid;
     place-items: center;
-    margin-bottom: 22px;
 }
 .dial {
     position: absolute;
@@ -88,7 +69,7 @@ body {
 }
 .dial circle {
     fill: none;
-    stroke-width: 5;
+    stroke-width: 6;
 }
 .track {
     stroke: var(--track);
@@ -99,23 +80,26 @@ body {
     stroke-linecap: round;
     stroke-dasharray: 339.3;
     stroke-dashoffset: 339.3;
-    filter: drop-shadow(0 0 8px rgba(255, 85, 0, 0.6));
+    filter: drop-shadow(0 0 5px rgba(255, 85, 0, 0.6));
     transition: stroke-dashoffset 0.35s var(--ease);
 }
 .logo {
-    filter: drop-shadow(0 0 18px rgba(255, 85, 0, 0.5));
+    filter: drop-shadow(0 0 10px rgba(255, 85, 0, 0.45));
 }
+/* Облако целиком внутри кольца: 19 рёбрышек по 1.5px с зазором 0.8px дают 42px в ширину и 22px в высоту, углы от
+   центра на 24px при внутреннем радиусе кольца около 29px */
 .bars {
     display: flex;
     align-items: flex-end;
-    gap: 2px;
-    height: 46px;
+    gap: 0.8px;
+    height: 22px;
+    margin-top: 2px;
 }
 .bars i {
     display: block;
-    width: 3.6px;
-    height: calc(var(--h) * 46px);
-    border-radius: 2px;
+    width: 1.5px;
+    height: calc(var(--h) * 22px);
+    border-radius: 1px;
     background: #ff5500;
     transform-origin: 50% 100%;
     animation: eq 1.6s ease-in-out infinite alternate;
@@ -135,19 +119,25 @@ body {
 @keyframes breathe {
     to {
         transform: scale(1.05);
-        filter: drop-shadow(0 0 22px rgba(255, 85, 0, 0.5));
+        filter: drop-shadow(0 0 12px rgba(255, 85, 0, 0.5));
     }
 }
+.body {
+    min-width: 0;
+}
 h1 {
-    font-size: 20px;
-    line-height: 26px;
+    font-size: 15px;
+    line-height: 20px;
     font-weight: 700;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 p {
-    margin-top: 6px;
-    font-size: 13px;
-    line-height: 18px;
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 16px;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
@@ -155,7 +145,7 @@ p {
     position: relative;
     width: 100%;
     height: 4px;
-    margin-top: 18px;
+    margin-top: 9px;
     border-radius: 2px;
     background: var(--track);
     overflow: hidden;
@@ -183,16 +173,21 @@ p {
         transform: translateX(100%);
     }
 }
+.actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-top: 10px;
+}
 button {
-    margin-top: 18px;
-    height: 34px;
-    padding: 0 18px;
+    height: 28px;
+    padding: 0 13px;
     border: 0;
     border-radius: 999px;
     background: var(--film);
     color: var(--text);
     font: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition:
@@ -212,22 +207,16 @@ button:focus-visible {
 button[hidden] {
     display: none;
 }
-.actions {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-}
 #action {
     background: #ff5500;
     color: #fff;
 }
 #action:hover {
-    background: #fff;
-    filter: brightness(0.92);
+    background: #ff6a1f;
 }
-/* Проверка: как на заставке запуска, рёбрышки облака вырастают волной, под ними бежит полоса с бликом */
+/* Проверка: рёбрышки облака вырастают волной, под текстом бежит полоса с бликом */
 .busy .dial {
-    opacity: 0;
+    opacity: 0.35;
 }
 .busy .bars i {
     animation: grow 1.4s cubic-bezier(0.22, 1.2, 0.36, 1) infinite;
@@ -263,7 +252,6 @@ button[hidden] {
     display: none;
 }
 @media (prefers-reduced-motion: reduce) {
-    .halo,
     .card,
     .bars i,
     .installing .ring,

@@ -110,6 +110,8 @@ export function installLikes(core: LikesCore): LikesSection {
     };
     const STYLE_ID = 'scl-style';
     const PAGE = 'scl-likes';
+    /** Обзор библиотеки: своя кнопка «убрать лайк» вместо серого сердца сайта */
+    const LIB = 'scl-lib';
     // Сетка лайков (html.scl-likes): одна стеклянная карточка вместо двух вложенных, название в две строки, автор
     // на месте, дата лайка бейджем на обложке, кнопка «убрать из лайков» появляется на наведении
     const T = 'html.' + PAGE + ' ';
@@ -143,19 +145,21 @@ export function installLikes(core: LikesCore): LikesSection {
             'font-family:inherit;font-size:11px;font-weight:600;line-height:20px;color:#fff;background:rgba(10,12,18,.55);backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}' +
             '.scl-badge svg{width:10px;height:10px;fill:var(--sc2-accent,#ff5500)}' +
             // Кнопка «убрать из лайков»: появляется на наведении карточки, в правом верхнем углу обложки
-            '.scl-unlike{position:absolute;right:6px;top:6px;z-index:4;width:32px;height:32px;display:grid;place-items:center;padding:0;border:0;border-radius:999px;cursor:pointer;' +
-            'color:var(--sc2-accent,#ff5500);background:rgba(10,12,18,.6);backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);' +
+            '.scl-unlike{position:absolute;right:8px;top:8px;z-index:4;width:36px;height:36px;display:grid;place-items:center;padding:0;border:0;border-radius:999px;cursor:pointer;' +
+            'color:#ff3d6e;background:rgba(8,9,14,.82);backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2),0 6px 18px -6px rgba(0,0,0,.8);' +
             'opacity:0;transform:scale(.8);transition:opacity var(--sc2-fast,140ms) ease,transform var(--sc2-mid,240ms) var(--sc2-ease,ease),background-color var(--sc2-fast,140ms) ease}' +
-            '.scl-unlike svg{width:16px;height:16px;fill:currentColor;pointer-events:none}' +
+            '.scl-unlike svg{width:18px;height:18px;fill:currentColor;pointer-events:none}' +
             '.scl-unlike .scl-off,.scl-unlike .scl-back{display:none}' +
+            'html.' + LIB + ' .playableTile .playableTile__mainHeadingIcon,html.' + LIB + ' .playableTile:has(.scl-unlike) .playableTile__actions .sc-button-like{display:none!important}' +
+            'html.' + LIB + ' .playableTile__artwork{position:relative}' +
             '.playableTile:hover .scl-unlike,.playableTile:focus-within .scl-unlike,.scl-gone .scl-unlike{opacity:1;transform:none}' +
-            '.scl-unlike:hover{background:rgba(10,12,18,.82)}' +
+            '.scl-unlike:hover{background:#ff3d6e;color:#fff;box-shadow:0 6px 20px -6px rgba(255,61,110,.9)}' +
             '.scl-unlike:hover .scl-on{display:none}.scl-unlike:hover .scl-off{display:block}' +
             '.scl-unlike:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}' +
             '.scl-unlike:active{transform:scale(.88)}' +
             // Убранный лайк: карточка тускнеет, кнопка остаётся видна и возвращает лайк
             '.scl-gone .playableTile__artwork .sc-artwork,.scl-gone .playableTile__description{opacity:.4;filter:grayscale(.7);transition:opacity .3s ease,filter .3s ease}' +
-            '.scl-gone .scl-unlike{color:rgba(255,255,255,.85)}' +
+            '.scl-gone .scl-unlike,.scl-gone .scl-unlike:hover{color:#fff;background:rgba(8,9,14,.82);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}' +
             '.scl-gone .scl-unlike .scl-on,.scl-gone .scl-unlike:hover .scl-off{display:none}.scl-gone .scl-unlike .scl-back{display:block}' +
             '@media (hover:none){.scl-unlike{opacity:1;transform:none}}' +
             '@media (prefers-reduced-motion:reduce){' + TILE + ',.scl-unlike{transition:none!important;transform:none!important}}' +
@@ -202,7 +206,10 @@ export function installLikes(core: LikesCore): LikesSection {
             '.scl-rc-all:hover{background:var(--sc2-surface-2,rgba(255,255,255,.09));color:#fff!important}' +
             '@media (hover:none){.scl-rc-play{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.scl-rc,.scl-rc-play{transition:none!important;transform:none!important}}' +
             // В заголовке «Моей волны»: в строку с названием, по его высоте
-            '.scw-title .scl-streak{height:28px;line-height:28px;margin-left:12px;vertical-align:top;font-size:12px}.scw-title .scl-streak b{font-size:14px}' +
+            '.scw-title:has(.scl-streak){display:flex;align-items:center;gap:12px;flex-wrap:wrap}' +
+            '.scw-title .scl-streak{height:30px;line-height:30px;margin:0;padding:0 12px 0 8px;vertical-align:middle;letter-spacing:0;' +
+            'font:600 12px/30px system-ui,-apple-system,"Segoe UI",sans-serif}' +
+            '.scw-title .scl-streak b{font-size:14px;font-weight:800;line-height:30px}.scw-title .scl-streak small{font-size:12px;font-weight:600;line-height:30px}' +
             '.scw-title .scl-streak .scl-flame{width:18px;height:18px}.scw-title .scl-streak.scl-hot .scl-flame{width:20px;height:20px}' +
             '@media (prefers-reduced-motion:reduce){.scl-flame *{animation:none!important}.scl-streak{transition:none}}' +
             'html.scm-reduce .scl-flame *{animation:none!important}';
@@ -276,14 +283,16 @@ export function installLikes(core: LikesCore): LikesSection {
     // Кнопка на обложке жмёт скрытую кнопку лайка самого сайта: снятие и возврат лайка идут его же путём
     function unlikeButton(tile: HTMLElement, item: HTMLElement): void {
         const art = tile.querySelector<HTMLElement>('.playableTile__artwork');
-        if (!art || art.querySelector('.scl-unlike') || !tile.querySelector('.sc-button-like')) return;
+        // Только плитка, которую сайт показывает лайкнутой: в обзоре рядом лежат и чужие плейлисты без лайка
+        if (!art || art.querySelector('.scl-unlike') || !tile.querySelector('.sc-button-like.sc-button-selected')) return;
+        let touched = false;
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'scl-unlike';
         button.innerHTML = HEART.replace('<svg ', '<svg class="scl-on" ') + BROKEN + OUTLINE;
         const sync = (): void => {
             const site = tile.querySelector('.sc-button-like');
-            const gone = !!site && !site.classList.contains('sc-button-selected');
+            const gone = touched && !!site && !site.classList.contains('sc-button-selected');
             item.classList.toggle('scl-gone', gone);
             button.title = label(gone);
             button.setAttribute('aria-label', label(gone));
@@ -292,6 +301,7 @@ export function installLikes(core: LikesCore): LikesSection {
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
+            touched = true;
             tile.querySelector<HTMLElement>('.sc-button-like')?.click();
             window.setTimeout(sync, 60);
             window.setTimeout(sync, 600);
@@ -442,6 +452,12 @@ export function installLikes(core: LikesCore): LikesSection {
         wasOnLikes = onLikes;
         fillHomePills();
         paintRecent();
+        const onLibrary = /^\/you\/library\/?$/.test(location.pathname);
+        document.documentElement.classList.toggle(LIB, onLibrary);
+        if (onLibrary) {
+            ensureStyle();
+            for (const tile of document.querySelectorAll<HTMLElement>('.collectionSection .playableTile')) unlikeButton(tile, tile.closest<HTMLElement>('.badgeList__item') ?? tile);
+        }
         if (!onLikes) return;
         void load(entered && loaded);
         ensureStyle();
@@ -523,7 +539,7 @@ export function installLikes(core: LikesCore): LikesSection {
             for (const node of document.querySelectorAll('.scl-chip, .scl-badge, .scl-unlike, .scl-streak, .scl-recent, .scl-rc-all')) node.remove();
             for (const node of document.querySelectorAll('.scl-recent-on')) node.classList.remove('scl-recent-on');
             for (const node of document.querySelectorAll('.scl-gone')) node.classList.remove('scl-gone');
-            document.documentElement.classList.remove(PAGE);
+            document.documentElement.classList.remove(PAGE, LIB);
             document.getElementById(STYLE_ID)?.remove();
         },
     };

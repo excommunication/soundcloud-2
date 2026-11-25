@@ -17,7 +17,22 @@ export interface UpdateScreenState {
     done?: boolean;
 }
 
-// Экран «Загружаю обновление» поверх страницы, под шапкой: кнопки окна остаются доступны
+/** Карточка обновления с полями под тень: ширина, высота, отступ от правого края и от низа (над нижним плеером) */
+export const UPDATE_CARD = { width: 380, height: 150, right: 8, bottom: 58 };
+
+/** Место карточки обновления в окне: правый нижний угол над плеером; в узком или низком окне — сколько поместится под шапкой */
+export function updateCardBounds(width: number, height: number, top: number): { x: number; y: number; width: number; height: number } {
+    const cardWidth = Math.max(0, Math.min(UPDATE_CARD.width, width - UPDATE_CARD.right * 2));
+    const cardHeight = Math.max(0, Math.min(UPDATE_CARD.height, height - top));
+    return {
+        x: Math.max(0, width - cardWidth - UPDATE_CARD.right),
+        y: Math.max(top, height - cardHeight - UPDATE_CARD.bottom),
+        width: cardWidth,
+        height: cardHeight,
+    };
+}
+
+// Окно обновления (2.13.3): компактная карточка в правом нижнем углу поверх страницы, а не экран на всё окно
 export class UpdateScreen {
     private view: WebContentsView | null;
     private state: UpdateScreenState | null = null;
@@ -42,8 +57,7 @@ export class UpdateScreen {
         view.webContents.on('did-finish-load', () => {
             this.loaded = true;
             this.push();
-            // Клавиши больше не уходят странице под экраном
-            view.webContents.focus();
+            // Карточка в углу не забирает фокус: страница под ней остаётся в работе
         });
         window.contentView.addChildView(view);
         window.on('resize', this.resize);
@@ -61,7 +75,7 @@ export class UpdateScreen {
     public layout(): void {
         if (!this.view || this.window.isDestroyed()) return;
         const { width, height } = this.window.getContentBounds();
-        this.view.setBounds({ x: 0, y: this.top, width, height: Math.max(0, height - this.top) });
+        this.view.setBounds(updateCardBounds(width, height, this.top));
     }
     public close(): void {
         const view = this.view;

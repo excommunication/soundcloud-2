@@ -6,7 +6,6 @@
         <link rel="stylesheet" href="update.css" />
     </head>
     <body>
-        <div class="back" aria-hidden="true"><i class="halo"></i></div>
         <main class="card" aria-live="polite">
             <div class="ring" id="ring" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
@@ -15,12 +14,14 @@
                 </svg>
                 <div class="logo" aria-hidden="true"><div class="bars" id="bars"></div></div>
             </div>
-            <h1 id="title"></h1>
-            <p id="status"></p>
-            <div class="bar"><div class="fill" id="fill"></div></div>
-            <div class="actions">
-                <button id="action" type="button" hidden></button>
-                <button id="later" type="button"></button>
+            <div class="body">
+                <h1 id="title"></h1>
+                <p id="status"></p>
+                <div class="bar"><div class="fill" id="fill"></div></div>
+                <div class="actions">
+                    <button id="action" type="button" hidden></button>
+                    <button id="later" type="button"></button>
+                </div>
             </div>
         </main>
         <script src="update.js"></script>
