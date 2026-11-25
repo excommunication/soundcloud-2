@@ -5,7 +5,7 @@ import type { WaveTrack } from '../waveTypes';
 
 export interface Transcoding { url: string; protocol: 'progressive' | 'hls'; mime: string }
 /** Запрос в main: ссылка уже проверена страницей, main проверяет её ещё раз */
-export interface DownloadPayload { url: string; kind: 'file' | 'hls'; mime: string; title: string; artist: string }
+export interface DownloadPayload { url: string; kind: 'file' | 'hls'; mime: string; title: string; artist: string; soft?: boolean }
 export interface DownloadCore {
     lang: 'ru' | 'en';
     disposed(): boolean;
@@ -68,43 +68,60 @@ export function installDownload(core: DownloadCore): DownloadSection {
         const body = await core.get(API + '/tracks/' + track.id);
         return body && typeof body === 'object' ? { ...track, ...(body as object) } : known;
     }
-    async function payloadOf(track: WaveTrack): Promise<DownloadPayload | null> {
+    // Одна попытка не всегда доходит: ответ api-v2 иногда пустой или не успевает за 10 секунд
+    async function getTwice(url: string): Promise<unknown> {
+        const first = await core.get(url).catch(() => null);
+        if (first || core.disposed()) return first;
+        return core.get(url).catch(() => null);
+    }
+    /** Источники по порядку: официальный файл автора (если включён), потом поток. Официальный помечен soft: если он не открылся, берётся поток */
+    async function payloadsOf(track: WaveTrack): Promise<DownloadPayload[]> {
         const full = await fullTrack(track);
         const title = str(full.title) || str(track.title);
         const meta = full.publisher_metadata?.artist;
         const artist = str(full.user?.username) || str(meta) || str(track.user?.username);
+        const found: DownloadPayload[] = [];
         // Официальное скачивание, если автор его включил и попытки остались
         if (full.downloadable === true && full.has_downloads_left !== false) {
-            const body = (await core.get(API + '/tracks/' + track.id + '/download').catch(() => null)) as { redirectUri?: unknown } | null;
-            if (typeof body?.redirectUri === 'string' && /^https:\/\//.test(body.redirectUri)) return { url: body.redirectUri, kind: 'file', mime: '', title, artist };
+            const body = (await getTwice(API + '/tracks/' + track.id + '/download')) as { redirectUri?: unknown } | null;
+            if (typeof body?.redirectUri === 'string' && /^https:\/\//.test(body.redirectUri)) found.push({ url: body.redirectUri, kind: 'file', mime: '', title, artist });
         }
         const item = pickTranscoding(full);
         const auth = str(full.track_authorization);
         lastProtected = !item && onlyProtected(full);
-        if (!item) return null;
-        const link = item.url + (item.url.includes('?') ? '&' : '?') + (auth ? 'track_authorization=' + encodeURIComponent(auth) : '');
-        const body = (await core.get(link)) as { url?: unknown } | null;
-        if (typeof body?.url !== 'string' || !/^https:\/\//.test(body.url)) return null;
-        return { url: body.url, kind: item.protocol === 'hls' ? 'hls' : 'file', mime: item.mime, title, artist };
+        if (item) {
+            const link = item.url + (item.url.includes('?') ? '&' : '?') + (auth ? 'track_authorization=' + encodeURIComponent(auth) : '');
+            const body = (await getTwice(link)) as { url?: unknown } | null;
+            if (typeof body?.url === 'string' && /^https:\/\//.test(body.url)) found.push({ url: body.url, kind: item.protocol === 'hls' ? 'hls' : 'file', mime: item.mime, title, artist });
+        }
+        // Запасной источник есть: основной можно не мучить, при сбое main молча отдаёт управление дальше
+        return found.map((payload, index) => (index < found.length - 1 ? { ...payload, soft: true } : payload));
     }
     return {
         label: () => (core.send ? text.label : null),
         run: async (track) => {
             if (!core.send || core.disposed()) return;
-            let payload: DownloadPayload | null = null;
+            let payloads: DownloadPayload[] = [];
             lastProtected = false;
             try {
-                payload = await payloadOf(track);
+                payloads = await payloadsOf(track);
             } catch (error) {
                 console.warn('Скачивание: ссылка на файл не получена', error);
             }
             if (core.disposed()) return;
-            if (!payload) {
+            if (!payloads.length) {
                 core.showToast(lastProtected ? text.protectedTrack : text.failed);
                 return;
             }
-            // Итог (место, ход, готово или ошибка) показывает main
-            await core.send(payload).catch((error: unknown) => console.warn('Скачивание: main не принял запрос', error));
+            // Итог (место, ход, готово или ошибка) показывает main; 'unreachable' значит, что источник не открылся и пока ничего не показано
+            for (const payload of payloads) {
+                const result = (await core.send(payload).catch((error: unknown) => {
+                    console.warn('Скачивание: main не принял запрос', error);
+                    return null;
+                })) as { reason?: unknown } | null;
+                if (result?.reason !== 'unreachable') return;
+            }
+            core.showToast(text.failed);
         },
     };
 }

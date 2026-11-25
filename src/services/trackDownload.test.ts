@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { downloadFileName, extensionFor, isDownloadUrl, parseHlsSegments, sanitizeFilePart, validateDownloadRequest } from './trackDownload';
+import { downloadFileName, extensionFor, extensionFromResponse, isDownloadUrl, parseHlsSegments, sanitizeFilePart, validateDownloadRequest } from './trackDownload';
 import { pickTranscoding } from './wave/download';
 import type { WaveTrack } from './waveTypes';
 
@@ -23,6 +23,13 @@ describe('имя файла', () => {
         expect(extensionFor('audio/flac')).toBe('flac');
         expect(extensionFor('application/octet-stream')).toBe('mp3');
     });
+    it('расширение официального файла: имя из заголовка, потом адрес, потом MIME', () => {
+        expect(extensionFromResponse('audio/x-wav', null, 'https://cf-media.sndcdn.com/a')).toBe('wav');
+        expect(extensionFromResponse('application/octet-stream', 'attachment; filename="Track.flac"', 'https://cf-media.sndcdn.com/a')).toBe('flac');
+        expect(extensionFromResponse('application/octet-stream', "attachment; filename*=UTF-8''%D0%A2.wav", 'https://cf-media.sndcdn.com/a')).toBe('wav');
+        expect(extensionFromResponse(null, null, 'https://cf-media.sndcdn.com/x/song.aiff?sig=1')).toBe('aiff');
+        expect(extensionFromResponse('binary/octet-stream', null, 'https://cf-media.sndcdn.com/x', 'audio/mpeg')).toBe('mp3');
+    });
 });
 
 describe('адрес и запрос от страницы', () => {
@@ -38,7 +45,7 @@ describe('адрес и запрос от страницы', () => {
     });
     it('проверка запроса чистит текст и отбрасывает чужое', () => {
         const ok = validateDownloadRequest({ url: 'https://cf-media.sndcdn.com/a', kind: 'hls', mime: 'Audio/MPEG', title: ' Песня\n', artist: 'A\u0000B' });
-        expect(ok).toEqual({ url: 'https://cf-media.sndcdn.com/a', kind: 'hls', mime: 'audio/mpeg', title: 'Песня', artist: 'A B' });
+        expect(ok).toEqual({ url: 'https://cf-media.sndcdn.com/a', kind: 'hls', mime: 'audio/mpeg', title: 'Песня', artist: 'A B', soft: false });
         expect(validateDownloadRequest({ url: 'https://evil.com/a', kind: 'file' })).toBeNull();
         expect(validateDownloadRequest({ url: 'https://sndcdn.com/a', kind: 'exe' })).toBeNull();
         expect(validateDownloadRequest(null)).toBeNull();

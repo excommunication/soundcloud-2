@@ -165,4 +165,10 @@ describe('«Далее» и полка: одинаковые квадратны�
         expect(wave).not.toContain("'@media(max-width:920px){#sc-wave .scw-tiles");
         expect(wave).toContain('@container scw (max-width:899px){#sc-wave .scw-shelf>.scw-mix{grid-row:var(--scw-row4)}');
     });
+    it('«Далее» в окне до 1100 px это компактные строки, а в низком узком окне одним рядом из трёх', () => {
+        const compact = block(NARROW_CSS, '@media (max-width:1100px){\nhtml body #sc-wave .scw-tiles');
+        expect(compact).toContain('grid-template-columns:48px minmax(0,1fr)');
+        expect(compact).toContain('.scw-tile>.scw-art{grid-row:1/4;width:48px');
+        expect(block(NARROW_CSS, '@media (max-height:760px) and (max-width:900px)')).toContain('.scw-tile:nth-child(n+4){display:none}');
+    });
 });

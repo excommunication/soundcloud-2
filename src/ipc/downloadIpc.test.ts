@@ -72,6 +72,43 @@ describe('скачивание трека: канал', () => {
         expect(await broken.ipc.invoke('soundcloud:download-track', broken.site, { url: LIST, kind: 'hls' })).toEqual({ ok: false, reason: 'failed' });
         expect(broken.sink.discard).toHaveBeenCalled();
     });
+    it('пробная ссылка (soft) не открылась: без уведомления и окна, ответ unreachable', async () => {
+        const { ipc, site, deps } = setup({});
+        expect(await ipc.invoke('soundcloud:download-track', site, { url: FILE, kind: 'file', soft: true })).toEqual({ ok: false, reason: 'unreachable' });
+        expect(deps.saveDialog).not.toHaveBeenCalled();
+        expect(deps.notify).not.toHaveBeenCalled();
+    });
+    it('сбой сервера 503 повторяется, оборванный кусок HLS качается заново без дублей', async () => {
+        vi.useFakeTimers();
+        try {
+            const one = 'https://playback.media-streaming.soundcloud.cloud/1.mp3';
+            const { ipc, site, deps, written } = setup({ [LIST]: reply(LIST, ['#EXTM3U\n1.mp3\n']) });
+            let calls = 0;
+            const base = deps.fetch.getMockImplementation()!;
+            deps.fetch.mockImplementation(async (url: string) => {
+                if (url !== one) return base(url);
+                calls++;
+                if (calls === 1) return { ...reply(url, []), ok: false, status: 503 };
+                if (calls === 2) {
+                    const queue = [new TextEncoder().encode('X')];
+                    return { ...reply(url, []), body: { getReader: () => ({ read: async () => (queue.length ? { done: false, value: queue.shift() } : Promise.reject(new Error('обрыв'))), cancel: async () => undefined }) } };
+                }
+                return reply(url, ['AB']);
+            });
+            const pending = ipc.invoke('soundcloud:download-track', site, { url: LIST, kind: 'hls', mime: 'audio/mpeg' });
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(await pending).toMatchObject({ ok: true });
+            expect(written.join('')).toBe('AB');
+            expect(calls).toBe(3);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+    it('файл не целиком (меньше Content-Length) считается сбоем', async () => {
+        const { ipc, site, sink } = setup({ [FILE]: reply(FILE, ['ab'], { 'content-type': 'audio/mpeg', 'content-length': '9' }) });
+        expect(await ipc.invoke('soundcloud:download-track', site, { url: FILE, kind: 'file' })).toEqual({ ok: false, reason: 'failed' });
+        expect(sink.discard).toHaveBeenCalled();
+    });
     it('канал один и повторная регистрация его не задваивает', () => {
         const { ipc, deps } = setup({});
         expect([...ipc.handlers.keys()]).toEqual(['soundcloud:download-track']);

@@ -9,6 +9,8 @@ export interface DownloadRequest {
     mime: string;
     title: string;
     artist: string;
+    /** Пробная ссылка (официальный файл): при сбое до окна сохранения main молчит и отвечает 'unreachable', страница пробует поток */
+    soft: boolean;
 }
 
 /** Потолок размера файла: трек в WAV бывает сотни мегабайт, но не гигабайты */
@@ -46,6 +48,7 @@ export function validateDownloadRequest(input: unknown): DownloadRequest | null 
         mime: cleanText(value.mime, 120).toLowerCase(),
         title: cleanText(value.title, 200),
         artist: cleanText(value.artist, 200),
+        soft: value.soft === true,
     };
 }
 
@@ -74,6 +77,33 @@ export function extensionFor(mime: string): string {
     if (/ogg|opus/.test(type)) return 'ogg';
     if (/mp4|aac|m4a/.test(type)) return 'm4a';
     return 'mp3';
+}
+
+const KNOWN_EXT = new Set(['mp3', 'flac', 'wav', 'aiff', 'aif', 'ogg', 'opus', 'm4a', 'aac', 'alac']);
+/** Расширение официального файла: имя из Content-Disposition, потом MIME, потом имя в адресе (ответ application/octet-stream не значит mp3: автор мог залить wav) */
+export function extensionFromResponse(contentType: string | null, disposition: string | null, url: string, fallbackMime = ''): string {
+    const named = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition ?? '')?.[1];
+    const fromName = (value: string | undefined): string | null => {
+        const ext = /\.([a-z0-9]{2,5})$/i.exec((value ?? '').trim())?.[1]?.toLowerCase();
+        return ext && KNOWN_EXT.has(ext) ? ext : null;
+    };
+    const decoded = (() => {
+        try {
+            return named ? decodeURIComponent(named) : named;
+        } catch {
+            return named;
+        }
+    })();
+    const typed = (contentType ?? '').split(';')[0].trim().toLowerCase();
+    const generic = !typed || /octet-stream|binary|x-download|force-download/.test(typed);
+    if (!generic) return extensionFor(contentType ?? '');
+    let path = '';
+    try {
+        path = new URL(url).pathname;
+    } catch {
+        // адрес разобран выше; здесь запасной путь
+    }
+    return fromName(decoded) ?? fromName(path) ?? extensionFor(fallbackMime);
 }
 
 export interface HlsPlan { init: string | null; segments: string[] }

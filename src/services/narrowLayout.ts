@@ -53,8 +53,27 @@ export const NARROW_CSS = [
     ':has(>.l-sidebar-right){display:flex!important;flex-direction:row;align-items:flex-start;gap:20px;padding-right:16px!important;margin-right:0!important;box-sizing:border-box}',
     ':has(>.l-sidebar-right)>:not(.l-sidebar-right){flex:1 1 0;min-width:0;width:auto!important;max-width:none!important;float:none!important;margin-right:0!important;padding-right:0!important}',
     '.l-sidebar-right{position:static!important;float:none!important;width:240px!important;min-width:0!important;max-width:240px!important;flex:0 0 240px!important;margin:0!important;padding:0!important;box-sizing:border-box}',
-    '.l-sidebar-right .sidebarModule{overflow-x:clip}',
+    '.l-sidebar-right .sidebarModule{overflow-x:clip;box-sizing:border-box;max-width:100%}',
+    // Длинные названия в колонке обрезаются многоточием, а не уходят за край: счётчики ниже переносятся
+    '.l-sidebar-right :is(.soundBadge__content,.soundBadge__titleContainer,.soundBadge__title){min-width:0;max-width:100%;overflow:hidden}',
+    '.l-sidebar-right :is(.soundBadge__title,.soundBadge__title a,.soundTitle__title){display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.l-sidebar-right .sc-ministats{flex-wrap:wrap;max-width:100%}',
     '.l-sidebar-right .soundStats,.l-sidebar-right .sc-ministats-group{flex-wrap:wrap}',
+    '}',
+    // 2.13.4: «Далее» в окне до 1100 px это компактные строки (обложка 48 px слева, три строки текста справа), а не высокие карточки Aurora
+    // с обложкой на всю ширину колонки: те уезжали под нижний плеер, и волну с очередью нельзя было увидеть вместе. Префикс html body #sc-wave
+    // выигрывает у правил темы и волны независимо от порядка вставки стилей
+    '@media (max-width:1100px){',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile{display:grid;grid-template-columns:48px minmax(0,1fr);column-gap:10px;align-content:center;height:auto;padding:8px}',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile>.scw-art{grid-row:1/4;width:48px;margin:0;align-self:center}',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile>:is(.scw-t1,.scw-t2,.scw-t3){grid-column:2;margin:0}',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf){grid-auto-rows:auto;gap:10px}',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile:hover{transform:none}',
+    '}',
+    // Узкое и невысокое окно (860x600..900x720): «Далее» одним рядом из трёх плиток, чтобы плашка и очередь были видны над плеером без прокрутки
+    '@media (max-height:760px) and (max-width:900px){',
+    'html body #sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(n+4){display:none}',
+    'html body #sc-wave .scw-up-h{margin-top:16px}',
     '}',
     '@media (max-width:1100px){',
     // Ряд жанров «Все / Весёлое / …» не переносится сиротой, а листается по горизонтали без полосы

@@ -3,7 +3,7 @@
 import * as path from 'path';
 import type { TranslationKeys } from '../services/translationService';
 import {
-    DOWNLOAD_MAX_BYTES, downloadFileName, extensionFor, isDownloadUrl, parseHlsSegments, validateDownloadRequest, type DownloadRequest,
+    DOWNLOAD_MAX_BYTES, downloadFileName, extensionFor, extensionFromResponse, isDownloadUrl, parseHlsSegments, validateDownloadRequest, type DownloadRequest,
 } from '../services/trackDownload';
 import type { IpcRegistry, SenderCheck } from './ipcTypes';
 
@@ -34,16 +34,35 @@ export interface DownloadIpcDeps {
     notify(message: string): void;
     translate(key: TranslationKeys): string;
 }
-export type DownloadResult = { ok: true; file: string } | { ok: false; reason: 'invalid' | 'busy' | 'cancelled' | 'failed' };
+/** 'unreachable': пробная ссылка (soft) не открылась до окна сохранения, ничего не показано и не записано: страница пробует другой источник */
+export type DownloadResult = { ok: true; file: string } | { ok: false; reason: 'invalid' | 'busy' | 'cancelled' | 'failed' | 'unreachable' };
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** Постоянные ответы сервера (нет файла, закрыто) не повторяются; сеть, 408, 429 и 5xx повторяются */
+const retryable = (error: unknown): boolean => {
+    const status = /^HTTP (\d+)$/.exec(error instanceof Error ? error.message : '')?.[1];
+    return !status || Number(status) >= 500 || status === '408' || status === '429';
+};
+async function attempt<T>(job: () => Promise<T>, tries = 3): Promise<T> {
+    for (let n = 1; ; n++) {
+        try {
+            return await job();
+        } catch (error) {
+            if (n >= tries || !retryable(error)) throw error;
+            await sleep(500 * n);
+        }
+    }
+}
 
 export function registerDownloadIpc(ipc: IpcRegistry, deps: DownloadIpcDeps): void {
     let busy = false;
-    const get = async (url: string): Promise<DownloadResponse> => {
-        const response = await deps.fetch(url);
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        if (!isDownloadUrl(response.url)) throw new Error('Адрес после перехода не на SoundCloud');
-        return response;
-    };
+    const get = (url: string): Promise<DownloadResponse> =>
+        attempt(async () => {
+            const response = await deps.fetch(url);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            if (!isDownloadUrl(response.url)) throw new Error('Адрес после перехода не на SoundCloud');
+            return response;
+        });
     // Тело ответа в приёмник; потолок размера общий на весь файл
     async function pump(response: DownloadResponse, sink: DownloadSink, counted: { bytes: number }, report: () => void): Promise<void> {
         const reader = response.body?.getReader();
@@ -61,17 +80,39 @@ export function registerDownloadIpc(ipc: IpcRegistry, deps: DownloadIpcDeps): vo
             report();
         }
     }
+    // Кусок HLS целиком в память (это секунды звука) и только потом в файл: оборвавшийся кусок скачивается заново, а не дописывается дублем
+    async function segment(url: string): Promise<Uint8Array[]> {
+        return attempt(async () => {
+            const parts: Uint8Array[] = [];
+            const local = { bytes: 0 };
+            await pump(await get(url), { write: async (chunk) => void parts.push(chunk), close: async () => undefined, discard: async () => undefined }, local, () => undefined);
+            return parts;
+        });
+    }
     async function run(request: DownloadRequest): Promise<DownloadResult> {
         let sink: DownloadSink | null = null;
         try {
-            const first = await get(request.url);
+            let first: DownloadResponse;
+            try {
+                first = await get(request.url);
+            } catch (error) {
+                if (!request.soft) throw error;
+                console.warn('Скачивание: пробная ссылка не открылась', error);
+                return { ok: false, reason: 'unreachable' };
+            }
             let plan: ReturnType<typeof parseHlsSegments> = null;
-            let mime = request.mime;
+            let ext = extensionFor(request.mime);
             if (request.kind === 'hls') {
                 plan = parseHlsSegments(await first.text(), first.url);
-                if (!plan || ![plan.init, ...plan.segments].every((url) => url === null || isDownloadUrl(url))) throw new Error('Поток не разобран, зашифрован или не на SoundCloud');
-            } else mime = first.headers.get('content-type') || mime;
-            const ext = extensionFor(mime);
+                if (!plan || ![plan.init, ...plan.segments].every((url) => url === null || isDownloadUrl(url))) {
+                    if (request.soft) return { ok: false, reason: 'unreachable' };
+                    throw new Error('Поток не разобран, зашифрован или не на SoundCloud');
+                }
+            } else {
+                ext = extensionFromResponse(first.headers.get('content-type'), first.headers.get('content-disposition'), first.url, request.mime);
+                // Соединение не держится открытым, пока человек выбирает место: за это время сервер его рвал, и файл приходил оборванным
+                await first.body?.getReader().cancel().catch(() => undefined);
+            }
             const folder = path.join(deps.downloadsFolder(), 'SoundCloud');
             await deps.mkdir(folder);
             const chosen = await deps.saveDialog({
@@ -79,22 +120,26 @@ export function registerDownloadIpc(ipc: IpcRegistry, deps: DownloadIpcDeps): vo
                 defaultPath: path.join(folder, downloadFileName(request.artist, request.title, ext)),
                 filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
             });
-            if (chosen.canceled || !chosen.filePath) {
-                await first.body?.getReader().cancel().catch(() => undefined);
-                return { ok: false, reason: 'cancelled' };
-            }
+            if (chosen.canceled || !chosen.filePath) return { ok: false, reason: 'cancelled' };
             const file = chosen.filePath;
+            // Файл заново после выбора места: ссылка подписана и живёт минуты, а не часы
+            const body = request.kind === 'hls' ? first : await get(request.url);
             sink = await deps.open(file);
             const counted = { bytes: 0 };
             if (plan) {
                 const urls = plan.init ? [plan.init, ...plan.segments] : plan.segments;
                 for (let i = 0; i < urls.length; i++) {
-                    await pump(await get(urls[i]), sink, counted, () => deps.progress(i / urls.length));
+                    for (const chunk of await segment(urls[i])) {
+                        counted.bytes += chunk.byteLength;
+                        if (counted.bytes > DOWNLOAD_MAX_BYTES) throw new Error('Файл слишком большой');
+                        await sink.write(chunk);
+                    }
                     deps.progress((i + 1) / urls.length);
                 }
             } else {
-                const total = Number(first.headers.get('content-length')) || 0;
-                await pump(first, sink, counted, () => deps.progress(total ? Math.min(0.99, counted.bytes / total) : 0.5));
+                const total = Number(body.headers.get('content-length')) || 0;
+                await pump(body, sink, counted, () => deps.progress(total ? Math.min(0.99, counted.bytes / total) : 0.5));
+                if (total && counted.bytes < total) throw new Error('Файл пришёл не целиком');
             }
             if (!counted.bytes) throw new Error('Пустой файл');
             await sink.close();
