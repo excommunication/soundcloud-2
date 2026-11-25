@@ -48,7 +48,18 @@ export function pickTranscoding(track: WaveTrack): Transcoding | null {
 export function installDownload(core: DownloadCore): DownloadSection {
     const ru = core.lang === 'ru';
     const API = 'https://api-v2.soundcloud.com';
-    const text = { label: ru ? 'Скачать' : 'Download', failed: ru ? 'Не удалось получить файл трека' : 'Couldn’t get the track file' };
+    const text = {
+        label: ru ? 'Скачать' : 'Download',
+        failed: ru ? 'Не удалось получить файл трека' : 'Couldn’t get the track file',
+        protectedTrack: ru ? 'Этот трек правообладатель закрыл защитой: SoundCloud даёт его только слушать, не скачивать' : 'This track is protected by the rights holder: SoundCloud allows streaming only, not downloads',
+    };
+    /** У трека есть только зашифрованный поток (Widevine): скачать нечего, это не сбой */
+    const onlyProtected = (track: object): boolean => {
+        const list = (track as { media?: { transcodings?: unknown } }).media?.transcodings;
+        if (!Array.isArray(list) || !list.length) return false;
+        return list.every((raw) => /encrypted/i.test(str((raw as { format?: { protocol?: unknown } } | null)?.format?.protocol)));
+    };
+    let lastProtected = false;
     const str = (value: unknown): string => (typeof value === 'string' ? value : '');
     // Трек из списков сайта часто без media и track_authorization: берём полный
     async function fullTrack(track: WaveTrack): Promise<{ media?: unknown; track_authorization?: unknown; downloadable?: unknown; has_downloads_left?: unknown } & WaveTrack> {
@@ -69,6 +80,7 @@ export function installDownload(core: DownloadCore): DownloadSection {
         }
         const item = pickTranscoding(full);
         const auth = str(full.track_authorization);
+        lastProtected = !item && onlyProtected(full);
         if (!item) return null;
         const link = item.url + (item.url.includes('?') ? '&' : '?') + (auth ? 'track_authorization=' + encodeURIComponent(auth) : '');
         const body = (await core.get(link)) as { url?: unknown } | null;
@@ -80,6 +92,7 @@ export function installDownload(core: DownloadCore): DownloadSection {
         run: async (track) => {
             if (!core.send || core.disposed()) return;
             let payload: DownloadPayload | null = null;
+            lastProtected = false;
             try {
                 payload = await payloadOf(track);
             } catch (error) {
@@ -87,7 +100,7 @@ export function installDownload(core: DownloadCore): DownloadSection {
             }
             if (core.disposed()) return;
             if (!payload) {
-                core.showToast(text.failed);
+                core.showToast(lastProtected ? text.protectedTrack : text.failed);
                 return;
             }
             // Итог (место, ход, готово или ошибка) показывает main

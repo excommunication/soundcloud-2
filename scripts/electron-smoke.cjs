@@ -101,7 +101,7 @@ app.whenReady().then(async () => {
     }
     console.log('PASS: settings lifecycle');
     manager.dispose();
-    const { UpdateScreen } = require('../tsc/update/updateScreen');
+    const { UpdateScreen, updateCardBounds } = require('../tsc/update/updateScreen');
     const updateScreen = new UpdateScreen(win, 32);
     const updateView = win.contentView.children.at(-1);
     const screenState = { title: 'Обновление до версии 9.9.9', status: 'Загружаю: 42%', percent: 42, later: 'Позже', installing: false, dark: true };
@@ -113,7 +113,10 @@ app.whenReady().then(async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.deepEqual(await readScreen(), { title: 'Обновление до версии 9.9.9', status: 'Загружаю: 42%', width: '42%', later: false, now: '42' });
     assert.equal(updateScreen.owns(updateView.webContents), true);
-    assert.equal(updateView.getBounds().y, 32);
+    // Карточка в правом нижнем углу над плеером, не на всё окно и не выше шапки
+    const content = win.getContentBounds();
+    assert.deepEqual(updateView.getBounds(), updateCardBounds(content.width, content.height, 32));
+    assert.ok(updateView.getBounds().y >= 32);
     const laterPressed = new Promise(resolve => ipcMain.once('update-screen-later', event => resolve(isTrustedLocalSender(event))));
     await updateView.webContents.executeJavaScript("document.getElementById('later').click()");
     assert.equal(await laterPressed, true);
