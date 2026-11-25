@@ -2,7 +2,7 @@
 // Включается только когда в папке данных лежит yt-cookies.txt (экспорт cookies отдельного аккаунта): без входа YouTube
 // отвечает «подтвердите, что вы не бот». yt-dlp скачивается с официального релиза при первом использовании.
 import { execFile } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, renameSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from 'fs';
 import { join } from 'path';
 
 export interface FullQuery {
@@ -70,13 +70,33 @@ export interface FullTrackOptions {
     run?: Run;
 }
 
-const BINARY_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+/** Пауза после отказа «не бот» */
+export const BOT_PAUSE_MS = 30 * 60_000;
+const BINARY_URL ='https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
 
 export class FullTrackService {
     private readonly cache = new Map<string, FullResult | null>();
     private readonly pending = new Map<string, Promise<FullResult | null>>();
     private binary: Promise<string | null> | null = null;
     private readonly exec: Run;
+    private botPending = false;
+    /** После отказа «не бот» YouTube не дёргается до этого времени или до новых cookies: каждый запрос лишь закрепляет блок */
+    private blockedUntil = 0;
+    /** YouTube только что отказал проверкой «не бот»: true один раз на каждый такой блок, чтобы позвать человека войти */
+    public takeBotWarning(): boolean {
+        if (!this.botPending) return false;
+        this.botPending = false;
+        return true;
+    }
+    /** Сейчас пауза после отказа YouTube */
+    public blocked(now = Date.now()): boolean {
+        return now < this.blockedUntil;
+    }
+    /** Новые cookie: пауза снимается, неудачи забываются, поиск повторится сразу */
+    public unblock(): void {
+        this.blockedUntil = 0;
+        for (const [key, value] of this.cache) if (!value) this.cache.delete(key);
+    }
 
     constructor(private readonly options: FullTrackOptions) {
         this.exec = options.run ?? run;
@@ -107,7 +127,7 @@ export class FullTrackService {
         return this.binary;
     }
     public resolve(query: FullQuery): Promise<FullResult | null> {
-        if (!this.enabled() || !query.title) return Promise.resolve(null);
+        if (!this.enabled() || !query.title || this.blocked()) return Promise.resolve(null);
         const key = norm(query.uploader + ' ' + query.title) + '|' + Math.round(query.durationMs / 1000);
         if (this.cache.has(key)) return Promise.resolve(this.cache.get(key) ?? null);
         const waiting = this.pending.get(key);
@@ -117,6 +137,11 @@ export class FullTrackService {
             .catch((error: unknown) => {
                 console.warn('Полный трек не найден', error);
                 failed = true;
+                // YouTube требует вход: cookies устарели или адрес (часто VPN) помечен. Полчаса тишины и просьба войти
+                if (isBotCheck(error) && !this.blocked()) {
+                    this.blockedUntil = Date.now() + BOT_PAUSE_MS;
+                    this.botPending = true;
+                }
                 return null;
             })
             .then((result) => {
@@ -135,8 +160,11 @@ export class FullTrackService {
         const binary = await this.ensureBinary();
         if (!binary) return null;
         const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+        // yt-dlp переписывает файл cookie по итогам запроса: ему достаётся копия, вставленный человеком файл не меняется
+        const cookies = join(this.options.dataDir, 'yt-cookies.run.txt');
+        copyFileSync(join(this.options.dataDir, 'yt-cookies.txt'), cookies);
         const base = [
-            '--cookies', join(this.options.dataDir, 'yt-cookies.txt'),
+            '--cookies', cookies,
             '--js-runtimes', 'node:' + this.options.nodePath,
             '--remote-components', 'ejs:github',
             '--no-warnings', '--no-playlist',
@@ -149,5 +177,10 @@ export class FullTrackService {
         const url = out.split(/\r?\n/).map((line) => line.trim()).find((line) => /^https:\/\/[a-z0-9.-]+\.googlevideo\.com\//.test(line));
         return url ? { url, videoId: pick.id, title: pick.title } : null;
     }
+}
+/** Отказ YouTube «Sign in to confirm you're not a bot»: апостроф в выводе yt-dlp бывает любым или испорченным */
+export function isBotCheck(error: unknown): boolean {
+    const text = error instanceof Error ? error.message + ' ' + String((error as { stderr?: unknown }).stderr ?? '') : String(error);
+    return /confirm you.{1,3}re not a bot/i.test(text);
 }
 export { BINARY_URL };

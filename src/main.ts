@@ -17,6 +17,7 @@ import { quietOptionsOf, type QuietOptions } from './services/wave/quiet';
 import { pageMotionScript } from './services/pageMotion';
 import { playerAreaScript } from './services/playerArea';
 import { searchLinkScript } from './services/searchLink';
+import { searchHistoryScript } from './services/searchHistory';
 import { WaveJournal } from './services/waveJournal';
 import { flushOnSessionEnd } from './services/sessionEnd';
 import { WaveExclusions } from './services/waveExclusions';
@@ -51,6 +52,7 @@ import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEf
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
+import { registerDownloadIpc, type DownloadResponse } from './ipc/downloadIpc';
 import { registerBackupIpc } from './ipc/backupIpc';
 import { registerSettingsIpc } from './ipc/settingsIpc';
 import { registerAccountsIpc, type PendingChanges } from './ipc/accountsIpc';
@@ -74,7 +76,7 @@ import {
     type IpcMainEvent,
     type NativeImage,
 } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, promises as fsPromises } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, renameSync, promises as fsPromises } from 'fs';
 import { setupDarwinMenu } from './macos/menu';
 import { NotificationManager } from './notifications/notificationManager';
 import { SettingsManager } from './settings/settingsManager';
@@ -96,7 +98,8 @@ import { audioMonitorScript } from './services/audioMonitorService';
 import path from 'path';
 import { platform, release, totalmem } from 'os';
 import { memoryVerdict } from './services/memoryGuard';
-import { importBrowserSession, runBrowserLogin } from './services/browserLogin';
+import { COOKIE_EDITOR_URL, importBrowserSession, runBrowserLogin } from './services/browserLogin';
+import { parseYoutubeCookies, YOUTUBE_URL } from './services/youtubeCookies';
 
 import Store from 'electron-store';
 import windowStateManager from 'electron-window-state';
@@ -1306,6 +1309,58 @@ async function init() {
             return Buffer.from(await response.arrayBuffer());
         },
     });
+    // Подключение YouTube (services/youtubeCookies.ts): Google не пускает во встроенные окна, поэтому человек входит в YouTube
+    // в своём браузере и вставляет cookie из Cookie-Editor; клиент сам пишет yt-cookies.txt и сразу снимает паузу поиска
+    let youtubeLoginOpen = false;
+    const startYoutubeLogin = async (): Promise<void> => {
+        if (youtubeLoginOpen) return;
+        youtubeLoginOpen = true;
+        const t = (key: TranslationKeys): string => translationService.translate(key);
+        const ask = async (message: string, detail: string, buttons: string[]): Promise<number> => {
+            const options = { type: 'info' as const, title: t('youtubeLoginTitle'), message, detail, buttons, defaultId: 0, cancelId: buttons.length - 1, noLink: true };
+            const result = mainWindow && !mainWindow.isDestroyed() ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
+            return result.response;
+        };
+        try {
+            showMainWindow();
+            const buttons = [t('youtubeLoginOpen'), t('browserLoginExtension'), t('youtubeLoginPaste'), t('browserLoginCancel')];
+            for (let round = 0; round < 12; round++) {
+                const choice = await ask(t('youtubeLoginMessage'), t('youtubeLoginDetail'), buttons);
+                if (choice === 0) await shell.openExternal(YOUTUBE_URL).catch(() => undefined);
+                else if (choice === 1) await shell.openExternal(COOKIE_EDITOR_URL).catch(() => undefined);
+                else if (choice === 2) {
+                    const parsed = parseYoutubeCookies(clipboard.readText());
+                    if (!parsed.ok) {
+                        diagnostics.record('fullTrack.login-failed', { reason: parsed.reason });
+                        await ask(t(parsed.reason === 'no-login' ? 'youtubeLoginNoLogin' : 'youtubeLoginBadFormat'), '', ['OK']);
+                        continue;
+                    }
+                    const file = path.join(app.getPath('userData'), 'yt-cookies.txt');
+                    writeFileSync(file + '.part', parsed.text, { mode: 0o600 });
+                    renameSync(file + '.part', file);
+                    fullTracks.unblock();
+                    diagnostics.record('fullTrack.login-done', { cookies: parsed.cookies.length });
+                    queueToastNotification(t('youtubeLoginDone'));
+                    return;
+                } else return;
+            }
+        } catch (error) {
+            console.error('Подключение YouTube:', error);
+        } finally {
+            youtubeLoginOpen = false;
+        }
+    };
+    // YouTube попросил войти: системное уведомление, клик открывает подключение; без уведомлений Windows — подсказка в окне
+    const askYoutubeLogin = (): void => {
+        const t = (key: TranslationKeys): string => translationService.translate(key);
+        if (!Notification.isSupported()) {
+            queueToastNotification(t('fullTrackBlocked'));
+            return;
+        }
+        const note = new Notification({ title: t('youtubeLoginTitle'), body: t('youtubeLoginNotify') });
+        note.on('click', () => void startYoutubeLogin());
+        note.show();
+    };
     ipcMain.removeHandler('soundcloud:full-track');
     ipcMain.handle('soundcloud:full-track', async (event, input: unknown) => {
         if (!isTrustedSoundCloudSender(event) || !input || typeof input !== 'object') return null;
@@ -1314,6 +1369,10 @@ async function init() {
         const uploader = typeof value.uploader === 'string' ? value.uploader.slice(0, 120) : '';
         const durationMs = typeof value.durationMs === 'number' && Number.isFinite(value.durationMs) ? Math.max(0, Math.min(value.durationMs, 3600000)) : 0;
         const found = await fullTracks.resolve({ title, uploader, durationMs });
+        if (fullTracks.takeBotWarning()) {
+            diagnostics.record('fullTrack.blocked', { reason: 'youtube-bot-check' });
+            askYoutubeLogin();
+        }
         return found ? { url: found.url } : null;
     });
     ipcMain.removeHandler('soundcloud:lyrics');
@@ -1363,6 +1422,30 @@ async function init() {
     radarScheduler.start();
     registerRadarIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, store, library, diagnostics, scheduler: () => radarScheduler });
     registerLibraryIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, library });
+    // «Скачать» в меню правого клика: файл пишется после выбора места, ход на значке панели задач
+    registerDownloadIpc(ipcMain, {
+        trustedSite: isTrustedSoundCloudSender,
+        fetch: (url) => fetch(url, { redirect: 'follow' }) as unknown as Promise<DownloadResponse>,
+        saveDialog: (options) => dialog.showSaveDialog(mainWindow, options),
+        downloadsFolder: () => app.getPath('downloads'),
+        mkdir: async (dir) => void (await fsPromises.mkdir(dir, { recursive: true })),
+        open: async (file) => {
+            const handle = await fsPromises.open(file, 'w');
+            return {
+                write: async (chunk) => void (await handle.write(chunk)),
+                close: () => handle.close(),
+                discard: async () => {
+                    await handle.close().catch(() => undefined);
+                    await fsPromises.rm(file, { force: true });
+                },
+            };
+        },
+        progress: (value) => {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(value === null ? -1 : value);
+        },
+        notify: queueToastNotification,
+        translate: (key) => translationService.translate(key),
+    });
     historyManager = new HistoryManager(mainWindow, library, {
         site: () => (contentView.webContents.isDestroyed() ? null : contentView.webContents),
         fallbackUser: () => waveExclusions?.currentUser() ?? 0,
@@ -1579,6 +1662,8 @@ async function init() {
             await contentView.webContents.executeJavaScript(homePageScript());
             await contentView.webContents.executeJavaScript(waveScript(playback.playedThisRun, quietOptions(), store.get('waveNoRussian', false) === true));
             await contentView.webContents.executeJavaScript(playerAreaScript());
+            // История поиска раньше ссылок в поиске: стрелки и Enter по пункту списка забирает она
+            await contentView.webContents.executeJavaScript(searchHistoryScript(translationService.getLanguage()));
             await contentView.webContents.executeJavaScript(searchLinkScript());
 
             if (presenceService) {

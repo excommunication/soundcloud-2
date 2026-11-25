@@ -446,8 +446,13 @@ export function appearanceCss(appearance: Appearance): string {
             '#sca-bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;display:block;opacity:0;transition:opacity 1.2s ease}',
             '#sca-bg.on{opacity:1}',
             // Шапка сайта и плеер снизу: стекло
-            `.header,.header__inner,.header__background{background:${panel}!important;backdrop-filter:${blur};-webkit-backdrop-filter:${blur};border-bottom:1px solid rgba(255,255,255,.06)!important;box-shadow:none!important}`,
-            `.playControls__bg,.playControls__inner,.playControls__wrapper{background:${panel}!important;backdrop-filter:${blur};-webkit-backdrop-filter:${blur};border-top:1px solid rgba(255,255,255,.07)!important}`,
+            // Стекло только у полосы во всю ширину окна: внутренние контейнеры сайта (1240px по центру) прозрачные, иначе
+            // второй слой стекла рисует тёмный прямоугольник с резкими краями поверх полосы
+            `.header{background:${panel}!important;backdrop-filter:${blur};-webkit-backdrop-filter:${blur};border-bottom:1px solid rgba(255,255,255,.06)!important;box-shadow:none!important}`,
+            `.header__inner,.header__background{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:0!important;box-shadow:none!important}`,
+            `.header__inner{height:auto!important;max-height:100%}`,
+            `.playControls__inner{background:${panel}!important;backdrop-filter:${blur};-webkit-backdrop-filter:${blur};border-top:1px solid rgba(255,255,255,.07)!important}`,
+            `.playControls__bg,.playControls__wrapper{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:0!important}`,
             // Боковые колонки, модули и всплывающее: мягкие стеклянные карточки
             `.sidebarModule,.l-sidebar-right .sidebarModule,.dropdownMenu,.moreActions,.dropbar,.queue,.modal__modal,.dialog{background:${panel}!important;backdrop-filter:${blur};-webkit-backdrop-filter:${blur}}`,
             `.sidebarModule{border-radius:${r}px;padding:4px 12px!important;margin-bottom:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}`,
@@ -462,8 +467,10 @@ export function appearanceCss(appearance: Appearance): string {
             `.collectionNav .g-tabs-link::after,.g-tabs .g-tabs-link::after,.g-tabs .g-tabs-link::before{display:none!important}`,
             `.collectionSection{margin-bottom:28px!important;border:0!important}`,
             `.collectionSection__title,.collectionSection__titleLink{font-size:20px!important;font-weight:700!important;letter-spacing:-.2px}`,
-            `.collectionSection .badgeList__item,.collectionSection .playableTile{padding:10px!important;border-radius:${r}px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);transition:background-color .18s ease,transform .18s ease}`,
-            `.collectionSection .badgeList__item:hover,.collectionSection .playableTile:hover{background:rgba(255,255,255,.09);transform:translateY(-2px)}`,
+            // Карточка одна: если в пункте списка лежит плитка, стекло у плитки, а пункт без подложки (иначе две рамки одна в другой)
+            `.collectionSection .badgeList__item:not(:has(.playableTile)),.collectionSection .playableTile{padding:10px!important;border-radius:${r}px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);transition:background-color .18s ease,transform .18s ease}`,
+            `.collectionSection .badgeList__item:has(.playableTile){padding:0!important;height:auto!important;background:none!important;box-shadow:none!important;transform:none!important}`,
+            `.collectionSection .badgeList__item:not(:has(.playableTile)):hover,.collectionSection .playableTile:hover{background:rgba(255,255,255,.09)}`,
             `.collectionSection .playableTile__artwork,.collectionSection .sc-artwork{border-radius:${Math.max(6, r - 6)}px!important;overflow:hidden}`,
             // Строки списков: лёгкая подложка на наведении
             `.soundList__item:hover,.trackList__item:hover,.compactTrackList__item:hover,.systemPlaylistTrackList__item:hover{background:rgba(255,255,255,.04)!important;border-radius:${Math.max(4, r - 4)}px}`,

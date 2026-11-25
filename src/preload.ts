@@ -367,6 +367,8 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     // Текст играющего трека: ищет main (LRCLIB, запасной Genius), ввод проверяет он же
     fullTrack: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:full-track', query),
     lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
+    // «Скачать» в меню правого клика: ссылку на аудио находит страница, адрес и ввод проверяет main
+    downloadTrack: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:download-track', payload),
     // Запись ролика из режима «Для роликов»: разрешение на захват кадра страницы и сохранение файла; ввод проверяет main
     clipRecord: {
         arm: (state: string, note?: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state, note),

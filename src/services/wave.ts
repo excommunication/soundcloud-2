@@ -28,6 +28,7 @@ import * as librarySectionModule from './wave/library';
 import * as radarSectionModule from './wave/radar';
 import * as shelfSectionModule from './wave/shelf';
 import * as menuSectionModule from './wave/menu';
+import * as downloadSectionModule from './wave/download';
 import * as quietSectionModule from './wave/quiet';
 import * as seekGuardModule from './seekGuard';
 import * as scoutSectionModule from './wave/scout';
@@ -68,6 +69,7 @@ const { installLibrary } = librarySectionModule;
 const { installRadar } = radarSectionModule;
 const { installShelf } = shelfSectionModule;
 const { installMenu } = menuSectionModule;
+const { installDownload, pickTranscoding } = downloadSectionModule;
 const { installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf } = quietSectionModule;
 const { installScout, scoutStart, dropAt } = scoutSectionModule;
 const { glowPalette } = glowModule;
@@ -80,7 +82,7 @@ const { createSeekWatch, restorePosition, seekBackDelta } = seekGuardModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
 const { installFull } = fullSectionModule;
-const { installLikes } = likesSectionModule;
+const { installLikes, likeStreak } = likesSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
 const { installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes } = waveSourcesModule;
@@ -234,6 +236,8 @@ export interface WaveWindow extends Window {
         clipRecord?: { arm(state: string): Promise<unknown>; save(data: ArrayBuffer, name: string, ext: string): Promise<unknown> };
         // Полный трек вместо отрывка Go+: ссылку на аудио с YouTube ищет main (нужен yt-cookies.txt в папке данных)
         fullTrack?(query: { title: string; uploader: string; durationMs: number }): Promise<{ url: string } | null>;
+        // «Скачать» в меню: ссылку на аудио находит страница, место и файл ведёт main
+        downloadTrack?(payload: object): Promise<unknown>;
         // «Джем»: мост к комнате в main, разбирает раздел wave/jam.ts
         jam?: object;
     };
@@ -758,8 +762,17 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     } catch {
         // хранилище недоступно: текст раскрыт
     }
+    // «Скачать» в меню: раздел в wave/download.ts
+    const downloadSection = installDownload({
+        lang: host.__scSiteTranslation?.language === 'ru' ? 'ru' : 'en',
+        disposed: () => disposed,
+        get: async (url) => (api ? (await Promise.race([api.callEndpointByUrl('resolve', url), wait(10000).then(() => null)]))?.body ?? null : null),
+        send: host.soundcloudAPI?.downloadTrack ? (payload) => host.soundcloudAPI!.downloadTrack!(payload) : null,
+        showToast,
+    });
     // Меню по правому клику и волна от трека, артиста, плейлиста: раздел в wave/menu.ts
     const menuSection = installMenu({
+        download: downloadSection,
         texts: T,
         state: () => state,
         disposed: () => disposed,
@@ -6116,9 +6129,9 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, installLikes, trackAccess, installForYou, installJam, ...jamHelpers,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, installLikes, likeStreak, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery, createSeekWatch, restorePosition, seekBackDelta,
-    installVersions, installLibrary, installRadar, installShelf, installMenu, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
+    installVersions, installLibrary, installRadar, installShelf, installMenu, installDownload, pickTranscoding, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];
 
 /** Смена настроек тихих краёв и плавного перехода в F1: страница подхватывает без перезагрузки */

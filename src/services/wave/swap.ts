@@ -39,13 +39,17 @@ export function installSwap(core: SwapCore): SwapSection {
     const T = core.lang === 'ru'
         ? { swapped: 'Заменил недоступный трек на версию, которую можно слушать: {title}' }
         : { swapped: 'Replaced an unavailable track with a playable upload: {title}' };
-    const KEY = 'scDesktopDrmBroken';
+    // Ключ с номером: прежний флаг ставился и от быстрого пропуска трека руками, его больше не читаем
+    const KEY = 'scDesktopDrmBroken2';
     let drmBroken = false;
     try {
+        localStorage.removeItem('scDesktopDrmBroken');
         drmBroken = Number(localStorage.getItem(KEY) || 0) > Date.now() - 7 * 86400000;
     } catch {
         // без хранилища считается рабочим
     }
+    // Защищённые треки, сменившиеся сами не проиграв и двух секунд, подряд: одного случая мало, это мог быть сбой сети
+    let drmFailures = 0;
     // Найденные замены и неудачи: по id исходного трека, на сессию
     const found = new Map<number, WaveTrack | null>();
     const pending = new Set<number>();
@@ -89,13 +93,14 @@ export function installSwap(core: SwapCore): SwapSection {
                 }
             }
             // Та же песня: та же семья по разбору названия; лучше та же версия и длительность рядом, без отрывков
+            // Только та же версия: никаких slowed, sped up, ремиксов и безымянных переделок вместо оригинала
             const scored = pool
-                .filter((item) => family && familyKey(item) === family && trackAccess(item) === 'ok')
+                .filter((item) => family && familyKey(item) === family && versionKey(item) === version && trackAccess(item) === 'ok')
                 // Только настоящая копия: длительность в пределах трёх секунд, иначе лучше не менять совсем
                 .filter((item) => !length || !trackDuration(item) || Math.abs(trackDuration(item) - length) <= 3000)
                 .map((item) => {
                     const near = length && trackDuration(item) ? Math.abs(trackDuration(item) - length) / 1000 : 30;
-                    const score = (versionKey(item) === version ? 10 : 0) - Math.min(near, 60) / 6 + Math.log10(1 + (item.playback_count ?? 0));
+                    const score = -Math.min(near, 60) / 6 + Math.log10(1 + (item.playback_count ?? 0));
                     return { item, score };
                 })
                 .sort((a, b) => b.score - a.score);
@@ -138,14 +143,19 @@ export function installSwap(core: SwapCore): SwapSection {
         const sound = p.getCurrentSound();
         const id = sound?.id ?? 0;
         const position = typeof sound?.currentTime === 'function' ? sound.currentTime() || 0 : 0;
-        // Защищённый трек сменился, не проиграв и двух секунд, хотя его включали: Widevine здесь не работает
+        // Защищённый трек сменился сам, не проиграв и двух секунд: похоже, Widevine здесь не работает. Пропуск руками
+        // (клик, клавиша незадолго до смены) не в счёт, и вывод делается только после двух таких треков подряд
         if (id !== lastId) {
-            if (lastId && lastDrm && lastPos < 2000 && Date.now() - lastStarted < 15000 && !drmBroken) {
-                drmBroken = true;
-                try {
-                    localStorage.setItem(KEY, String(Date.now()));
-                } catch {
-                    // без хранилища до перезагрузки
+            if (lastId && lastDrm && !drmBroken) {
+                const failed = lastPos < 2000 && Date.now() - lastStarted < 15000 && Date.now() - lastInput > 4000;
+                drmFailures = failed ? drmFailures + 1 : lastPos >= 2000 ? 0 : drmFailures;
+                if (drmFailures >= 2) {
+                    drmBroken = true;
+                    try {
+                        localStorage.setItem(KEY, String(Date.now()));
+                    } catch {
+                        // без хранилища до перезагрузки
+                    }
                 }
             }
             lastId = id;

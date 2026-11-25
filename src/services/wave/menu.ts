@@ -7,6 +7,7 @@ import * as waveLinks from '../waveLinks';
 import * as wavePicks from '../wavePicks';
 import type { Excluded, MarkKind, MenuTarget, Seed, WaveCandidate, WaveLinkKind, WaveState, WaveTexts, WaveTrack } from '../waveTypes';
 import type { SitePlayer } from '../wave';
+import type { DownloadSection } from './download';
 
 const { canonicalUrl, classifyLink, classifyTag } = waveLinks;
 const { shuffleInPlace, trackArtist } = wavePicks;
@@ -72,6 +73,8 @@ export interface MenuCore {
     showLyrics(target: MenuTarget): void;
     /** Название жанра карточки полки под узлом; пусто, если это не карточка жанра */
     cardGenre(node: Element): string;
+    /** Скачивание трека: раздел wave/download.ts */
+    download: DownloadSection;
 }
 /** Что раздел отдаёт ядру: слушатели страницы, закрытие меню, слежение за iframe */
 export interface MenuSection {
@@ -112,6 +115,8 @@ export function installMenu(core: MenuCore): MenuSection {
         later: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z"/></svg>',
         // Стопка слоёв: версии одной песни
         versions: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2 15 5 8 8.8 1 5zM2.7 7.4 8 10.3l5.3-2.9L15 8.3 8 12.1 1 8.3zm0 3.3L8 13.6l5.3-2.9 1.7.9L8 15.4 1 11.6z"/></svg>',
+        // Стрелка вниз над лотком: скачать трек
+        download: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.25 1.5h1.5v6.69l2.22-2.22 1.06 1.06L8 11.06 3.97 7.03l1.06-1.06 2.22 2.22zM2 12.5h12V14H2z"/></svg>',
         // Список с плюсом: трек в набор
         // Строки текста с нотой: текст песни
         lyrics: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v1.5H2zM2 6.25h8v1.5H2zM2 9.5h5.5V11H2zM12.5 6.5v4.8a1.9 1.9 0 1 1-1.25-1.79V5.5H14v1z"/></svg>',
@@ -301,6 +306,8 @@ export function installMenu(core: MenuCore): MenuSection {
             items.push(trackMarked(laterTracks, target) ? ['unlater', T.menuUnlater, 'undo'] : ['later', T.later, 'later']);
             items.push(trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block']);
             items.push(['versions', T.menuVersions, 'versions']);
+            const downloadLabel = core.download.label();
+            if (downloadLabel) items.push(['download', downloadLabel, 'download']);
             items.push(familyHidden(target) ? ['show-family', T.menuShowFamily, 'undo'] : ['hide-family', T.menuHideFamily, 'block']);
         }
         if (target.kind === 'artist') items.push(artistMarked(laterArtists, target) ? ['unlater-artist', T.menuUnlater, 'undo'] : ['later-artist', T.later, 'later']);
@@ -335,6 +342,9 @@ export function installMenu(core: MenuCore): MenuSection {
             case 'unlater-artist': void setExcluded('later-artist', target, act === 'later-artist'); return;
             case 'versions': void core.openVersions(target); return;
             case 'lyrics': core.showLyrics(target); return;
+            case 'download':
+                void trackOf(target).then(async (track) => { if (track && !core.disposed()) await core.download.run(track); }).catch((error: unknown) => { console.warn('Скачивание: трек не найден', error); showToast(T.toastFailed); });
+                return;
             case 'copy-link':
                 void navigator.clipboard.writeText(target.url).then(() => core.showToast(T.toastLinkCopied), () => core.showToast(target.url));
                 return;
@@ -402,16 +412,19 @@ export function installMenu(core: MenuCore): MenuSection {
         });
         document.body.append(root);
         const left = Math.max(8, Math.min(x, window.innerWidth - root.offsetWidth - 8));
-        // Меню выше окна не вылезает: высота ограничивается, лишнее прокручивается; место выбирается там, где больше
-        const room = window.innerHeight - 16;
+        // Меню выше окна не вылезает и под нижний плеер не уходит: низ — верх плеера, высота ограничивается, лишнее
+        // прокручивается; место выбирается там, где больше
+        const bar = document.querySelector('.playControls')?.getBoundingClientRect();
+        const bottom = bar && bar.height > 0 && bar.top > 0 && bar.top < window.innerHeight ? bar.top : window.innerHeight;
+        const room = bottom - 16;
         if (root.offsetHeight > room) {
             root.style.maxHeight = room + 'px';
             root.style.overflowY = 'auto';
         }
         const height = root.offsetHeight;
-        const above = y + height > window.innerHeight - 8 && y - height >= 8;
+        const above = y + height > bottom - 8 && y - height >= 8;
         root.style.left = left + 'px';
-        root.style.top = Math.max(8, Math.min(above ? y - height : y, window.innerHeight - height - 8)) + 'px';
+        root.style.top = Math.max(8, Math.min(above ? y - height : y, bottom - height - 8)) + 'px';
         // Раскрывается из точки клика
         root.style.transformOrigin = Math.max(0, x - left) + 'px ' + (above ? 'bottom' : 'top');
         menu = root;

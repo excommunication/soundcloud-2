@@ -62,8 +62,29 @@ export function pickSpaced(pool: WaveCandidate[], count: number, recent: string[
     const window = recent.slice(-gap);
     const keys = new Map(rest.map((item) => [item, spacingKeys(item.track)] as const));
     const free = (item: WaveCandidate): boolean => !window.some((list) => list.some((key) => keys.get(item)?.includes(key)));
+    // Позиция последнего конфликта с окном: чем раньше, тем давнее исполнитель играл. Если свободных нет (пул одного
+    // артиста или маленький пул), берём тот, чей повтор был дальше, а не голову пула: иначе волна ставит сыгранного
+    // только что. -1 значит конфликта нет, но тогда трек и так свободен
+    const lastConflict = (item: WaveCandidate): number => {
+        let last = -1;
+        window.forEach((list, i) => {
+            if (list.some((key) => keys.get(item)?.includes(key))) last = i;
+        });
+        return last;
+    };
     while (picked.length < count && rest.length) {
         let index = rest.findIndex(free);
+        if (index < 0) {
+            // Меньший индекс последнего конфликта значит давний повтор; при равенстве остаётся порядок пула
+            let best = Infinity;
+            rest.forEach((item, i) => {
+                const last = lastConflict(item);
+                if (last < best) {
+                    best = last;
+                    index = i;
+                }
+            });
+        }
         if (index < 0) index = 0;
         const [item] = rest.splice(index, 1);
         picked.push(item);
