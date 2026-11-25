@@ -9,8 +9,9 @@ let texts = TEXT.ru;
 
 function render(state) {
     if (!state) return;
-    texts = TEXT[state.language] || TEXT.ru;
-    document.documentElement.lang = state.language;
+    const language = state.language === 'en' ? 'en' : 'ru';
+    texts = TEXT[language];
+    document.documentElement.lang = language;
     for (const node of document.querySelectorAll('[data-t]')) node.textContent = texts[node.dataset.t];
     const track = state.track || {};
     document.getElementById('title').textContent = track.title || texts.idle;
@@ -33,4 +34,4 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') window.trayAPI.act('close');
 });
 window.trayAPI.onState(render);
-window.trayAPI.state().then(render);
+window.trayAPI.state().then(render).catch((error) => console.error('Меню трея не получило состояние:', error));

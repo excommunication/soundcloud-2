@@ -1548,6 +1548,32 @@ it('«Не сейчас» у играющего трека ставит след
     expect(site.player.getCurrentSound()!.id).toBe(next);
 });
 
+it('удержание «Не сейчас»: уход курсора со значка на край кнопки не снимает удержание, уход с кнопки снимает', async () => {
+    const site = fakeSite(relatedTracks);
+    const bridge = fakeExclusions();
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(100);
+    const section = document.getElementById('sc-wave')!;
+    section.querySelector<HTMLButtonElement>('.scw-play')!.click();
+    await vi.advanceTimersByTimeAsync(100);
+
+    const playing = site.player.getCurrentSound()!;
+    let later = section.querySelector<HTMLButtonElement>('[data-act="later"]')!;
+    const icon = later.querySelector('svg')!;
+    icon.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    icon.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false }));
+    await vi.advanceTimersByTimeAsync(600);
+    expect(bridge.set).toHaveBeenCalledWith(77, 'later-track', expect.objectContaining({ id: playing.id }), true);
+
+    bridge.set.mockClear();
+    await vi.advanceTimersByTimeAsync(100);
+    later = section.querySelector<HTMLButtonElement>('[data-act="later"]')!;
+    later.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    later.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false }));
+    await vi.advanceTimersByTimeAsync(600);
+    expect(bridge.set).not.toHaveBeenCalledWith(77, 'later-track', expect.anything(), true);
+});
+
 it('лайк в блоке или в плеере сайта зажигает сердце, а не соседние кнопки', async () => {
     fakeSite(relatedTracks);
     document.body.insertAdjacentHTML('beforeend', '<div class="playControls"><button class="playbackSoundBadge__like"></button></div>');

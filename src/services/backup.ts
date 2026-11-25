@@ -437,6 +437,14 @@ export class BackupService {
      * совпасть с проверенным. Перед записью всё затрагиваемое кладётся в защитную копию; сбой откатывает из неё
      */
     public restore(file: string, hash: string): BackupRestoreOutcome {
+        // Защитная копия прошлого восстановления устарела: если это восстановление оборвётся до своей (worker упал на
+        // разборе файла), откат из backupIpc не должен вернуть данные на момент прошлого раза
+        try {
+            this.dropGuard();
+        } catch (error) {
+            console.warn('Резервная копия: прежняя защитная копия не удалена, восстановление не начато', error);
+            return fail(ioReason(error));
+        }
         const read = readBackup(file, this.limits);
         if (!read.ok) return read;
         const { backup } = read;
@@ -524,6 +532,10 @@ export class BackupService {
         renameSync(join(folder, 'guard.json.tmp'), join(folder, 'guard.json'));
     }
 
+    private dropGuard(): void {
+        rmSync(join(this.directory, GUARD), { recursive: true, force: true });
+    }
+
     /** Вернуть файлы worker из защитной копии. false, если её нет или часть файлов не вернулась */
     public rollback(): boolean {
         const folder = join(this.directory, GUARD);
@@ -572,6 +584,12 @@ export class BackupService {
 
     /** После удачного восстановления: индекс перечитывает журнал целиком, вкус считается заново */
     public finish(ids: readonly number[]): void {
+        // Восстановление принято целиком: откатывать больше нечего, а старая копия при следующем сбое стёрла бы новое
+        try {
+            this.dropGuard();
+        } catch (error) {
+            console.warn('Резервная копия: защитная копия не удалена', error);
+        }
         for (const id of ids) {
             if (!isId(id)) continue;
             this.deps.taste.forget(id);

@@ -135,6 +135,8 @@ const copyList = (list: WaveExclusionList): WaveExclusionList => ({
 export class WaveExclusions {
     private cache = new Map<number, WaveExclusionList>();
     private lastUser = 0;
+    // Файл есть, но не прочитан: запись пустого кэша поверх него потеряла бы все отметки
+    private unreadable = new Set<number>();
 
     constructor(private directory: string) {}
 
@@ -145,16 +147,34 @@ export class WaveExclusions {
         const cached = this.cache.get(userId);
         if (cached) return cached;
         let list = emptyList();
+        const file = this.file(userId);
         try {
-            list = cleanExclusionList(JSON.parse(readFileSync(this.file(userId), 'utf8')));
+            list = cleanExclusionList(JSON.parse(readFileSync(file, 'utf8')));
         } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn('Исключения волны не прочитаны:', error);
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code !== 'ENOENT') console.warn('Исключения волны не прочитаны:', error);
+            if (error instanceof SyntaxError) {
+                // Испорченный файл откладывается рядом: первая же отметка иначе переписала бы его одной записью
+                try {
+                    renameSync(file, join(this.directory, 'exclusions-' + userId + '.broken-' + Date.now() + '.json'));
+                } catch (renameError) {
+                    console.warn('Испорченные исключения волны не отложены:', renameError);
+                    this.unreadable.add(userId);
+                }
+            } else if (code !== 'ENOENT') {
+                // Файл есть, но не прочитался (занят, нет доступа): до перезапуска он не переписывается, отметки живут в памяти
+                this.unreadable.add(userId);
+            }
         }
         this.cache.set(userId, list);
         return list;
     }
     private write(userId: number): boolean {
         const target = this.file(userId);
+        if (this.unreadable.has(userId)) {
+            console.warn('Исключения волны не записаны: прежний файл не прочитан, и перезапись стёрла бы его');
+            return false;
+        }
         try {
             mkdirSync(this.directory, { recursive: true });
             const list = this.read(userId);

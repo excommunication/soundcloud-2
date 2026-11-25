@@ -734,7 +734,8 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} .playControls__elements{align-items:center}`,
         `${bar} .playControls__control{margin:0 2px!important}`,
         `${transport}{display:inline-grid!important;place-items:center!important;padding:0!important;margin:0 3px!important;border:0!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;` +
-            `color:rgba(255,255,255,.9)!important;min-width:0!important;transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease,opacity .16s ease!important}`,
+            // flex:none: в узком окне ряд плеера сжимал круглые кнопки по ширине, и play становился овалом 26×44
+            `color:rgba(255,255,255,.9)!important;min-width:0!important;flex:none!important;transition:transform .16s cubic-bezier(.2,.8,.2,1),background-color .16s ease,color .16s ease,opacity .16s ease!important}`,
         // Иконка строго по центру круга (2.7.1): у сайта кнопки с заменой текста картинкой (sc-ir), отступ текста и
         // вложенные div уводили треугольник play в левый верхний угол. Каждый слой на весь круг, подпись скрыта
         `${transport}{position:relative!important;overflow:hidden!important;text-indent:0!important;font-size:0!important;line-height:0!important}`,
@@ -914,6 +915,7 @@ export function auroraPage(config: AuroraConfig): void {
     let time = Math.random() * 1000;
     let speedNow = 1;
     let lost = false;
+    let glWatched: HTMLCanvasElement | null = null;
     const seed = Math.random() * 10;
     const hexRgb = (hex: string): [number, number, number] => {
         const n = parseInt(hex.slice(1), 16);
@@ -1151,16 +1153,21 @@ export function auroraPage(config: AuroraConfig): void {
             console.warn('Переливы: WebGL недоступен');
             return false;
         }
-        canvas.addEventListener('webglcontextlost', (event) => {
-            event.preventDefault();
-            lost = true;
-            program = null;
-            programEffect = '';
-        });
-        canvas.addEventListener('webglcontextrestored', () => {
-            lost = false;
-            setup();
-        });
+        // Слушатели потери контекста вешаются на холст один раз: setup() зовётся снова при восстановлении,
+        // и без этой проверки каждая потеря удваивала бы слушатели и повторные setup()
+        if (glWatched !== canvas) {
+            glWatched = canvas;
+            canvas.addEventListener('webglcontextlost', (event) => {
+                event.preventDefault();
+                lost = true;
+                program = null;
+                programEffect = '';
+            });
+            canvas.addEventListener('webglcontextrestored', () => {
+                lost = false;
+                setup();
+            });
+        }
         const buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -1722,6 +1729,8 @@ export function auroraPage(config: AuroraConfig): void {
         if (!club.isConnected) document.body.prepend(club);
         if (!thump.isConnected) document.body.append(thump);
     }
+    const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
+    const motionCalm = (): boolean => reduceQuery.matches || document.documentElement.classList.contains('scm-reduce');
     let lastAudio = 0;
     let idleShown = false;
     let idleAt = 0;
@@ -1753,7 +1762,9 @@ export function auroraPage(config: AuroraConfig): void {
         const sound = amount > 0 ? readAudio(now) : { bass: 0, kick: 0, level: 0, playing: musicPlaying() };
         if (amount > 0) beatStep(beat, sound.kick, sound.level, now, audioDt);
         else beat.pulse = beat.level = 0;
-        const calm = a.calmOnPause && !sound.playing;
+        // Просьба системы или клиента о меньшем движении: фон течёт спокойно, как на паузе, без разгона под бит
+        const paused = a.calmOnPause && !sound.playing;
+        const calm = paused || motionCalm();
         markPlaying(sound.playing);
         clubVars(sound, amount, calm);
         if (cfg.appearance.effect === 'off' || !gl || lost) {
@@ -1812,7 +1823,7 @@ export function auroraPage(config: AuroraConfig): void {
         gl.uniform3fv(uniforms.u_c1, colorsNow[0]);
         gl.uniform3fv(uniforms.u_c2, colorsNow[1]);
         gl.uniform3fv(uniforms.u_c3, colorsNow[2]);
-        gl.uniform1f(uniforms.u_intensity, (0.25 + (a.intensity / 100) * 0.85) * (calm ? 0.82 : 1));
+        gl.uniform1f(uniforms.u_intensity, (0.25 + (a.intensity / 100) * 0.85) * (paused ? 0.82 : 1));
         gl.uniform1f(uniforms.u_grain, a.grain / 100);
         gl.uniform2f(uniforms.u_mouse, mouse[0], mouse[1]);
         gl.uniform1f(uniforms.u_seed, seed);

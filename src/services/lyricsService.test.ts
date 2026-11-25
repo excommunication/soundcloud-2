@@ -33,6 +33,11 @@ it('geniusLyricsFromHtml: блоки текста без служебных вс
     expect(geniusLyricsFromHtml('<p>nothing</p>')).toBeNull();
 });
 
+it('geniusLyricsFromHtml: кривые числовые ссылки остаются текстом и не роняют разбор', () => {
+    const html = '<div data-lyrics-container="true">It&#8217;s &#X27;ok&#x27; &#abc; &#99999999; &#x110000; &hellip;</div>';
+    expect(geniusLyricsFromHtml(html)).toBe("It’s 'ok' &#abc; &#99999999; &#x110000; &hellip;");
+});
+
 it('findLyrics: LRCLIB с таймкодами, сеть с ошибкой не роняет', async () => {
     const synced = Array.from({ length: 5 }, (_, i) => `[00:0${i}.00] line ${i}`).join('\n');
     const found = await findLyrics(

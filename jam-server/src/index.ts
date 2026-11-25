@@ -4,7 +4,7 @@
 // была активность за последние 7 суток (JAM_LIMITS.idleMs) или есть хоть одно соединение; потом alarm стирает всё хранилище.
 import { DurableObject } from 'cloudflare:workers';
 import { JAM_LIMITS, cleanAvatar, cleanName, makeCode, parseClientMsg, parseCode, type JamServerMsg, type JamState } from '../../src/services/jam/protocol';
-import { addMember, memberOf, newState, reduce, removeMember, shouldExpire } from '../../src/services/jam/room';
+import { addMember, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire } from '../../src/services/jam/room';
 
 interface Env {
     JAM_ROOM: DurableObjectNamespace<JamRoom>;
@@ -116,19 +116,31 @@ export class JamRoom extends DurableObject<Env> {
         const token = url.searchParams.get('token') ?? '';
         const asHost = token.length === this.stored.hostToken.length && same(token, this.stored.hostToken);
         const id = hex(random(4));
-        const added = addMember(this.state(), { id, name, avatar: cleanAvatar(url.searchParams.get('avatar')) }, asHost);
+        // После перезапуска объекта (выкладка, сбой) webSocketClose для старых сокетов не приходит: их участники остаются
+        // в хранилище. Перед входом убираем всех, у кого нет открытого сокета, иначе комната со временем «полна» призраков
+        const live = new Set<string>();
+        for (const ws of this.ctx.getWebSockets()) {
+            const liveId = (ws.deserializeAttachment() as Attachment | null)?.id;
+            if (liveId) live.add(liveId);
+        }
+        const pruned = pruneMembers(this.state(), live);
+        const added = addMember(pruned.state, { id, name, avatar: cleanAvatar(url.searchParams.get('avatar')) }, asHost);
 
         const pair = new WebSocketPair();
         const [client, server] = [pair[0], pair[1]];
         this.ctx.acceptWebSocket(server);
         if (!added.member) {
+            if (pruned.state.members !== this.stored.state.members) {
+                await this.save(pruned.state);
+                for (const ws of this.ctx.getWebSockets()) if (ws !== server) for (const event of pruned.events) this.send(ws, event);
+            }
             this.send(server, { t: 'error', code: 'full' });
             server.close(1013, 'full');
             return new Response(null, { status: 101, webSocket: client });
         }
         server.serializeAttachment({ id } satisfies Attachment);
         // Остальные узнают о новом участнике; ему самому уходит снимок комнаты
-        for (const ws of this.ctx.getWebSockets()) if (ws !== server) for (const event of added.events) this.send(ws, event);
+        for (const ws of this.ctx.getWebSockets()) if (ws !== server) for (const event of [...pruned.events, ...added.events]) this.send(ws, event);
         await this.save(added.state);
         this.send(server, { t: 'hello', you: id, state: added.state, serverNow: Date.now() });
         await this.touch();

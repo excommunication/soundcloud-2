@@ -49,4 +49,6 @@ button, label { font: inherit; color: inherit; background: none; border: 0; curs
 hr { border: 0; height: 1px; background: rgba(255, 255, 255, 0.08); margin: 4px 6px; }
 .quit:hover { color: #ff8a8a !important; }
 :focus-visible { outline: 2px solid var(--accent, #9aa8ff); outline-offset: 1px; }
+/* Сам флажок прозрачный: кольцо фокуса с клавиатуры рисуется на ползунке */
+.switch input:focus-visible + i { outline: 2px solid var(--accent, #9aa8ff); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .pop { animation: none; } * { transition: none !important; } }

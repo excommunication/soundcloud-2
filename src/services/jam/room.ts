@@ -66,6 +66,20 @@ export function removeMember(state: JamState, id: string): Outcome {
     return { state: { ...state, members }, events: [{ t: 'leave', id, hostId }], reply: [], kick: [] };
 }
 
+/** Участники без живого соединения (сервер перезапустился, и webSocketClose для их сокетов так и не пришёл): убираются,
+ *  иначе такие призраки копятся в хранилище и комната упирается в предел участников. live: id всех открытых сокетов */
+export function pruneMembers(state: JamState, live: ReadonlySet<string>): Outcome {
+    let current = state;
+    const events: JamEvent[] = [];
+    for (const member of state.members) {
+        if (live.has(member.id)) continue;
+        const out = removeMember(current, member.id);
+        current = out.state;
+        events.push(...out.events);
+    }
+    return { state: current, events, reply: [], kick: [] };
+}
+
 function refuse(state: JamState, code: JamErrorCode): Outcome {
     return { state, events: [], reply: [{ t: 'error', code }], kick: [] };
 }

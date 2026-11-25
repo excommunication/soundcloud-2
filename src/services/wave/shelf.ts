@@ -605,13 +605,14 @@ export function installShelf(core: ShelfCore): ShelfSection {
         const card = cardAt(index);
         const loaded = mixLists.get(index);
         if (card && !Array.isArray(loaded) && loaded !== 'loading') {
-            const day = shelf?.day;
+            // Ответ годится только той же карточке: полку могли пересобрать в те же сутки (соседи, повтор), и под тем же
+            // номером уже другая подборка со своей загрузкой. Старый ответ, пришедший позже, её список не перезаписывает
             mixLists.set(index, 'loading');
             void tracksByIds(card.ids).then((tracks) => {
-                if (shelf?.day === day) mixLists.set(index, tracks.filter(isWaveEligible));
+                if (cardAt(index) === card) mixLists.set(index, tracks.filter(isWaveEligible));
             }, (error: unknown) => {
                 console.warn('Волна: треки подборки не загружены', error);
-                if (shelf?.day === day) mixLists.set(index, 'failed');
+                if (cardAt(index) === card) mixLists.set(index, 'failed');
             }).finally(render);
         }
         render();

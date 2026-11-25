@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -80,6 +80,29 @@ it('старый файл без семей открывается как был
     expect(store.set(3, 'family', { id: 5, title: 'X' }, true, 30)).toBe(true);
     // Копия снята один раз, до первой семьи
     expect(JSON.parse(readFileSync(join(directory, 'exclusions-3.v1.json'), 'utf8')).families ?? []).toEqual([]);
+});
+
+it('испорченный файл откладывается рядом, а не переписывается первой отметкой', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const directory = dir();
+    writeFileSync(join(directory, 'exclusions-8.json'), '{"tracks":[{"id":1', 'utf8');
+    const store = new WaveExclusions(directory);
+    expect(store.set(8, 'track', { id: 2 }, true)).toBe(true);
+    const aside = readdirSync(directory).filter((name) => /^exclusions-8\.broken-\d+\.json$/.test(name));
+    expect(aside).toHaveLength(1);
+    expect(readFileSync(join(directory, aside[0]), 'utf8')).toBe('{"tracks":[{"id":1');
+    expect(new WaveExclusions(directory).load(8).tracks.map((entry) => entry.id)).toEqual([2]);
+});
+
+it('файл, который не прочитался, не переписывается: отметки остаются в памяти', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const directory = dir();
+    // Вместо файла папка: чтение падает не с ENOENT и не с разбором JSON, как у занятого антивирусом файла
+    mkdirSync(join(directory, 'exclusions-9.json'));
+    const store = new WaveExclusions(directory);
+    expect(store.set(9, 'track', { id: 3 }, true)).toBe(false);
+    expect(store.load(9).tracks.map((entry) => entry.id)).toEqual([3]);
+    expect(statSync(join(directory, 'exclusions-9.json')).isDirectory()).toBe(true);
 });
 
 it('знает текущего пользователя: последнего со страницы, иначе по самому свежему файлу', () => {

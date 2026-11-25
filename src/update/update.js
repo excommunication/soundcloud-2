@@ -29,7 +29,9 @@
         const percent = Math.max(0, Math.min(100, Number(state.percent) || 0));
         fill.style.width = percent + '%';
         arc.style.strokeDashoffset = String(LENGTH * (1 - percent / 100));
-        ring.setAttribute('aria-valuenow', String(Math.round(percent)));
+        // Проверка идёт без процентов: у неопределённого прогресса aria-valuenow нет, иначе читалка говорит «0 %»
+        if (state.busy === true) ring.removeAttribute('aria-valuenow');
+        else ring.setAttribute('aria-valuenow', String(Math.round(percent)));
         later.textContent = String(state.later || '');
         // Когда установщик уже запущен, отказаться нельзя: клиент закрывается
         later.hidden = state.installing === true;

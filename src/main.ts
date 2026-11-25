@@ -974,7 +974,9 @@ async function init() {
     // handle window close event for minimize to tray
     mainWindow.on('close', (event) => {
         const minimizeToTray = store.get('minimizeToTray', true);
-        if (minimizeToTray && !isQuitting) {
+        // На macOS закрытие окна не выход: приложение остаётся в доке, и окно с видами живо до «Выйти». Раньше окно
+        // уничтожалось, а activate ждал mainWindow === null, которого не бывает: открыть его снова было нельзя
+        if ((minimizeToTray || isMac) && !isQuitting) {
             event.preventDefault();
             mainWindow.hide();
         }
@@ -1253,6 +1255,27 @@ async function init() {
         page: () => contentView.webContents,
         applySettingChange,
     });
+    // Красная полоса на значке в панели задач: в самом ролике никаких меток записи нет
+    let clipRecording = false;
+    function setClipRecording(on: boolean): void {
+        clipRecording = on;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(on ? 1 : -1, on ? { mode: 'error' } : undefined);
+        // Запись снимает экран: страница не должна замедляться, когда окно перекрыто или без фокуса
+        // Не должно мешать записи: сбой здесь только значит, что страница может притормаживать
+        try {
+            if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
+        } catch (error) {
+            console.warn('Фон страницы не переключён на время записи:', error instanceof Error ? error.name : 'Error');
+        }
+    }
+    // Страница перезагрузилась или упала посреди записи: её 'off' уже не придёт, и без этого красная полоса на значке
+    // и страница без замедления в фоне оставались до следующей записи
+    const endClipRecording = (): void => {
+        clipGrant.disarm();
+        if (clipRecording) setClipRecording(false);
+    };
+    contentView.webContents.on('did-navigate', endClipRecording);
+    contentView.webContents.on('render-process-gone', endClipRecording);
     registerClipIpc(ipcMain, {
         trustedSite: isTrustedSoundCloudSender,
         grant: clipGrant,
@@ -1260,17 +1283,7 @@ async function init() {
         mkdir: async (dir) => void (await fsPromises.mkdir(dir, { recursive: true })),
         write: (file, data) => fsPromises.writeFile(file, data),
         reveal: (file) => shell.showItemInFolder(file),
-        // Красная полоса на значке в панели задач: в самом ролике никаких меток записи нет
-        recording: (on) => {
-            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(on ? 1 : -1, on ? { mode: 'error' } : undefined);
-            // Запись снимает экран: страница не должна замедляться, когда окно перекрыто или без фокуса
-            // Не должно мешать записи: сбой здесь только значит, что страница может притормаживать
-            try {
-                if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
-            } catch (error) {
-                console.warn('Фон страницы не переключён на время записи:', error instanceof Error ? error.name : 'Error');
-            }
-        },
+        recording: setClipRecording,
         failed: (reason) => diagnostics.record('clip.record-failed', { reason }),
         now: () => Date.now(),
     });
@@ -1940,10 +1953,10 @@ app.on('window-all-closed', function () {
     }
 });
 
+// Клик по значку в доке macOS: закрытое (спрятанное) окно возвращается. Второй init не нужен и опасен: обработчики IPC
+// уже зарегистрированы, а повторный ipcMain.handle бросает исключение
 app.on('activate', function () {
-    if (mainWindow === null) {
-        init();
-    }
+    if (mainWindow && !mainWindow.isDestroyed()) showMainWindow();
 });
 
 let waveSignalsTaken = false;

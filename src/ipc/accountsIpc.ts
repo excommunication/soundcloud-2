@@ -77,8 +77,15 @@ export function registerAccountsIpc(ipc: IpcRegistry, deps: AccountsIpcDeps): vo
         const page = deps.page();
 
         if (page) {
-            // log out of session
-            await page.session.clearStorageData();
+            // log out of session. Обработчик async: сбой без catch уходил бы необработанным отказом, а аккаунт
+            // оставался бы в списке без сообщения
+            try {
+                await page.session.clearStorageData();
+            } catch (error) {
+                console.error('Выход из аккаунта: данные сессии не очищены', error);
+                deps.toast(error instanceof Error ? error.message : String(error));
+                return;
+            }
         }
 
         // if not default account, remove from list

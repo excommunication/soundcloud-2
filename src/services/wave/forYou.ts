@@ -64,8 +64,9 @@ export function installForYou(core: ForYouCore): ForYouSection {
             '.scf-art .scw-img{position:absolute;inset:0;background:center/cover;opacity:0;transition:opacity .25s,transform .5s var(--sc2-ease,ease)}',
             '.scf-art .scw-img.on{opacity:1}',
             '.scf-card:hover .scf-art .scw-img{transform:scale(1.06)}',
-            '.scf-art.grid{display:grid;grid-template-columns:1fr 1fr}',
-            '.scf-art.grid>span{position:relative}',
+            '.scf-art.grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}',
+            // Кнопка «play» тоже span: без :not она становилась relative, занимала третью строку сетки и сжимала коллаж
+            '.scf-art.grid>span:not(.scf-play){position:relative}',
             '.scf-play{position:absolute;right:8px;bottom:8px;width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s var(--sc2-ease,ease);box-shadow:0 8px 20px -6px rgba(0,0,0,.8)}',
             '.scf-play svg{width:16px;height:16px;fill:#0b0c10}',
             '.scf-card:hover .scf-play,.scf-card:focus-visible .scf-play{opacity:1;transform:none}',

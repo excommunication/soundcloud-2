@@ -131,6 +131,13 @@ function blockEnd(html: string, from: number): number {
     return -1;
 }
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#x27': "'" };
+/** Числовая ссылка &#NNN; или &#xHH;: кривая или вне Юникода остаётся как есть, а не роняет разбор (fromCodePoint бросает RangeError) */
+function numericEntity(name: string, whole: string): string {
+    const hex = /^#x([0-9a-f]{1,6})$/i.exec(name);
+    const dec = hex ? null : /^#(\d{1,7})$/.exec(name);
+    const code = hex ? parseInt(hex[1], 16) : dec ? Number(dec[1]) : NaN;
+    return Number.isInteger(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+}
 /** Текст песни со страницы Genius: блоки data-lyrics-container, служебные вставки (data-exclude-from-selection) убраны */
 export function geniusLyricsFromHtml(html: string): string | null {
     const parts: string[] = [];
@@ -155,7 +162,7 @@ export function geniusLyricsFromHtml(html: string): string | null {
         .join('\n')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<[^>]+>/g, '')
-        .replace(/&(#?\w+);/g, (whole, name: string) => ENTITIES[name.toLowerCase()] ?? (name.startsWith('#') ? String.fromCodePoint(Number(name.startsWith('#x') ? '0x' + name.slice(2) : name.slice(1))) : whole))
+        .replace(/&(#?\w+);/g, (whole, name: string) => ENTITIES[name.toLowerCase()] ?? (name.startsWith('#') ? numericEntity(name, whole) : whole))
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();

@@ -181,9 +181,26 @@ export class PlaybackStore {
     public listMixes(user: unknown): LocalMix[] {
         return cleanMixes(this.read(user, 'mixes'));
     }
+    /** Подборки перед перезаписью. Файл не прочитался: изменение отменяется, иначе запись стёрла бы все подборки.
+     *  Испорченный файл откладывается рядом, подборки начинаются заново */
+    private mixesForWrite(user: unknown): LocalMix[] {
+        const file = this.file(user, 'mixes');
+        let raw: string;
+        try { raw = readFileSync(file, 'utf8'); }
+        catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+            throw new Error('Сохранённые подборки не прочитаны, изменение отменено', { cause: error });
+        }
+        try { return cleanMixes(JSON.parse(raw)); }
+        catch (error) {
+            console.warn('Файл подборок испорчен и отложен рядом', error);
+            renameSync(file, join(this.directory, 'mixes-' + user + '.broken-' + Date.now() + '.json'));
+            return [];
+        }
+    }
     /** Резервная копия: подборки объединяются по id, новые сверху, не больше 100. Возвращает число добавленных */
     public mergeMixes(user: unknown, input: readonly LocalMix[]): number {
-        const list = this.listMixes(user);
+        const list = this.mixesForWrite(user);
         const known = new Set(list.map((mix) => mix.id));
         const added: LocalMix[] = [];
         for (const mix of input) {
@@ -201,14 +218,14 @@ export class PlaybackStore {
     public saveMix(user: unknown, title: unknown, input: unknown): LocalMix {
         const name = text(title, 100);
         if (!name || !Array.isArray(input) || !input.length || input.length > 5000) throw new Error('Нужны название и от 1 до 5000 треков');
-        const list = this.listMixes(user);
+        const list = this.mixesForWrite(user);
         if (list.length >= 100) throw new Error('Сохранено 100 подборок. Удали ненужную перед сохранением новой.');
         const mix = { id: randomUUID(), title: name, at: Date.now(), tracks: tracks(input, 5000) };
         if (mix.tracks.length !== input.length) throw new Error('Некорректные треки подборки');
         this.write(user, 'mixes', [mix, ...list]); return mix;
     }
     public removeMix(user: unknown, id: unknown): boolean {
-        const list = this.listMixes(user);
+        const list = this.mixesForWrite(user);
         const next = list.filter((item) => item.id !== id);
         if (next.length === list.length) return false;
         this.write(user, 'mixes', next); return true;

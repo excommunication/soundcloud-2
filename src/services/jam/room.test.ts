@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JAM_LIMITS, type JamClientMsg, type JamMember, type JamState, type JamTrack } from './protocol';
-import { addMember, applyEvent, canAdd, canControl, memberOf, newState, reduce, removeMember, shouldExpire, type Outcome } from './room';
+import { addMember, applyEvent, canAdd, canControl, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire, type Outcome } from './room';
 
 const track = (id: number, extra: Partial<JamTrack> = {}): JamTrack => ({ id, url: 'https://soundcloud.com/a/t' + id, title: 'T' + id, artist: 'A', artwork: '', durationMs: 200000, ...extra });
 
@@ -30,6 +30,21 @@ describe('участники', () => {
         expect(out.member).toBeUndefined();
         expect(out.reply).toEqual([{ t: 'error', code: 'full' }]);
         expect(out.state.members).toHaveLength(JAM_LIMITS.members);
+    });
+    it('призраки без сокета убираются, хозяин переходит живому, клиент сходится', () => {
+        const before = room();
+        const out = pruneMembers(before, new Set(['b']));
+        expect(out.state.members.map((member) => [member.id, member.isHost])).toEqual([['b', true]]);
+        expect(replay(before, out).members).toEqual(out.state.members);
+        const kept = pruneMembers(before, new Set(['h', 'a', 'b']));
+        expect(kept.state).toBe(before);
+        expect(kept.events).toEqual([]);
+    });
+    it('полная призраками комната снова пускает после чистки', () => {
+        let state = newState('ABC234');
+        for (let i = 0; i < JAM_LIMITS.members; i++) state = addMember(state, { id: 'm' + i, name: 'M', avatar: '' }).state;
+        const out = addMember(pruneMembers(state, new Set()).state, { id: 'x', name: 'X', avatar: '' });
+        expect(out.member?.isHost).toBe(true);
     });
     it('хозяин вышел: самый давний становится хозяином, повторный выход ничего не делает', () => {
         const out = removeMember(room(), 'h');

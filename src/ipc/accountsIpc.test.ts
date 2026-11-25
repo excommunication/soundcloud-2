@@ -86,6 +86,14 @@ describe('аккаунты', () => {
         expect(main.page.reload).toHaveBeenCalledOnce();
         expect(main.app.relaunch).not.toHaveBeenCalled();
     });
+    it('сессия не очистилась: аккаунт остаётся, ошибка в уведомлении, отказ не уходит необработанным', async () => {
+        const failing = setup({ currentAccountId: 'acc_1' });
+        failing.page.session.clearStorageData.mockRejectedValueOnce(new Error('диск занят'));
+        await failing.ipc.send('logout-account', failing.own);
+        expect(failing.deps.toast).toHaveBeenCalledWith('диск занят');
+        expect(failing.store.set).not.toHaveBeenCalled();
+        expect(failing.app.relaunch).not.toHaveBeenCalled();
+    });
     it('«Применить»: сеть применяется и ведёт к перезагрузке, флаги снимаются, ошибка уходит в уведомление', async () => {
         const pending = { network: true, reload: false };
         const { ipc, own, proxy, adblock, page, presence } = setup({ adBlocker: true, discordRichPresence: true }, pending);

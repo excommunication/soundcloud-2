@@ -189,7 +189,7 @@ export function installLikes(core: LikesCore): LikesSection {
             '.scl-streak.scl-wait .scl-spark{display:none}.scl-streak.scl-wait .scl-flame{opacity:.8}' +
             // История прослушивания в обзоре: свой список вместо плиток сайта, плотная сетка на всю ширину
             '.scl-recent-on>:not(.scl-recent):not(.scl-rc-all):has(.playableTile,.badgeList__item,.sc-artwork){display:none!important}' +
-            '.scl-recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin:4px 0 6px}' +
+            '.scl-recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin:4px 16px 6px}' +
             '.scl-rc{min-width:0;padding:8px 8px 10px;border-radius:var(--sc2-r3,16px);background:var(--sc2-surface-1,rgba(255,255,255,.05));box-shadow:inset 0 0 0 1px var(--sc2-line,rgba(255,255,255,.08));' +
             'transition:background-color var(--sc2-mid,240ms) var(--sc2-ease,ease),transform var(--sc2-mid,240ms) var(--sc2-ease,ease)}' +
             '.scl-rc:hover,.scl-rc:focus-within{background:var(--sc2-surface-2,rgba(255,255,255,.09));transform:translateY(-3px)}' +
@@ -202,7 +202,8 @@ export function installLikes(core: LikesCore): LikesSection {
             'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}' +
             '.scl-rc-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:9px;padding:0 2px;font-size:13px;line-height:17px;font-weight:600;color:var(--sc2-text,#fff)!important;text-decoration:none!important}' +
             '.scl-rc-artist{margin-top:2px;padding:0 2px;font-size:12px;line-height:16px;color:var(--sc2-text-3,rgba(255,255,255,.55));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-            '.scl-rc-all{display:inline-block;margin-top:4px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--sc2-text-2,rgba(255,255,255,.72))!important;text-decoration:none!important;background:var(--sc2-surface-1,rgba(255,255,255,.05))}' +
+            // Отступ 16px как у секций сайта (sc-px-2x): иначе сетка и кнопка торчали левее заголовка «Лайки» и его плиток
+            '.scl-rc-all{display:inline-block;margin:4px 0 0 16px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--sc2-text-2,rgba(255,255,255,.72))!important;text-decoration:none!important;background:var(--sc2-surface-1,rgba(255,255,255,.05))}' +
             '.scl-rc-all:hover{background:var(--sc2-surface-2,rgba(255,255,255,.09));color:#fff!important}' +
             '@media (hover:none){.scl-rc-play{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.scl-rc,.scl-rc-play{transition:none!important;transform:none!important}}' +
             // В заголовке «Моей волны»: в строку с названием, по его высоте

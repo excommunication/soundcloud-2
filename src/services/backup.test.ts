@@ -293,6 +293,28 @@ it('A26: сбой посреди восстановления возвращае
     expect(restoreAll(healthy, file).restored.accounts[0]).toMatchObject({ plays: 1, tasteRemoved: 1, mixes: 2, editions: 1 });
 }, 30000);
 
+it('A26: после принятого восстановления защитная копия снята: откат при следующем сбое не возвращает данные на момент прошлого раза', () => {
+    const laptop = profile();
+    seed(laptop);
+    laptop.signals.add(USER, [play(T0 + 70 * DAY, 6)]);
+    laptop.signals.flush();
+    const file = save(laptop);
+
+    const p = profile();
+    seed(p);
+    restoreAll(p, file);
+    expect(existsSync(join(p.directory, 'restore-guard'))).toBe(false);
+    // После восстановления жизнь идёт дальше: новое прослушивание и подборка
+    p.signals.add(USER, [play(T0 + 80 * DAY, 7)]);
+    p.signals.flush();
+    p.playback.saveMix(USER, 'Новая', [track(5)]);
+    const before = snapshot(p);
+    // Следующее восстановление оборвалось до своей защитной копии (worker упал), и backupIpc просит откат
+    expect(p.backup.rollback()).toBe(false);
+    expect(snapshot(p)).toEqual(before);
+    expect(new WaveSignals(p.directory).load(USER).map((signal) => signal.id)).toContain(7);
+});
+
 it('A26: откат отметок волны и журнала «Нового» в главном процессе возвращает прежние списки', () => {
     const p = profile();
     seed(p);

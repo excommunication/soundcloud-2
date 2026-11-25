@@ -510,9 +510,10 @@
         const frac = r.dur ? Math.min(1, (skipped ? stop : r.heard) / r.dur) : 1;
         const label = r.source.startsWith('wave') ? sourceLabel(r.source) : '';
         const icons =
-            (label ? '<span data-tip="' + esc(label) + '" aria-label="' + esc(label) + '">' + ICON.wave + '</span>' : '') +
-            (r.away ? '<span data-tip="' + esc(T.away) + '" aria-label="' + esc(T.away) + '">' + ICON.away + '</span>' : '') +
-            (r.liked ? '<span class="like" data-tip="' + esc(T.like) + '" aria-label="' + esc(T.like) + '">' + ICON.like + '</span>' : '');
+            // role="img": у простого span aria-label читалки не озвучивают
+            (label ? '<span role="img" data-tip="' + esc(label) + '" aria-label="' + esc(label) + '">' + ICON.wave + '</span>' : '') +
+            (r.away ? '<span role="img" data-tip="' + esc(T.away) + '" aria-label="' + esc(T.away) + '">' + ICON.away + '</span>' : '') +
+            (r.liked ? '<span class="like" role="img" data-tip="' + esc(T.like) + '" aria-label="' + esc(T.like) + '">' + ICON.like + '</span>' : '');
         const heard = !r.dur ? clock(r.heard) : skipped ? T.skipped(clock(stop)) : r.end === 'done' ? T.done(clock(r.dur)) : T.of(clock(r.heard), clock(r.dur));
         const title = r.title ? '<b>' + esc(r.title) + '</b>' : '<b class="none">' + esc(r.resolved === 2 ? T.unavailable : T.loading) + '</b>';
         const when = withDate ? cap(fmtShort.format(r.at)) + ', ' + timeOf(r.at) : timeOf(r.at);
@@ -2176,7 +2177,20 @@
         tip.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, x - w / 2)) + 'px';
         tip.style.top = Math.max(4, y - 40) + 'px';
     }
+    // Подсказка следует за мышью не чаще кадра: иначе каждое движение пишет стиль и тут же меряет ширину
+    let tipEvent = null;
+    let tipFrame = 0;
     document.addEventListener('mousemove', (event) => {
+        tipEvent = event;
+        if (tipFrame) return;
+        tipFrame = requestAnimationFrame(() => {
+            tipFrame = 0;
+            moveTip(tipEvent);
+        });
+    });
+    function moveTip(event) {
+        // За кадр страницу могли перерисовать: узел под мышью уже снят
+        if (!event.target.isConnected) return;
         const wave = event.target.closest && event.target.closest('svg[data-wave]');
         if (wave && state.overview) {
             const w = state.overview.wave;
@@ -2194,7 +2208,7 @@
         }
         const box = node.getBoundingClientRect();
         showTip(node.dataset.tip, box.left + box.width / 2, box.top);
-    });
+    }
     document.addEventListener('focusin', (event) => {
         const node = event.target.closest && event.target.closest('[data-tip]');
         if (!node) {

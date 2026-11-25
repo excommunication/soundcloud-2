@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -105,6 +105,20 @@ it('хранит локальные подборки и удаляет толь�
     expect(store.listMixes(78)).toEqual([]);
     expect(store.removeMix(77, a.id)).toBe(true);
     expect(store.listMixes(77).map((item) => item.id)).toEqual([b.id]);
+});
+it('подборки: непрочитанный файл не переписывается, испорченный откладывается рядом', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'sc-playback-test-')); folders.push(folder);
+    const store = new PlaybackStore(folder);
+    // Вместо файла папка: чтение падает не с ENOENT, как у занятого файла
+    mkdirSync(join(folder, 'mixes-77.json'));
+    expect(() => store.saveMix(77, 'A', [{ id: 1 }])).toThrow('не прочитаны');
+    expect(statSync(join(folder, 'mixes-77.json')).isDirectory()).toBe(true);
+    writeFileSync(join(folder, 'mixes-78.json'), '[{"id":"x","at":1', 'utf8');
+    const warn = console.warn; console.warn = () => undefined;
+    try { store.saveMix(78, 'B', [{ id: 2 }]); } finally { console.warn = warn; }
+    expect(store.listMixes(78).map((mix) => mix.title)).toEqual(['B']);
+    const aside = readdirSync(folder).filter((name) => /^mixes-78\.broken-\d+\.json$/.test(name));
+    expect(aside.map((name) => readFileSync(join(folder, name), 'utf8'))).toEqual(['[{"id":"x","at":1']);
 });
 it('каталог включает середину большой библиотеки', () => {
     const store = open(); const tracks = Array.from({ length: 6000 }, (_, i) => ({ id: i + 1, title: 'Track ' + i }));

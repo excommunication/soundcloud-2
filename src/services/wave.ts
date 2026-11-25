@@ -4747,6 +4747,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const node = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-hold[data-act="later"]') : null;
         if (!node || event.button !== 0) return;
         holdCancel();
+        // Трек, на котором зажали: если за время удержания трек сменился, «Не сейчас» не уходит следующему
+        const pressed = currentCandidate()?.track.id ?? 0;
         holdNode = node;
         node.classList.add('holding');
         holdTimer = setTimeout(() => {
@@ -4754,11 +4756,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const current = currentCandidate();
             node.classList.remove('holding');
             holdNode = null;
-            if (current) void setExcluded('later-track', fromTrack(current.track), true);
+            if (current && current.track.id === pressed) void setExcluded('later-track', fromTrack(current.track), true);
         }, HOLD_MS);
     }
     function onHoldUp(event: PointerEvent): void {
         if (holdTimer === undefined) return;
+        // pointerleave ловится на погружении от каждого узла внутри блока: уход курсора со значка внутри кнопки на её
+        // край удержание не снимает, снимает только уход с самой кнопки
+        if (event.type === 'pointerleave' && event.target !== holdNode) return;
         const node = holdNode;
         holdCancel();
         // Отпущено раньше времени: подсказка вместо действия
@@ -5015,7 +5020,10 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     function lyricsLoop(): void {
         lyricsFrame = 0;
         if (disposed || !lyricsOpen) return;
-        if (player?.isPlaying()) syncLyrics();
+        // На паузе и вне главной (блока нет на странице) цикл встаёт, а не крутится каждый кадр впустую: текст включён
+        // и запомнен, а цикл шёл бы на любой странице сайта. Таймер 250 мс поднимает его, когда трек снова пойдёт
+        if (!player?.isPlaying() || !section?.isConnected) return;
+        syncLyrics();
         lyricsFrame = requestAnimationFrame(lyricsLoop);
     }
     function ensureLyricsLoop(): void {
@@ -6030,6 +6038,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         document.removeEventListener('visibilitychange', onShown);
         cancelAnimationFrame(paintFrame);
         menuSection.closeMenu();
+        // Окно текста поверх страницы и его слушатель Esc на документе уходят вместе с волной
+        closeLyricsDialog();
         if (toastTimer !== undefined) clearTimeout(toastTimer);
         toastBox.remove();
         delete host.__scWaveExclusionsChanged;
