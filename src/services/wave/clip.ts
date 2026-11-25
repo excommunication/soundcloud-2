@@ -231,8 +231,8 @@ export function clipCrop(frameW: number, frameH: number, viewW: number, viewH: n
 export function installClip(core: ClipCore): ClipSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recDenied: 'Нет доступа к захвату окна', recNotFound: 'Нет окна для захвата', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub' }
-        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recDenied: 'No access to window capture', recNotFound: 'No window to capture', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub' };
+        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recDenied: 'Нет доступа к захвату окна', recNotFound: 'Нет окна для захвата', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub', menu: 'Действия с треком' }
+        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recDenied: 'No access to window capture', recNotFound: 'No window to capture', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub', menu: 'Track actions' };
     const ICON: Record<string, string> = {
         clip: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11A1.5 1.5 0 0 1 4.5 1zm.2 1.5v11h6.6v-11zM6.9 5.6l3.2 2.1-3.2 2.1z"/></svg>',
         close: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg>',
@@ -255,6 +255,8 @@ export function installClip(core: ClipCore): ClipSection {
         rec: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zm0 1.5a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z"/></svg>',
         fx: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 1.5l1.5 4L12.5 7 8.5 8.5 7 12.5 5.5 8.5 1.5 7l4-1.5zM12.5 9l.8 2.2L15.5 12l-2.2.8-.8 2.2-.8-2.2L9.5 12l2.2-.8z"/></svg>',
         qr: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h5v5H2zm1.4 1.4v2.2h2.2V3.4zM9 2h5v5H9zm1.4 1.4v2.2h2.2V3.4zM2 9h5v5H2zm1.4 1.4v2.2h2.2v-2.2zM9 9h2v2H9zm3 0h2v2h-2zm-3 3h2v2H9zm3 1h2v1h-2z"/></svg>',
+        // Три точки: меню трека, то же, что по правому клику
+        dots: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>',
         heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.6-4.55-9.33-9.4C1.5 7.6 3.6 4 7.15 4c2.05 0 3.56 1.1 4.85 2.85C13.29 5.1 14.8 4 16.85 4c3.55 0 5.65 3.6 4.48 6.9C19.6 15.75 12 20.3 12 20.3z"/></svg>',
     };
     const STYLE_ID = 'sc-clip-style';
@@ -354,6 +356,8 @@ export function installClip(core: ClipCore): ClipSection {
             '.scc.vertical.side.nolyr .scc-frame{grid-template-rows:auto auto 0 auto}',
             // Панель кнопок: исчезает через 2 с без движения мыши, курсор тоже
             '.scc-tools{position:absolute;top:16px;right:16px;z-index:2;display:flex;gap:6px;padding:5px;border-radius:999px;background:rgba(10,11,16,.6);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);transition:opacity .25s ease,transform .25s ease}',
+            // Пока режим открыт, полоса прокрутки страницы под ним не видна: она ничего здесь не листала и казалась лишним ползунком
+            'html.scc-lock{overflow:hidden!important}',
             '.scc.idle .scc-tools{opacity:0;transform:translateY(-6px);pointer-events:none}',
             '.scc.idle{cursor:none}',
             '.scc-tools button{all:unset;box-sizing:border-box;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;cursor:pointer;color:rgba(255,255,255,.8);transition:background .15s,color .15s}',
@@ -565,6 +569,21 @@ export function installClip(core: ClipCore): ClipSection {
         node.innerHTML = ICON[icon];
         return node;
     };
+    // «⋯» в панели: меню трека страницы (window.__scTrackMenu из wave.ts). Нет его — кнопки нет
+    type TrackMenu = (request: { anchor: HTMLElement; byKeyboard: boolean }) => boolean;
+    const trackMenu = (): TrackMenu | undefined => (window as unknown as { __scTrackMenu?: TrackMenu }).__scTrackMenu;
+    function menuTool(): HTMLButtonElement[] {
+        if (!trackMenu()) return [];
+        const node = tool('menu', T.menu, 'dots');
+        node.dataset.trackMenu = 'clip';
+        node.setAttribute('aria-haspopup', 'menu');
+        node.setAttribute('aria-expanded', 'false');
+        return [node];
+    }
+    function openTrackMenu(anchor: HTMLElement, byKeyboard: boolean): void {
+        trackMenu()?.({ anchor, byKeyboard });
+        wake();
+    }
     function layout(): void {
         if (!layer) return;
         const size = vertical ? verticalFrame(window.innerWidth, window.innerHeight) : { width: window.innerWidth, height: window.innerHeight };
@@ -1674,6 +1693,8 @@ export function installClip(core: ClipCore): ClipSection {
     let wheelAt = 0;
     const onWheel = (event: WheelEvent): void => {
         if (!layer || !event.deltaY) return;
+        // Колесо над меню трека листает меню, а не трек
+        if (event.target instanceof Element && event.target.closest('[role="menu"]')) return;
         event.preventDefault();
         // Тачпад шлёт десятки событий: шаг не чаще раза в 120 мс
         const stamp = performance.now();
@@ -1698,6 +1719,8 @@ export function installClip(core: ClipCore): ClipSection {
         if (!layer || event.ctrlKey || event.metaKey || event.altKey) return;
         const key = event.key.toLowerCase();
         const target = event.target instanceof Element ? event.target : null;
+        // Открыто меню трека: стрелки, Escape и прочие клавиши его, режим их не перехватывает
+        if (target?.closest('[role="menu"]')) return;
         // Дорожка громкости в фокусе: стрелки и Home/End меняют громкость, а не перематывают
         const volumeKeys: Record<string, number> = { ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05, Home: -1, End: 1 };
         if (target?.closest('.scc-vtrack') && event.key in volumeKeys) {
@@ -1810,13 +1833,15 @@ export function installClip(core: ClipCore): ClipSection {
         layer.setAttribute('role', 'dialog');
         layer.setAttribute('aria-modal', 'true');
         layer.setAttribute('aria-label', T.mode);
+        // Правый клик по обложке, названию и всему кадру открывает меню играющего трека (wave/menu.ts)
+        layer.dataset.scTrack = 'current';
         const bg = document.createElement('div');
         bg.className = 'scc-bg';
         const frame = document.createElement('div');
         frame.className = 'scc-frame';
         const tools = document.createElement('div');
         tools.className = 'scc-tools';
-        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('side', T.side, 'side'), tool('text', T.text, 'text'), tool('rec', T.rec, 'rec'), tool('fx', T.fxLabel, 'fx'), tool('qr', T.qr, 'qr'), tool('full', T.full, 'full'), tool('close', T.close, 'close'));
+        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('side', T.side, 'side'), tool('text', T.text, 'text'), tool('rec', T.rec, 'rec'), tool('fx', T.fxLabel, 'fx'), tool('qr', T.qr, 'qr'), tool('full', T.full, 'full'), ...menuTool(), tool('close', T.close, 'close'));
         tools.addEventListener('click', (event) => {
             const control = (event.target as Element | null)?.closest<HTMLElement>('[data-clip]');
             switch (control?.dataset.clip) {
@@ -1829,6 +1854,7 @@ export function installClip(core: ClipCore): ClipSection {
                 case 'qr': toggleQr(); break;
                 case 'full': void toggleFull(); break;
                 case 'close': close(); break;
+                case 'menu': openTrackMenu(control as HTMLElement, (event as MouseEvent).detail === 0); break;
             }
         });
         // Щелчок по обложке ставит на паузу и снова включает
@@ -1850,6 +1876,7 @@ export function installClip(core: ClipCore): ClipSection {
         toastNode.setAttribute('role', 'status');
         layer.append(bg, frame, tools, buildDock(), recDot, countNode, toastNode);
         document.body.append(layer);
+        document.documentElement.classList.add('scc-lock');
         layer.addEventListener('pointermove', wake);
         layer.addEventListener('wheel', onWheel, { passive: false });
         window.addEventListener('keydown', onKey, true);
@@ -1888,6 +1915,7 @@ export function installClip(core: ClipCore): ClipSection {
         window.removeEventListener('resize', onResize);
         if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
         node.remove();
+        document.documentElement.classList.remove('scc-lock');
         for (const button of [cardButton, barButton]) button?.setAttribute('aria-pressed', 'false');
         if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
         returnFocus = null;

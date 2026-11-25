@@ -31,6 +31,16 @@ describe('NARROW_CSS', () => {
         expect(b).toContain('position:static!important;float:none!important');
         expect(b).toContain('html,body{overflow-x:clip}');
     });
+    it('901..1100px: внутренняя часть колонки (position:fixed) не шире самой колонки', () => {
+        expect(block(NARROW_CSS, '@media (max-width:1100px) and (min-width:901px)')).toContain('.l-sidebar-right>.l-fixed{width:inherit!important');
+    });
+    it('главная от 901px: текучий контейнер до 1440px, колонка 240..340px, шапка по той же кромке, колонка с 1040px', () => {
+        const b = block(NARROW_CSS, '@media (min-width:901px)');
+        expect(b).toContain('--sca-side:clamp(240px,calc(20vw + 40px),340px)');
+        expect(b).toContain('html[data-sc-home] .header__inner.l-container{width:auto!important;max-width:1440px');
+        expect(b).toContain('html[data-sc-home] .l-sidebar-right>.l-fixed{width:inherit!important');
+        expect(block(NARROW_CSS, '@media (max-width:1039.98px)')).toContain('html[data-sc-home] .l-sidebar-right{display:none!important}');
+    });
     it('ряд жанров не переносится, а листается без полосы', () => {
         expect(NARROW_CSS).toContain('#sc-wave .scw-moods{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none');
     });
@@ -61,25 +71,19 @@ describe('NARROW_CSS', () => {
 
 describe('wave.ts узкое/низкое окно', () => {
     const src = readFileSync(join(__dirname, 'wave.ts'), 'utf8');
-    it('компактная обложка и низкий режим', () => {
-        expect(src).toContain('clamp(96px,24cqw,128px)');
-        expect(src).not.toContain('min(200px,56cqw)');
+    it('обложка плашки плавно следует ширине блока и высоте окна, без ступеней', () => {
+        expect(src).toContain('--scw-cover-size:clamp(112px,min(24cqi,26vh),208px)');
+        expect(src).not.toContain('clamp(96px,24cqw,128px)');
+        expect(src).not.toContain('--scw-cover-size:128px');
+        expect(src).not.toContain('--scw-cover-size:150px');
         expect(src).toContain('@media (max-height:700px)');
-        expect(src).toContain('--scw-cover-size:128px');
         expect(src).toContain('container-type:inline-size;container-name:scw');
         expect(src).toContain('@container scw (max-width:620px)');
     });
-    it('901..1100 px: плашка слева, «Далее» справа двумя колонками на #sc-wave', () => {
-        const rule = /'@media \(max-width:1100px\) and \(min-width:901px\)\{#sc-wave\{[^']*'/.exec(src)?.[0] ?? '';
-        expect(rule).toContain('display:grid;grid-template-columns:minmax(0,1fr) 168px');
-        expect(rule).toContain('#sc-wave>.scw-body{grid-column:1');
-        expect(rule).toContain('#sc-wave>.scw-up-h{grid-column:2');
-        expect(rule).toContain('.scw-tiles:not(.scw-shelf){grid-column:2');
-        expect(rule).not.toContain('flex-direction:column');
-    });
-    it('940..1100 px: колонка «Далее» шире, третья плитка видна', () => {
-        expect(src).toContain('@media (max-width:1100px) and (min-width:940px){#sc-wave{grid-template-columns:minmax(0,1fr) 190px}');
-        expect(src).toContain('.scw-tile:nth-child(3){display:grid}');
+    it('«Далее» никогда не становится колонкой сбоку от плашки', () => {
+        expect(src).not.toContain("'@media (max-width:1100px) and (min-width:901px){#sc-wave");
+        expect(src).not.toContain("'@media (max-width:1100px) and (min-width:940px){#sc-wave");
+        expect(src).not.toContain('#sc-wave>.scw-tiles:not(.scw-shelf){grid-column:2');
     });
     it('в узком диапазоне .scw-body остаётся строкой, не столбцом', () => {
         expect(src).not.toMatch(/\.scw-body\{[^}]*flex-direction:column/);
@@ -150,25 +154,30 @@ describe('«Далее» и полка: одинаковые квадратны�
     it('у обложки есть aspect-ratio:1 и object-fit:cover', () => {
         expect(wave).toContain('.scw-art{position:relative;aspect-ratio:1;');
         expect(wave).toContain('object-fit:cover');
-        expect(aurora).toMatch(/\.scw-tile>\.scw-art\{flex:none;width:100%;aspect-ratio:1;/);
+        expect(aurora).toContain('.scw-tile>.scw-art{grid-row:1/4;width:100%;aspect-ratio:1;');
         expect(aurora).toContain('.scw-tile>.scw-art img{width:100%;height:100%;object-fit:cover}');
         expect(aurora).toContain('background-size:cover');
     });
     it('подписи плитки в одну строку с многоточием', () => {
-        expect(aurora).toMatch(/\.scw-tile>\.scw-t3\{[^}]*white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
+        expect(aurora).toMatch(/.scw-tile>.scw-t3{[^}]*white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
     });
-    it('колонки считаются по контейнеру, а не по окну', () => {
-        expect(wave).toContain('@container scw (max-width:799px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3');
-        expect(wave).toContain('@container scw (max-width:479px)');
+    it('число плиток «Далее» только по ширине блока: 5 / 4 / 3 / 2, лишние скрыты, развилка не скрывается', () => {
+        expect(wave).toContain('@container scw (max-width:867.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(4');
+        expect(wave).toContain('@container scw (max-width:691.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3');
+        expect(wave).toContain('@container scw (max-width:515.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2');
+        expect(wave).toContain('.scw-tile:not([data-fork]):nth-child(n+5){display:none}');
         expect(wave).toContain('@container scw (max-width:899px){#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4');
-        expect(wave).not.toContain("'@media(max-width:1200px){#sc-wave .scw-tiles");
-        expect(wave).not.toContain("'@media(max-width:920px){#sc-wave .scw-tiles");
         expect(wave).toContain('@container scw (max-width:899px){#sc-wave .scw-shelf>.scw-mix{grid-row:var(--scw-row4)}');
+        expect(wave).not.toContain("'@media(max-width:1200px){#sc-wave .scw-tiles");
     });
-    it('«Далее» в окне до 1100 px это компактные строки, а в низком узком окне одним рядом из трёх', () => {
-        const compact = block(NARROW_CSS, '@media (max-width:1100px){\nhtml body #sc-wave .scw-tiles');
-        expect(compact).toContain('grid-template-columns:48px minmax(0,1fr)');
-        expect(compact).toContain('.scw-tile>.scw-art{grid-row:1/4;width:48px');
-        expect(block(NARROW_CSS, '@media (max-height:760px) and (max-width:900px)')).toContain('.scw-tile:nth-child(n+4){display:none}');
+    it('плитки не зависят от высоты окна и одной формы на любой ширине', () => {
+        expect(NARROW_CSS).not.toContain('max-height');
+        expect(NARROW_CSS).not.toContain('.scw-tile');
+        expect(wave).toContain("'.scw-tile{min-width:0;cursor:pointer;display:grid;grid-template-columns:clamp(44px,30%,64px) minmax(0,1fr)");
+        expect(aurora).not.toContain('.scw-tile{display:flex;flex-direction:column');
+        expect(aurora).not.toMatch(/.scw-tile{[^}]*backdrop-filter/);
+    });
+    it('полки ниже первого экрана не рисуются, пока далеко (content-visibility с запасным размером)', () => {
+        expect(wave).toContain('#sc-wave .scw-tiles.scw-shelf{content-visibility:auto;contain-intrinsic-size:auto none auto 420px');
     });
 });

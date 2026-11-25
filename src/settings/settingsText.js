@@ -2,7 +2,7 @@
 window.SETTINGS_EN = {
     'Вайс': 'Vice',
     'Звук лайка': 'Like sound',
-    'Короткий тихий звук, когда ставишь лайк': 'A short soft sound when you like a track',
+    'Мягкий колокольчик на лайк и тихая нота на дизлайк': 'A soft chime when you like a track and a quiet note when you dislike one',
     'Вспышки, тряска и разгон под бит; 0 выключает. Тот же ползунок у кнопки эффектов в плеере': 'Flashes, shake and speed-ups on the beat; 0 turns it off. The same slider sits at the effects button in the player',
     'Настроить волну': 'Tune the wave',
     'Над волной есть строка: пишешь, что хочешь услышать, и волна подстраивается. Актуальные треки клиент берёт из открытых плейлистов и чартов, модель помогает понять сложный запрос': 'Above the wave there is a prompt: describe what you want and the wave adapts. Current tracks come from open playlists and charts, a model helps with complex requests',
@@ -99,6 +99,8 @@ window.SETTINGS_EN = {
     'Оптимизация': 'Optimization',
     'Ещё': 'More',
     'Слабый компьютер?': 'Slow computer?',
+    'Новогодняя тема': 'New Year theme',
+    'Снег, гирлянда и иней. Сама включается с 15 декабря по 14 января': 'Snow, a garland and frost. Turns on by itself from December 15 to January 14',
     'Режим эффектов и меньше анимаций собраны во вкладке «Оптимизация»': 'Effects mode and reduced motion are in the Optimization tab',
     'Слушать вместе с другом: кнопка «С другом» рядом с громкостью или Ctrl+Shift+J': 'Listen together with a friend: the “Together” button next to the volume, or Ctrl+Shift+J',
     'Если клиент тормозит или греет компьютер, начни с режима эффектов. Остальное можно оставить как есть': 'If the client lags or heats up your computer, start with the effects mode. The rest can stay as is',

@@ -8,6 +8,7 @@ import { join } from 'path';
 import type { GpuRuntimeState } from '../services/gpuProcessMode';
 import type { SiteState } from '../services/siteModules';
 import { normalizeAppearance } from '../services/aurora';
+import { WINTER_KEY, winterEnabled } from '../services/wave/winter';
 
 const defaults: Record<string, string | number | boolean> = {
     minimizeToTray: false,
@@ -92,6 +93,7 @@ export class SettingsManager {
                 // Зону при первом запуске пишет перенос настроек; до него показывается зона системы
                 radarZone: this.store.get('radarZone', systemTimeZone()),
                 appearance: normalizeAppearance(this.store.get('appearance')),
+                winterTheme: winterEnabled(this.store.get(WINTER_KEY), new Date()),
                 gpuRuntime: this.gpuRuntime,
                 siteState: this.siteState,
             };

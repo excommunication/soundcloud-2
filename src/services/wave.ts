@@ -28,6 +28,7 @@ import * as librarySectionModule from './wave/library';
 import * as radarSectionModule from './wave/radar';
 import * as shelfSectionModule from './wave/shelf';
 import * as menuSectionModule from './wave/menu';
+import type { TrackMenuRequest } from './wave/menu';
 import * as downloadSectionModule from './wave/download';
 import * as quietSectionModule from './wave/quiet';
 import * as seekGuardModule from './seekGuard';
@@ -176,6 +177,8 @@ export interface WaveWindow extends Window {
     __scQueue?: () => void;
     // Горячие клавиши волны из main: лайк, «Не сейчас», «Больше такого», «Встряхнуть»
     __scWaveKey?: (action: string) => boolean;
+    /** Одно меню трека (wave/menu.ts) для «⋯» нижнего бара (aurora) и режима «Для роликов» */
+    __scTrackMenu?: (request: TrackMenuRequest) => boolean;
     // Кэш средних цветов обложек из плавности сайта (pageMotion), ключ это путь трека
     __scmCoverColor?: (key: string) => string | undefined;
     __scmLearnCover?: (key: string, url: string) => void;
@@ -238,6 +241,9 @@ export interface WaveWindow extends Window {
         fullTrack?(query: { title: string; uploader: string; durationMs: number }): Promise<{ url: string } | null>;
         // «Скачать» в меню: ссылку на аудио находит страница, место и файл ведёт main
         downloadTrack?(payload: object): Promise<unknown>;
+        // Карточка скачивания: ход от main и «Показать в папке»
+        onDownloadProgress?(callback: (update: unknown) => void): () => void;
+        revealDownload?(file: string): Promise<unknown>;
         // «Джем»: мост к комнате в main, разбирает раздел wave/jam.ts
         jam?: object;
     };
@@ -751,7 +757,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     // о треке в баре, и пункт «Показать текст» читал их до объявления. Волна падала целиком, главная была пустой
     const LYRICS_T = T.lang === 'ru'
         ? { show: 'Текст песни', outside: 'Играет не из волны', outsideNext: 'Не из волны · далее {next}', waveFrom: 'Волна по треку', startWave: 'Моя волна', source: 'Текст: {source}', synced: 'в такт', searching: 'Ищу текст…', hide: 'Скрыть текст', showOn: 'Показать текст', chip: 'Текст', waveShort: 'По треку', none: 'Текста этой песни не нашлось', prev: 'Предыдущий трек', next: 'Следующий трек' }
-        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from this track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', chip: 'Lyrics', waveShort: 'From track', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
+        : { show: 'Lyrics', outside: 'Playing outside the wave', outsideNext: 'Outside the wave · next {next}', waveFrom: 'Wave from track', startWave: 'My Wave', source: 'Lyrics: {source}', synced: 'synced', searching: 'Looking for lyrics…', hide: 'Hide lyrics', showOn: 'Show lyrics', chip: 'Lyrics', waveShort: 'From track', none: 'No lyrics found for this song', prev: 'Previous track', next: 'Next track' };
     interface CardLyrics { source: string; plain: string; synced: Array<{ at: number; text: string; words?: CardLyricWord[] }> | null }
     const lyricsFor = new Map<number, CardLyrics | null>();
     const lyricsAsked = new Set<number>();
@@ -769,6 +775,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         get: async (url) => (api ? (await Promise.race([api.callEndpointByUrl('resolve', url), wait(10000).then(() => null)]))?.body ?? null : null),
         send: host.soundcloudAPI?.downloadTrack ? (payload) => host.soundcloudAPI!.downloadTrack!(payload) : null,
         showToast,
+        onProgress: host.soundcloudAPI?.onDownloadProgress ? (callback) => host.soundcloudAPI!.onDownloadProgress!(callback) : null,
+        reveal: host.soundcloudAPI?.revealDownload ? (file) => host.soundcloudAPI!.revealDownload!(file) : null,
     });
     // Меню по правому клику и волна от трека, артиста, плейлиста: раздел в wave/menu.ts
     const menuSection = installMenu({
@@ -816,6 +824,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         playGenre: (label) => playGenre(label),
         lyricsLabel: (target) => menuLyricsLabel(target),
         showLyrics: (target) => menuShowLyrics(target),
+        playingTrack: () => {
+            const sound = player?.getCurrentSound();
+            return (sound?.id ? known.get(sound.id)?.track ?? outsideTrack() : null) ?? currentCandidate()?.track ?? null;
+        },
+        drop: () => host.__scWaveKey?.('drop') ?? false,
         cardGenre: (node) => {
             const card = node.closest<HTMLElement>('.scw-card[data-card]');
             const index = card ? Number(card.dataset.card) : -1;
@@ -3909,6 +3922,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
         pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>',
         chev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
+        // Три точки: меню трека, то же, что по правому клику
+        dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
         heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>',
         x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>',
         shake: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>',
@@ -3924,7 +3939,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         history: '<svg class="scw-line" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8"/><path d="M2.4 2.6v2.5h2.5"/><path d="M8 5v3.2l2.2 1.4"/></svg>',
     };
     const CSS = [
-        '#sc-wave{--scw-surface:#303030;--scw-muted:#999;--scw-faint:#757575;--scw-film:rgba(255,255,255,.06);--scw-film-strong:rgba(255,255,255,.1);--scw-btn:#fff;--scw-btn-ink:#121212;--scw-tile:rgba(255,255,255,.06);position:relative;margin:0 0 40px 16px;font-size:14px;line-height:20px;--scw-cover-size:184px;container-type:inline-size;container-name:scw}',
+        '#sc-wave{--scw-surface:#303030;--scw-muted:#999;--scw-faint:#757575;--scw-film:rgba(255,255,255,.06);--scw-film-strong:rgba(255,255,255,.1);--scw-btn:#fff;--scw-btn-ink:#121212;--scw-tile:rgba(255,255,255,.06);position:relative;margin:0 0 40px 16px;font-size:14px;line-height:20px;--scw-cover-size:clamp(112px,min(24cqi,26vh),208px);container-type:inline-size;container-name:scw}',
         '#sc-wave button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}',
         '#sc-wave :focus-visible{outline:2px solid currentColor;outline-offset:2px}',
         '#sc-wave svg{display:block}',
@@ -3982,7 +3997,6 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         // новые въезжают следом; прошлая обложка уплывает с поворотом, новая приезжает с другой стороны, волна вырастает
         // 2.10.1: призрака старого названия больше нет (он накладывался на новое). Новый блок появляется на месте,
         // только transform и opacity; --scw-age (на теле карточки) сдвигает фазу, чтобы пересборка в полёте не рвала переход
-        '.scw-swap>*{will-change:transform,opacity}',
         '.scw-swap.next>*{animation:scw-in-next .42s cubic-bezier(.2,.8,.2,1) calc(.04s - var(--scw-age,0s)) both}',
         '.scw-swap.back>*{animation:scw-in-back .42s cubic-bezier(.2,.8,.2,1) calc(.04s - var(--scw-age,0s)) both}',
         '@keyframes scw-in-next{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}',
@@ -4051,13 +4065,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-cover{position:relative;width:var(--scw-cover-size);height:var(--scw-cover-size);flex:none;background:var(--scw-tile)}',
         // Узкое окно (2.9.0): по ширине самого блока (правила для потомков: контейнер сам себя не запрашивает), а не окна. Раньше обложка оставалась 236 px, а название сжималось
         // до одной буквы в строке. Сначала меньше обложка и кнопки, потом обложка уходит наверх и блок идёт столбцом
-        '@container scw (max-width:820px){#sc-wave .scw-body{--scw-cover-size:150px}html body #sc-wave .scw-track{font-size:18px;line-height:24px}#sc-wave .scw-meta{gap:8px}#sc-wave .scw-why{flex-basis:100%;order:-1}}',
+        '@container scw (max-width:820px){html body #sc-wave .scw-track{font-size:18px;line-height:24px}#sc-wave .scw-meta{gap:8px}#sc-wave .scw-why{flex-basis:100%;order:-1}}',
         // 2.12.3: до 620 px блока плашка остаётся горизонтальной и компактной (обложка справа 96..128 px, кнопки и волна слева), а не столбцом
         // с огромной обложкой по центру; «Далее» идёт под плашкой и её не растягивает
-        '@container scw (max-width:620px){#sc-wave .scw-body{--scw-cover-size:clamp(96px,24cqw,128px)}html body #sc-wave .scw-body{flex-direction:row;align-items:stretch;gap:16px}#sc-wave .scw-cover{align-self:flex-start}#sc-wave .scw-wf{height:56px}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
+        '@container scw (max-width:620px){html body #sc-wave .scw-body{flex-direction:row;align-items:stretch;gap:16px}#sc-wave .scw-cover{align-self:flex-start}#sc-wave .scw-wf{height:56px}#sc-wave .scw-top.stepped{gap:4px}#sc-wave .scw-head{flex-wrap:wrap}}',
         '@container scw (max-width:420px){html body #sc-wave .scw-step{display:none}#sc-wave .scw-meta.outside{flex-wrap:wrap}}',
         // Низкое окно (860x600): компактная карточка в строку, чтобы она помещалась над плеером
-        '@media (max-height:700px){#sc-wave .scw-body{--scw-cover-size:128px}html body #sc-wave .scw-body{padding:12px!important;gap:14px!important}html body #sc-wave .scw-track{font-size:17px;line-height:22px}#sc-wave .scw-wf{height:48px}#sc-wave .scw-meta{margin-top:4px}}',
+        '@media (max-height:700px){html body #sc-wave .scw-body{padding:16px!important;gap:16px!important}html body #sc-wave .scw-track{font-size:17px;line-height:22px}#sc-wave .scw-wf{height:48px}#sc-wave .scw-meta{margin-top:4px}}',
         '@container scw (max-width:620px){@media (max-height:700px){html body #sc-wave .scw-body{flex-direction:row;align-items:center}#sc-wave .scw-cover{order:0;align-self:auto}}}',
         '@media (max-height:700px){html body #sc-wave .scw-lyric{font-size:14px;padding:3px 0}html body #sc-wave .scw-lyrics[data-synced] .scw-lyrics-rows{padding:0 10px}}',
         '.scw-cover.scw-empty-cover{display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#ff550016,transparent 65%),#191919}',
@@ -4070,7 +4084,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '.scw-img.on{opacity:1}',
         // Очередь волны это часть блока, а не отдельная полка: мелкая подпись и компактные строки
         '.scw-up-h{color:var(--scw-muted);font-size:12px;line-height:16px;margin:24px 0 8px}',
-        '.scw-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}',
+        '.scw-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}',
         // Ожидание: заготовки той же формы, полосы поверх строк, высота плиток не меняется
         '.scw-tiles.wait{pointer-events:none;animation:scw-fade .2s cubic-bezier(.2,0,0,1) var(--scw-wait-delay,150ms) backwards}',
         '.scw-tiles.wait.held{animation:none}',
@@ -4089,13 +4103,14 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         '#sc-wave .scw-t3{height:16px;line-height:16px;min-width:0;max-width:100%}',
         '.scw-tiles:not(.scw-shelf){grid-auto-rows:1fr}',
         '#sc-wave .scw-tiles>.scw-tile{height:100%;box-sizing:border-box}',
-        '.scw-tile{min-width:0;cursor:pointer;display:grid;grid-template-columns:56px minmax(0,1fr);column-gap:10px;align-content:center;padding:4px;margin:-4px;border-radius:4px}',
+        // 2.13.6: плитка «Далее» везде одна и та же строка: обложка слева растёт с плиткой (44..64 px), три строки текста справа
+        '.scw-tile{min-width:0;cursor:pointer;display:grid;grid-template-columns:clamp(44px,30%,64px) minmax(0,1fr);column-gap:12px;align-content:center;align-items:center;padding:8px;margin:0;border-radius:8px}',
         '.scw-tile[data-track]:hover,.scw-tile[data-fork]:hover{background:var(--scw-film)}',
         '.scw-fork-h{display:flex;align-items:center;gap:4px}',
         '#sc-wave .scw-fork-x{display:grid;place-items:center;width:20px;height:20px;border-radius:10px;color:var(--scw-muted);transition:background-color .12s}',
         '#sc-wave .scw-fork-x:hover{background:var(--scw-film-strong)}',
         '.scw-fork-x svg{width:14px;height:14px;fill:currentColor}',
-        '.scw-tile>.scw-art{grid-row:1/4;width:56px;margin:0}',
+        '.scw-tile>.scw-art{grid-row:1/4;width:100%;margin:0}',
         '.scw-tile>.scw-t1,.scw-tile>.scw-t2,.scw-tile>.scw-t3{grid-column:2;margin:0}',
         // Подборки это отдельный раздел со своим заголовком, а не продолжение волны
         '.scw-shelf-h{font-size:20px;line-height:26px;font-weight:600;margin:48px 0 16px}',
@@ -4106,17 +4121,16 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         'html.scm-reduce #sc-wave .scw-play{transition:none;transform:none}',
         '@media(prefers-reduced-motion:reduce){#sc-wave .scw-play{transition:none;transform:none!important}}',
         '.scw-tiles.scw-shelf{grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}',
-        // 2.12.2: число колонок по ширине самого блока, а не окна. Раньше «Далее» на 1250 px окна давало пять колонок по ~100 px с обрезанными
-        // подписями, а на 860..920 px две колонки по ~350 px с огромными обложками. Пять колонок только от 800 px блока, три до 480, дальше две.
+        // Полки ниже первого экрана: браузер не раскладывает и не рисует их, пока они далеко от окна. Поля под тени карточек:
+        // content-visibility включает paint-containment, и без них тень у края полки обрезалась бы
+        '#sc-wave .scw-tiles.scw-shelf{content-visibility:auto;contain-intrinsic-size:auto none auto 420px;padding:16px 8px;margin:-16px -8px}',
+        // 2.13.6: «Далее» всегда один ряд, и число плиток зависит только от ширины блока, не от высоты окна. Плитка не уже 164 px при
+        // промежутке 12 px: пять от 868 px блока, четыре от 692, три от 516, иначе две. Лишние плитки скрыты, вариантов развилки это не касается.
         // Полка: шесть колонок от 900 px блока, иначе четыре (промежуток остаётся 20 px: от него считается уголок раскрытой подборки)
-        '@container scw (max-width:799px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}}',
-        '@container scw (max-width:479px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}}',
+        '@container scw (max-width:867.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(4,minmax(0,1fr))}#sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile:not([data-fork]):nth-child(n+5){display:none}}',
+        '@container scw (max-width:691.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(3,minmax(0,1fr))}#sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile:not([data-fork]):nth-child(n+4){display:none}}',
+        '@container scw (max-width:515.98px){#sc-wave .scw-tiles:not(.scw-shelf){grid-template-columns:repeat(2,minmax(0,1fr))}#sc-wave .scw-tiles:not(.scw-shelf)>.scw-tile:not([data-fork]):nth-child(n+3){display:none}}',
         '@container scw (max-width:899px){#sc-wave .scw-tiles.scw-shelf{grid-template-columns:repeat(4,minmax(0,1fr))}}',
-        // 2.12.3: окно 901..1100 px (справа ещё панель «Лайки», блок волны 500..640 px): плашка слева, «Далее» справа колонкой из двух плиток.
-        // Шапка, подборки и прочее на всю ширину. Раскладка на #sc-wave по ширине окна: сам контейнер себя не запрашивает. Шире 1100 и уже 901 ничего не меняется
-        '@media (max-width:1100px) and (min-width:901px){#sc-wave{display:grid;grid-template-columns:minmax(0,1fr) 168px;column-gap:20px;align-items:start}#sc-wave>*{grid-column:1/-1}#sc-wave>.scw-body{grid-column:1;grid-row:span 2;--scw-cover-size:96px}#sc-wave>.scw-up-h{grid-column:2;margin-top:0}#sc-wave>.scw-tiles:not(.scw-shelf){grid-column:2;grid-template-columns:minmax(0,1fr);gap:12px}#sc-wave>.scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(n+3){display:none}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile{grid-template-columns:48px minmax(0,1fr)}#sc-wave .scw-tiles:not(.scw-shelf) .scw-tile>.scw-art{width:48px}html body #sc-wave>.scw-body .scw-step{display:none}}',
-        // 2.12.4: от 940 px окна блок волны ≥ 620 px (справа панель «Лайки» 240 px): колонка «Далее» шире и в ней три плитки
-        '@media (max-width:1100px) and (min-width:940px){#sc-wave{grid-template-columns:minmax(0,1fr) 190px}#sc-wave>.scw-tiles:not(.scw-shelf)>.scw-tile:nth-child(3){display:grid}}',
         '.scw-card{position:relative;min-width:0}',
         // Прокрутка к карточке и раскрытому списку не прячет их под шапкой сайта
         '.scw-card,.scw-mix{scroll-margin:72px 0 16px}',
@@ -5110,6 +5124,15 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         } else top.append(play, lines);
         const canvas = el('canvas', 'scw-wf' + (current || outside ? ' live' : ''));
         const meta = el('div', 'scw-meta');
+        // «⋯» карточки: то же меню трека, что по правому клику и в нижнем баре (wave/menu.ts)
+        const trackMenuButton = (): HTMLButtonElement => {
+            const node = button('scw-like', 'track-menu', T.menuActions, 'dots');
+            node.title = T.menuActions;
+            node.dataset.trackMenu = 'card';
+            node.setAttribute('aria-haspopup', 'menu');
+            node.setAttribute('aria-expanded', String(!!document.querySelector('.scw-menu[data-anchor="card"]')));
+            return node;
+        };
         if (current) {
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
@@ -5121,7 +5144,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, trackMenuButton(), el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
             // Трек не из волны (2.8.5): «Моя волна» и «Волна по треку» компактными капсулами в том же ряду, что
@@ -5135,7 +5158,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), clipSection.button(), volumeSection.card(), like, el('div', 'scw-time'));
+            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), clipSection.button(), volumeSection.card(), like, trackMenuButton(), el('div', 'scw-time'));
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
             if (mode === 'fresh') meta.append(textButton('to-similar', T.toSimilar));
@@ -5360,9 +5383,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         context.scale(ratio, ratio);
         const ink = (alpha: number): string => 'rgba(255,255,255,' + alpha + ')';
         // Сыгранная часть в цвет палитры оформления (обложка или выбранная), без оформления оранжевая SoundCloud
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--sca-c1').trim();
+        // Сыгранное (2.14): градиент от первого цвета обложки ко второму по сыгранной длине, у отражения та же заливка тише
+        const rootStyle = getComputedStyle(document.documentElement);
+        const accent = rootStyle.getPropertyValue('--sca-c1').trim();
+        const accentEnd = rootStyle.getPropertyValue('--sca-c3').trim();
         const playedTop = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#ff5500';
-        const playedLow = playedTop + '6b';
+        const playedEnd = /^#[0-9a-f]{6}$/i.test(accentEnd) ? accentEnd : playedTop;
         const current = currentCandidate();
         // Трек не из волны рисуется так же: форма, сыгранная часть, время (2.8.0)
         const shownTrackNow = current?.track ?? outsideTrack();
@@ -5400,6 +5426,9 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const step = 3;
         const bars = Math.floor(width / step);
         const top = Math.round(height * 0.7);
+        const playedFill = context.createLinearGradient(0, 0, Math.max(8, progress * width), 0);
+        playedFill.addColorStop(0, playedTop);
+        playedFill.addColorStop(1, playedEnd);
         for (let i = 0; i < bars; i++) {
             let value = 0.04;
             if (samples && samples.length) {
@@ -5422,16 +5451,27 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const x = i * step;
             const played = look === 'live' && fraction <= progress;
             const hovered = look === 'live' && hover !== null && fraction <= hover && !played;
-            let upper: string;
-            let lower: string;
-            if (played) { upper = playedTop; lower = playedLow; }
-            else if (hovered) { upper = ink(0.85); lower = ink(0.34); }
-            else if (look === 'live') { upper = ink(0.55); lower = ink(0.2); }
+            let upper: string | CanvasGradient;
+            let lower: string | CanvasGradient;
+            if (played) { upper = playedFill; lower = playedFill; }
+            else if (hovered) { upper = ink(0.78); lower = ink(0.3); }
+            else if (look === 'live') { upper = ink(0.4); lower = ink(0.14); }
             else { upper = ink(0.22); lower = ink(0.08); }
             context.fillStyle = upper;
             context.fillRect(x, top - barHeight, 2, barHeight);
             context.fillStyle = lower;
+            if (played) context.globalAlpha = 0.38;
             context.fillRect(x, top + 1, 2, Math.round(barHeight * ((height - top - 1) / top)));
+            context.globalAlpha = 1;
+        }
+        // Плейхед: тонкая светлая черта со свечением цвета обложки на месте позиции, одна на кадр
+        if (look === 'live' && progress > 0 && progress < 1) {
+            const at = Math.round(progress * width);
+            context.shadowColor = playedEnd;
+            context.shadowBlur = 10;
+            context.fillStyle = 'rgba(255,255,255,.95)';
+            context.fillRect(at - 1, 2, 2, height - 4);
+            context.shadowBlur = 0;
         }
         if (drawFrom) repaint();
     }
@@ -5531,6 +5571,11 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         const control = target.closest<HTMLElement>('[data-act], [data-mode], [data-genre], [data-preset]');
         if (!control) {
             if (popOpen && !target.closest('.scw-pop')) { popOpen = false; render(); }
+            return;
+        }
+        if (control.dataset.act === 'track-menu') {
+            // Enter и пробел дают click без счётчика нажатий: открыто с клавиатуры, фокус сразу на первом пункте
+            menuSection.open({ node: control, anchor: control, byKeyboard: event.detail === 0 });
             return;
         }
         if (control.dataset.preset !== undefined) {
@@ -5813,6 +5858,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
     }
     // Горячие клавиши из main (Ctrl+L, Ctrl+D, Ctrl+M, Ctrl+S): то же, что кнопки блока, для играющего трека.
     // Лайк ставит кнопка сайта, плашка подтверждает, что вышло: окно могло быть не на главной
+    // Меню трека для «⋯» нижнего бара (aurora) и режима «Для роликов»: те же пункты, что по правому клику
+    host.__scTrackMenu = (request) => menuSection.open(request);
     host.__scWaveKey = (action: string): boolean => {
         const sound = player?.getCurrentSound();
         const track: WaveTrack | null = currentCandidate()?.track ?? (sound ? { ...(sound.attributes ?? {}), id: sound.id } : null);
@@ -6071,6 +6118,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         delete host.__scPeople;
         delete host.__scQueue;
         delete host.__scWaveKey;
+        delete host.__scTrackMenu;
         delete host.__scSaveSession;
         delete host.__scResume;
         delete host.__scRadarCollect;

@@ -17,8 +17,10 @@ export interface DockSection {
 export function installDock(core: DockCore): DockSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { dislike: 'Не нравится', more: 'Больше такого', wave: 'Волна от трека', next: 'Следующим', last: 'В конец очереди', waveShort: 'Волна', drop: 'К дропу, Ctrl+J' }
-        : { dislike: 'Dislike', more: 'More like this', wave: 'Wave from this track', next: 'Play next', last: 'Add to queue', waveShort: 'Wave', drop: 'Jump to the drop, Ctrl+J' };
+        // Подписи те же, что у пунктов меню трека (waveTexts: menuDislike, more, menuWaveTrack, menuQueueNext, menuQueueLast, menuDrop):
+        // одно действие называется одинаково в доке, на полоске у строк и в меню. Сверяет dock.test.ts
+        ? { dislike: 'Не нравится', more: 'Больше такого', wave: 'Волна по треку', next: 'Слушать следующим', last: 'В конец очереди', waveShort: 'Волна', drop: 'К дропу, Ctrl+J' }
+        : { dislike: 'Dislike', more: 'More like this', wave: 'Wave from track', next: 'Play next', last: 'Add to queue', waveShort: 'Wave', drop: 'Jump to the drop, Ctrl+J' };
     const ICON: Record<string, string> = {
         dislike: '<svg viewBox="0 0 16 16"><path d="M10.6 1.5H4.4c-.6 0-1.1.4-1.3 1L1.6 7.3c-.3.9.4 1.8 1.3 1.8h3.6l-.6 3.1c-.2.8.4 1.6 1.2 1.6.4 0 .8-.2 1-.6l3-4.6c.2-.3.3-.6.3-.9V2.7c0-.7-.5-1.2-1.2-1.2zm1.9 0h1.2c.4 0 .8.4.8.8v5.6c0 .4-.4.8-.8.8h-1.2z"/></svg>',
         more: '<svg viewBox="0 0 16 16"><path d="M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25z"/></svg>',

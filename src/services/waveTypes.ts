@@ -135,6 +135,7 @@ export type WaveTexts = Record<
     | 'libraryModes' | 'librarySources' | 'libraryPlaying' | 'libraryPaused' | 'libraryPlaylists' | 'libraryHere' | 'libraryUnavailable' | 'libraryUnavailableTip' | 'whyLibrary' | 'whyLibraryLikes' | 'seedLibrary'
     | 'presets' | 'presetAll' | 'moodHappy' | 'moodSad' | 'moodAggressive' | 'moodCalm' | 'moodEnergetic' | 'hintPreset' | 'presetShort' | 'whyMoodTag'
     | 'undo' | 'toastLiked' | 'toastUnliked' | 'seedCollecting' | 'seedCollectingAny' | 'seedCollectingArtist' | 'seedCollectingArtistAny' | 'menuArtistAll' | 'seedArtistAll' | 'menuQueueNext' | 'menuQueueLast'
+    | 'menuDrop' | 'menuActions'
     | 'scoutTitle' | 'scoutCount' | 'scoutKeep' | 'scoutKept' | 'scoutNext' | 'scoutExit'
     | 'momentNight' | 'momentMorning' | 'momentDay' | 'momentEvening' | 'momentDaysOf' | 'momentDaysOn'
     | 'whyRelatedArtist' | 'whyScMix' | 'whyNeighbors' | 'shelfLiked' | 'seedLiked' | 'whyLikedBy' | 'whyLikedAny'

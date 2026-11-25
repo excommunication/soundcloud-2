@@ -285,6 +285,9 @@ function rightClick(node: Element): MouseEvent {
 }
 const menuActs = (): string[] => [...document.querySelectorAll<HTMLElement>('.scw-menu [data-menu]')].map((item) => item.dataset.menu ?? '');
 const choose = (act: string): void => document.querySelector<HTMLElement>('.scw-menu [data-menu="' + act + '"]')!.click();
+/** Пункты верхнего уровня: действия и кнопки подменю (sub:имя) */
+const rootActs = (): string[] =>
+    [...document.querySelectorAll<HTMLElement>('.scw-menu:not(.scw-msub) > .scw-mi')].map((item) => item.dataset.menu ?? 'sub:' + (item.dataset.sub ?? ''));
 
 it('ПКМ по треку в списке: меню и волна от этого трека, крестик возвращает обычную', async () => {
     const site = fakeSite(relatedTracks, siteExtra);
@@ -298,7 +301,9 @@ it('ПКМ по треку в списке: меню и волна от этог
 
     const event = rightClick(row.querySelector('.soundTitle__title')!);
     expect(event.defaultPrevented).toBe(true);
-    expect(menuActs()).toEqual(['queue-next', 'queue-last', 'pick', 'wave-track', 'wave-artist', 'artist-all', 'more', 'versions', 'copy-link', 'later', 'dislike', 'hide-family', 'hide-artist']);
+    // Верхний уровень короткий, остальное в подменю «Ещё волны», «Ещё», «Скрыть» (панели идут после меню)
+    expect(menuActs()).toEqual(['queue-next', 'queue-last', 'wave-track', 'copy-link', 'dislike', 'wave-artist', 'artist-all', 'more', 'pick', 'versions', 'later', 'hide-family', 'hide-artist']);
+    expect(rootActs()).toEqual(['queue-next', 'queue-last', 'wave-track', 'sub:waves', 'copy-link', 'sub:more', 'dislike', 'sub:hide']);
     choose('wave-track');
     expect(document.querySelector('.scw-menu')).toBeNull();
     // Трек из списка сайта волне ещё не знаком: плашка без названия, сразу, до ответа сайта
@@ -332,9 +337,40 @@ it('меню мышью без фокуса на пункте, стрелки и
     expect(menu.style.transformOrigin).toMatch(/px top$/);
     const key = (name: string): void => void document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
     key('ArrowUp');
+    // Последний пункт верхнего уровня: кнопка подменю «Скрыть»
+    const hideTrigger = document.activeElement as HTMLElement;
+    expect(hideTrigger.dataset.sub).toBe('hide');
+    expect(hideTrigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(hideTrigger.getAttribute('aria-expanded')).toBe('false');
+    const hidePanel = document.getElementById(hideTrigger.getAttribute('aria-controls')!)!;
+    expect(hidePanel.getAttribute('role')).toBe('menu');
+    expect(hidePanel.hidden).toBe(true);
+    // → открывает подменю и ставит фокус на первый пункт, ← закрывает и возвращает фокус на кнопку
+    key('ArrowRight');
+    expect(hidePanel.hidden).toBe(false);
+    expect(hideTrigger.getAttribute('aria-expanded')).toBe('true');
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('later');
+    key('End');
     expect((document.activeElement as HTMLElement).dataset.menu).toBe('hide-artist');
     key('ArrowDown');
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('later');
+    key('ArrowLeft');
+    expect(hidePanel.hidden).toBe(true);
+    expect(hideTrigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(hideTrigger);
+    // Escape в подменю закрывает только его, меню остаётся
+    key('ArrowRight');
+    key('Escape');
+    expect(hidePanel.hidden).toBe(true);
+    expect(document.activeElement).toBe(hideTrigger);
+    expect(document.querySelector('.scw-menu')).not.toBeNull();
+    key('ArrowDown');
     expect((document.activeElement as HTMLElement).dataset.menu).toBe('queue-next');
+    // Enter на кнопке подменю (клик без мыши) тоже открывает его и ведёт внутрь; пункт из подменю закрывает всё
+    hideTrigger.click();
+    expect(hidePanel.hidden).toBe(false);
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('later');
+    key('Escape');
     key('Escape');
     expect(document.querySelector('.scw-menu')).toBeNull();
 
@@ -353,6 +389,69 @@ it('меню мышью без фокуса на пункте, стрелки и
     (document.activeElement as HTMLElement).click();
     expect(document.querySelector('.scw-menu')).toBeNull();
     expect(document.activeElement).toBe(title);
+});
+
+it('одно меню трека: «⋯» карточки, __scTrackMenu бара и правый клик дают тот же набор, «К дропу» только у играющего', async () => {
+    const site = fakeSite(relatedTracks, siteExtra);
+    fakeExclusions();
+    const row = listRow();
+    window.eval(waveScript());
+    await vi.advanceTimersByTimeAsync(100);
+    document.querySelector<HTMLButtonElement>('#sc-wave .scw-play')!.click();
+    await vi.advanceTimersByTimeAsync(1100);
+    const core = ['queue-next', 'queue-last', 'wave-track', 'copy-link', 'dislike', 'wave-artist', 'artist-all', 'more', 'pick', 'versions', 'later', 'hide-family', 'hide-artist'];
+    // У треков волны в тесте нет ссылки: «Скопировать ссылку» появляется только там, где ссылка есть
+    const playing = ['drop', ...core.filter((act) => act !== 'copy-link')];
+    // Строка списка (не играет): общий набор без «К дропу»
+    rightClick(row.querySelector('.soundTitle__title')!);
+    expect(menuActs()).toEqual(core);
+    document.querySelector<HTMLElement>('.scw-menu')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    // «⋯» карточки волны: играющий трек, «К дропу» первым, дальше тот же набор
+    const dots = document.querySelector<HTMLButtonElement>('#sc-wave [data-act="track-menu"]')!;
+    expect(dots.getAttribute('aria-haspopup')).toBe('menu');
+    dots.click();
+    expect(menuActs()).toEqual(playing);
+    expect(dots.getAttribute('aria-expanded')).toBe('true');
+    // Повторное нажатие закрывает
+    document.querySelector<HTMLButtonElement>('#sc-wave [data-act="track-menu"]')!.click();
+    expect(document.querySelector('.scw-menu')).toBeNull();
+
+    // Правый клик по всей карточке, не только по обложке
+    rightClick(document.querySelector('#sc-wave .scw-meta')!);
+    expect(menuActs()).toEqual(playing);
+    document.querySelector<HTMLElement>('.scw-menu')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    // Бар (aurora) через мост: пункты места идут в начале, выбор зовёт их действие, фокус возвращается к кнопке
+    const bar = document.createElement('button');
+    bar.dataset.trackMenu = 'bar';
+    document.body.append(bar);
+    const follow = vi.fn();
+    const open = (window as unknown as { __scTrackMenu(request: object): boolean }).__scTrackMenu;
+    expect(open({ anchor: bar, byKeyboard: true, extras: [{ id: 'follow', label: 'Follow', run: follow }] })).toBe(true);
+    // Пункты места уходят в подменю «Ещё», первыми
+    expect(menuActs()).toEqual([...playing.slice(0, 8), 'x:follow', ...playing.slice(8)]);
+    expect(document.querySelector('#scw-msub-more > .scw-mi')?.getAttribute('data-menu')).toBe('x:follow');
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('drop');
+    // У играющего трека подсказка сочетания клавиш справа
+    expect(document.querySelector('.scw-menu [data-menu="drop"]')?.getAttribute('aria-keyshortcuts')).toBe('Control+J');
+    const key = (name: string): void => void document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+    key('End');
+    expect((document.activeElement as HTMLElement).dataset.sub).toBe('hide');
+    key('Home');
+    expect((document.activeElement as HTMLElement).dataset.menu).toBe('drop');
+    choose('x:follow');
+    expect(follow).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(bar);
+    expect(bar.getAttribute('aria-expanded')).toBe('false');
+
+    // Режим «Для роликов» помечает кадр data-sc-track="current": правый клик по нему — меню играющего трека
+    const frame = document.createElement('div');
+    frame.dataset.scTrack = 'current';
+    document.body.append(frame);
+    rightClick(frame);
+    expect(menuActs()).toEqual(playing);
+    expect(site.player.getCurrentSound()).not.toBeNull();
 });
 
 it('В7: переключатели листаются стрелками, Home и End, в порядке Tab только выбранный', async () => {
@@ -1217,7 +1316,7 @@ it('В7: «Не нравится» в блоке волны ставит сле�
     await vi.advanceTimersByTimeAsync(1100);
     const first = site.player.getCurrentSound()!.id;
     const labels = [...document.querySelectorAll<HTMLElement>('#sc-wave .scw-meta .scw-like')].map((node) => node.dataset.act);
-    expect(labels).toEqual(['later', 'dislike', 'more', 'like']);
+    expect(labels).toEqual(['later', 'dislike', 'more', 'like', 'track-menu']);
     expect(document.querySelector('#sc-wave .scw-meta .scv[data-kind="card"] [data-vol="mute"]')).not.toBeNull();
     document.querySelector<HTMLElement>('#sc-wave [data-act="dislike"]')!.click();
     await vi.advanceTimersByTimeAsync(100);
@@ -2991,7 +3090,16 @@ it('распознанная ссылка помнится 10 минут, пот
     });
     window.eval(waveScript());
     await vi.advanceTimersByTimeAsync(100);
-    const open = (window as unknown as { __scOpenTrack(path: string, go: boolean): Promise<string> }).__scOpenTrack;
+    const raw = (window as unknown as { __scOpenTrack(path: string, go: boolean): Promise<string> }).__scOpenTrack;
+    // Очередь запросов может ждать таймер (фоновые запросы волны, например «Вечер среды» по вечерам среды):
+    // с поддельными таймерами ответ приходит, только если время идёт
+    const open = async (path: string, go: boolean): Promise<string> => {
+        let done = false;
+        const result = raw(path, go).finally(() => { done = true; });
+        for (let step = 0; !done && step < 600; step++) await vi.advanceTimersByTimeAsync(1000);
+        if (!done) throw new Error('openTrack не ответил за 10 минут игрового времени: ' + path);
+        return result;
+    };
     const asked = (): number => site.api.callEndpoint.mock.calls.filter(([name, , query]) => name === 'resolve' && (query as { url?: string }).url === 'https://soundcloud.com/artist/first').length;
     // Между открытиями первой ссылки играет вторая, иначе «уже играет» обходит распознавание
     await open('/artist/first', false);
@@ -3003,7 +3111,8 @@ it('распознанная ссылка помнится 10 минут, пот
     await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
     await open('/artist/first', false);
     expect(asked()).toBe(2);
-});
+    // Длинная прокрутка таймеров: на загруженной машине (клиент с WebGL рядом) 5 с не хватает
+}, 20000);
 
 function savedLibrary(snapshot: PlaybackSnapshot | null = null) {
     const library = {
@@ -3411,7 +3520,8 @@ it('обновление профиля раз в 30 минут не откат�
     await vi.advanceTimersByTimeAsync(1000);
     await toggleList();
     expect(count()).toBe('249');
-});
+    // Длинная прокрутка таймеров: на загруженной машине 5 с не хватает
+}, 20000);
 
 it('«Моя музыка»: число лайков в выборе появляется, когда список дочитан, а не растёт страницами', async () => {
     const likes = Array.from({ length: 250 }, (_, i) => libTrack(20000 + i));
@@ -4753,8 +4863,27 @@ it('режим «Для роликов» 2.9.0: кнопка карточки о
     expect(layer.classList.contains('vertical')).toBe(!vertical);
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', bubbles: true }));
     expect(layer.classList.contains('bare')).toBe(true);
+    // Полоса прокрутки страницы под режимом спрятана
+    expect(document.documentElement.classList.contains('scc-lock')).toBe(true);
+    // «⋯» в панели и правый клик по кадру: меню играющего трека; Esc в меню закрывает только меню
+    const dots = layer.querySelector<HTMLButtonElement>('.scc-tools [data-clip="menu"]')!;
+    expect(dots.getAttribute('aria-haspopup')).toBe('menu');
+    dots.click();
+    expect(document.querySelector('.scw-menu [data-menu="drop"]')).not.toBeNull();
+    expect(document.querySelector('.scw-menu [data-menu="download"], .scw-menu [data-menu="queue-next"]')).not.toBeNull();
+    (document.querySelector<HTMLElement>('.scw-menu [data-menu]')!).focus();
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(document.querySelector('.scw-menu')).toBeNull();
+    expect(document.querySelector('.scc')).not.toBeNull();
+    expect(document.activeElement).toBe(dots);
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 });
+    layer.querySelector('.scc-title')!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.querySelector('.scw-menu [data-menu="drop"]')).not.toBeNull();
+    document.querySelector<HTMLElement>('.scw-menu')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(document.querySelector('.scc')).toBeNull();
+    expect(document.documentElement.classList.contains('scc-lock')).toBe(false);
     expect(open.getAttribute('aria-pressed')).toBe('false');
 });
 

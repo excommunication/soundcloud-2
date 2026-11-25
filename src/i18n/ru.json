@@ -70,6 +70,7 @@
     "browserLoginDone": "Сессия принята, страница перезагружается",
     "browserLoginNoRefresh": "Принят только токен доступа: он держится сутки. Чтобы вход не слетал, экспортируй cookie через Cookie-Editor (Export → JSON).",
     "shortLinkFailed": "Ссылка не открылась: SoundCloud её не нашёл или нет сети",
+    "downloadStarted": "Скачиваю: {name}",
     "downloadDone": "Скачано: {name}",
     "downloadFailed": "Не удалось скачать трек: SoundCloud не отдал файл или нет сети",
     "downloadSaveTitle": "Скачать трек",

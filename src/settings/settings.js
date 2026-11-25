@@ -402,6 +402,12 @@ async function initializeSettings() {
         document.documentElement.classList.toggle('reduce-motion', e.target.checked);
         ipcRenderer.send('setting-changed', { key: 'reduceMotion', value: e.target.checked });
     });
+    // Новогодняя тема: состояние сейчас (с учётом сезона); main сам решает, запомнить ли это как явный выбор
+    const winterToggle = document.getElementById('winterTheme');
+    if (winterToggle) {
+        winterToggle.checked = initial.winterTheme === true;
+        winterToggle.addEventListener('change', () => ipcRenderer.send('setting-changed', { key: 'winterTheme', value: winterToggle.checked }));
+    }
     const effectsSelect = document.getElementById('effectsMode');
     if (effectsSelect) {
         effectsSelect.value = ['full', 'light', 'solid', 'off'].includes(initial.effectsMode) ? initial.effectsMode : 'full';

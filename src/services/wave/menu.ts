@@ -75,7 +75,37 @@ export interface MenuCore {
     cardGenre(node: Element): string;
     /** Скачивание трека: раздел wave/download.ts */
     download: DownloadSection;
+    /** Трек, который сейчас играет на сайте (из волны или нет); null — ничего не играет */
+    playingTrack(): WaveTrack | null;
+    /** «К дропу» у играющего трека: true, если перемотал */
+    drop(): boolean;
 }
+/** Пункт меню от места, откуда меню открыто (кнопки бара, ушедшие в «⋯»): свой значок и действие */
+export interface TrackMenuExtra {
+    id: string;
+    label: string;
+    /** Разметка SVG значка; нет — пункт без значка */
+    icon?: string;
+    run(): void;
+}
+/** Откуда и про что открыть меню трека: кнопка «⋯», правый клик, режим роликов */
+export interface TrackMenuRequest {
+    /** Узел трека (строка, плитка, бейдж, элемент с data-sc-track); нет — играющий трек */
+    node?: Element | null;
+    /** Кнопка «⋯»: меню встаёт у неё, фокус возвращается к ней, aria-expanded следит за меню, повторное нажатие закрывает */
+    anchor?: HTMLElement | null;
+    /** Точка (правый клик), если нет кнопки */
+    x?: number;
+    y?: number;
+    /** Открыто с клавиатуры: фокус сразу на первом пункте */
+    byKeyboard?: boolean;
+    extras?: TrackMenuExtra[];
+}
+/** Пункт меню: действие, подпись, значок. Действие '-' — разделитель */
+type MenuLeaf = [string, string, string];
+/** Подменю: кнопка с подписью и значком, пункты открываются сбоку (наведение, → или Enter) */
+interface MenuSub { sub: string; label: string; icon: string; items: MenuLeaf[] }
+type MenuEntry = MenuLeaf | MenuSub;
 /** Что раздел отдаёт ядру: слушатели страницы, закрытие меню, слежение за iframe */
 export interface MenuSection {
     onPageMenu(event: MouseEvent): void;
@@ -90,6 +120,8 @@ export interface MenuSection {
     actOn(node: Element, act: string): boolean;
     /** Какие действия меню сейчас доступны трека под узлом: по ним кнопки знают, нажаты ли они (undislike, unmore) */
     actsOn(node: Element): string[];
+    /** Одно меню трека для всех мест: «⋯» в баре и на карточке, режим роликов. false — трека нет, меню не открыто */
+    open(request: TrackMenuRequest): boolean;
     /** iframe того же сайта: в каждый документ те же слушатели, ушедшие документы забываются */
     watchFrames(): void;
     /** Снять слушатели со всех документов iframe */
@@ -99,6 +131,8 @@ export interface MenuSection {
 export function installMenu(core: MenuCore): MenuSection {
     /** Разделитель групп в списке пунктов меню */
     const MENU_SEPARATOR = '-';
+    /** Пункт места (TrackMenuExtra) в списке пунктов: приставка и его id */
+    const EXTRA_PREFIX = 'x:';
     const {
         texts: T, known, excludedTracks, excludedArtists, laterTracks, laterArtists, moreTracks, marked, familyHidden, setExcluded, setFamily, addTrack, currentCandidate,
         fromTrack, trackOf, artistOf, artistOwnTracks, artistCatalog, playlistTracks, resolveUrl, beginSeed, ensureProfile, ensureExclusions, ensureStyle, showToast, onScroll, el,
@@ -123,9 +157,65 @@ export function installMenu(core: MenuCore): MenuSection {
         // Строки текста с нотой: текст песни
         lyrics: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v1.5H2zM2 6.25h8v1.5H2zM2 9.5h5.5V11H2zM12.5 6.5v4.8a1.9 1.9 0 1 1-1.25-1.79V5.5H14v1z"/></svg>',
         pick:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 2.5h10V4H1zM1 6.25h10v1.5H1zM1 10h6v1.5H1zM11.25 9h1.5v2.25H15v1.5h-2.25V15h-1.5v-2.25H9v-1.5h2.25z"/></svg>',
+        // Молния: к дропу играющего трека
+        drop: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.4.8 3 9.2h4.1L6.4 15.2 13 6.6H8.8z"/></svg>',
         // Кнопка-булавка: закрепить на главной
         pin: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.2 1 15 5.8l-1.06 1.06-.88-.88-2.9 2.9.35 2.83-1.06 1.06-2.83-2.83L2.06 14.5 1.5 13.94l4.56-4.56-2.83-2.83 1.06-1.06 2.83.35 2.9-2.9-.88-.88z"/></svg>',
+        // Строки со стрелкой вверх: слушать следующим
+        next: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h8v1.5H1zM1 6.75h8v1.5H1zM1 10.5h5V12H1zM12 3.4l3.2 3.2-1.06 1.06-1.39-1.38V13h-1.5V6.28L9.86 7.66 8.8 6.6z"/></svg>',
+        // Строки со стрелкой вниз: в конец очереди
+        last: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h8v1.5H1zM1 6.75h8v1.5H1zM1 10.5h5V12H1zM12.75 3v6.72l1.39-1.38 1.06 1.06L12 12.6 8.8 9.4l1.06-1.06 1.39 1.38V3z"/></svg>',
+        // Две дуги вокруг точки: ещё волны
+        waves: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM4.46 4.46l1.06 1.06a3.5 3.5 0 0 0 0 4.96l-1.06 1.06a5 5 0 0 1 0-7.08zm7.08 0a5 5 0 0 1 0 7.08l-1.06-1.06a3.5 3.5 0 0 0 0-4.96zM2.34 2.34 3.4 3.4a6.5 6.5 0 0 0 0 9.2l-1.06 1.06a8 8 0 0 1 0-11.32zm11.32 0a8 8 0 0 1 0 11.32L12.6 12.6a6.5 6.5 0 0 0 0-9.2z"/></svg>',
+        // Перечёркнутый глаз: скрыть
+        eyeOff: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m2.53 1.47 12 12-1.06 1.06-2.04-2.04A7.6 7.6 0 0 1 8 13.5C4.4 13.5 1.8 11 .6 8c.5-1.25 1.3-2.4 2.33-3.32L1.47 2.53zM4 5.74A6.4 6.4 0 0 0 2.24 8C3.3 10.3 5.4 12 8 12c.84 0 1.63-.17 2.35-.48L9.1 10.28A2.5 2.5 0 0 1 5.72 6.9zM8 2.5c3.6 0 6.2 2.5 7.4 5.5-.4 1-.98 1.92-1.71 2.7l-1.06-1.06c.45-.5.84-1.05 1.13-1.64C12.7 5.7 10.6 4 8 4c-.5 0-.98.06-1.44.17L5.37 2.98A7.7 7.7 0 0 1 8 2.5z"/></svg>',
+        // Три точки: ещё
+        dots: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
     };
+    /** Стрелка подменю справа */
+    const CHEVRON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.03 3.47 10.56 8l-4.53 4.53-1.06-1.06L8.44 8 4.97 4.53z"/></svg>';
+    const isSub = (entry: MenuEntry): entry is MenuSub => !Array.isArray(entry);
+    /** Пункты, у которых есть сочетание клавиш (main.ts, shortcutService): подсказка справа, только у трека, который играет в волне */
+    const SHORTCUT: Record<string, [string, string]> = { drop: ['Ctrl+J', 'Control+J'], later: ['Ctrl+D', 'Control+D'], more: ['Ctrl+M', 'Control+M'] };
+    /** Пункты, которые убирают музыку: при наведении чуть красноватые */
+    const DANGER = new Set(['dislike', 'hide-family', 'hide-artist']);
+    /** Вид меню: свой лист стилей, сильнее старых правил волны и темы (у них !important на .scw-menu) */
+    const MENU_CSS = [
+        '.scw-menu.scw-m{position:fixed;box-sizing:border-box;min-width:232px;max-width:300px;margin:0;padding:5px!important;border:0!important;border-radius:13px!important;' +
+            'background:rgba(28,29,35,.82)!important;-webkit-backdrop-filter:blur(22px) saturate(1.5);backdrop-filter:blur(22px) saturate(1.5);' +
+            'box-shadow:0 0 0 1px rgba(255,255,255,.08),inset 0 1px 0 rgba(255,255,255,.05),0 22px 50px -12px rgba(0,0,0,.65),0 6px 16px -4px rgba(0,0,0,.35)!important;' +
+            'color:#fff;font-size:13.5px;line-height:1;letter-spacing:0;overflow:visible;scrollbar-width:none;outline:none;animation:scw-m-in .14s cubic-bezier(.2,.9,.3,1) both!important}',
+        '.scw-menu.scw-m::-webkit-scrollbar{display:none}',
+        '.scw-menu.scw-m[data-scroll]{overflow-y:auto}',
+        '@keyframes scw-m-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}',
+        '.scw-menu.scw-m .scw-mi{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;height:32px!important;margin:0;padding:0 10px 0 9px!important;border:0!important;' +
+            'border-radius:8px!important;background:transparent!important;box-shadow:none!important;outline:none!important;color:rgba(255,255,255,.84)!important;' +
+            'font:inherit;font-size:13.5px!important;font-weight:500!important;line-height:1!important;text-align:left;white-space:nowrap;cursor:default;appearance:none;-webkit-appearance:none}',
+        '.scw-menu.scw-m .scw-mic{display:grid;place-items:center;flex:none;width:16px;height:16px;color:rgba(255,255,255,.46)}',
+        '.scw-menu.scw-m .scw-mic svg,.scw-menu.scw-m .scw-mch svg{display:block;width:16px;height:16px;fill:currentColor}',
+        '.scw-menu.scw-m .scw-ml{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}',
+        '.scw-menu.scw-m .scw-mk{margin-left:12px;color:rgba(255,255,255,.34);font-size:11.5px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums}',
+        '.scw-menu.scw-m .scw-mch{flex:none;margin-right:-4px;color:rgba(255,255,255,.34)}',
+        '.scw-menu.scw-m .scw-mch svg{width:14px;height:14px}',
+        '.scw-menu.scw-m .scw-mi:focus,.scw-menu.scw-m .scw-mi[aria-expanded="true"]{background:rgba(255,255,255,.085)!important;color:#fff!important}',
+        '.scw-menu.scw-m .scw-mi:focus .scw-mic,.scw-menu.scw-m .scw-mi:focus .scw-mch,.scw-menu.scw-m .scw-mi[aria-expanded="true"] .scw-mch{color:rgba(255,255,255,.9)}',
+        '.scw-menu.scw-m .scw-mi:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)!important}',
+        '.scw-menu.scw-m .scw-mi:hover:not(:focus):not([aria-expanded="true"]){background:transparent!important;color:rgba(255,255,255,.84)!important}',
+        '.scw-menu.scw-m .scw-mi:active{background:rgba(255,255,255,.13)!important}',
+        '.scw-menu.scw-m .scw-mi[data-tone="danger"]:focus{color:#ffb4b4!important}',
+        '.scw-menu.scw-m .scw-mi[data-tone="danger"]:focus .scw-mic{color:#ff8f8f}',
+        '.scw-menu.scw-m .scw-msep{display:block;height:1px;margin:5px 9px;padding:0;border:0;background:rgba(255,255,255,.07)}',
+        '.scw-menu.scw-m[hidden]{display:none!important}',
+        '@media (prefers-reduced-motion:reduce){.scw-menu.scw-m{animation:none!important}}',
+        'html.scm-reduce .scw-menu.scw-m{animation:none!important}',
+    ].join('\n');
+    function ensureMenuStyle(): void {
+        if (document.getElementById('scw-menu-style')) return;
+        const style = document.createElement('style');
+        style.id = 'scw-menu-style';
+        style.textContent = MENU_CSS;
+        (document.head ?? document.documentElement).append(style);
+    }
     // Зёрна: сам трек; топ артиста (он же идёт в подборку); треки плейлиста
     async function loadSeed(kind: SeedLinkKind, target: MenuTarget): Promise<{ seed: Seed; first: WaveTrack | null } | null> {
         // Все треки артиста (Ф1): только его каталог по порядку, похожих нет; режим «Похожее», чтобы слышанное не отсекалось
@@ -174,20 +264,43 @@ export function installMenu(core: MenuCore): MenuSection {
         }
     }
     // Элементы списков сайта и их главные ссылки: проверено на ленте, лайках, истории, поиске, плейлисте, главной
-    const ITEM_SELECTOR = '.soundList__item, .searchItem__trackItem, .historicalPlays__item, .userStreamItem, .trackItem, .compactTrackList__item, .playableTile, .soundBadge, .playbackSoundBadge, .userBadgeListItem, .userBadge, .sound';
+    // Строки и плитки клиента вне блока волны (#sc-vibe и другие) тоже строки: меню по всей строке, а не только по ссылке
+    const ITEM_SELECTOR = '.soundList__item, .searchItem__trackItem, .historicalPlays__item, .userStreamItem, .trackItem, .compactTrackList__item, .systemPlaylistTrackList__item, .playableTile, .soundBadge, .playbackSoundBadge, .userBadgeListItem, .userBadge, .sound, .scw-row, .scw-tile';
+    /** Плитка или строка клиента с номером трека: «Далее», выбор пути, подборки, «Моя музыка», «Волна по описанию» */
+    const OWN_ITEM = '.scw-tile[data-track], .scw-tile[data-fork], .scw-row[data-track]';
+    const ownTrack = (tile: HTMLElement): WaveTrack | undefined => {
+        const id = Number(tile.dataset.track ?? tile.dataset.fork);
+        return id ? known.get(id)?.track ?? core.preview().find((item) => item.track.id === id)?.track ?? core.sectionTrack(id) : undefined;
+    };
+    function playingTarget(): MenuTarget | null {
+        const track = core.playingTrack();
+        return track ? fromTrack(track) : null;
+    }
+    // Играющий ли это трек: по номеру, если трек известен, иначе по ссылке
+    function isPlaying(target: MenuTarget): boolean {
+        if (target.kind !== 'track') return false;
+        const playing = core.playingTrack();
+        if (!playing) return false;
+        if (target.track) return target.track.id === playing.id;
+        const key = canonicalUrl(target.url);
+        return !!key && key === canonicalUrl(playing.permalink_url ?? '');
+    }
     const PRIMARY_SELECTOR = 'a.soundTitle__title, a.trackItem__trackTitle, a.playbackSoundBadge__titleLink, a.playableTile__mainHeading, a.playableTile__heading, a.sound__coverArt, a.playableTile__artworkLink, a.userBadge__usernameLink, a.userBadgeListItem__heading';
     const USER_SELECTOR = 'a.soundTitle__username, a.trackItem__username, a.playbackSoundBadge__lightLink, a.playableTile__usernameHeading, .playableTile a.sc-link-secondary';
     const HERO_SELECTOR = '.fullHero, .listenHero, .profileHeader, .systemPlaylistHero, .l-listen-hero';
     function menuTarget(node: Element): MenuTarget | null {
         if (node.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return null;
+        // Играющий трек без ссылки на него (режим «Для роликов»): разметка помечает это сама
+        if (node.closest('[data-sc-track="current"]')) return playingTarget();
+        const own = node.closest<HTMLElement>(OWN_ITEM);
+        const ownFound = own ? ownTrack(own) : undefined;
+        if (ownFound) return fromTrack(ownFound);
         const inWave = node.closest('#sc-wave');
         if (inWave) {
-            const tile = node.closest<HTMLElement>('.scw-tile[data-track], .scw-row[data-track]');
-            const id = tile ? Number(tile.dataset.track) : 0;
-            const track = id
-                ? known.get(id)?.track ?? core.preview().find((item) => item.track.id === id)?.track ?? core.sectionTrack(id)
-                : node.closest('.scw-body') ? currentCandidate()?.track : undefined;
+            // Карточка волны: трек волны или трек не из волны, который играет сейчас; меню по всей карточке
+            const track = own ? undefined : node.closest('.scw-body') ? currentCandidate()?.track ?? core.playingTrack() ?? undefined : undefined;
             if (track) return fromTrack(track);
+            const tile = own;
             // Карточка жанра на полке: закрепить жанр или включить волну по нему
             const genre = tile ? '' : cardGenre(node);
             return genre ? { kind: 'genre', url: '', artistUrl: '', genre } : null;
@@ -288,51 +401,81 @@ export function installMenu(core: MenuCore): MenuSection {
     }
     const trackExcluded = (target: MenuTarget): boolean => trackMarked(excludedTracks, target);
     const artistExcluded = (target: MenuTarget): boolean => artistMarked(excludedArtists, target);
-    function menuItems(target: MenuTarget): Array<[string, string, string]> {
-        const items: Array<[string, string, string]> = [];
-        // Закрепить на главной можно плейлист, артиста и жанр (В5); у трека закрепления нет
-        const pinItem = (): [string, string, string] => (pinned(target) ? ['unpin', T.menuUnpin, 'undo'] : ['pin', T.menuPin, 'pin']);
-        if (target.kind === 'genre') return [['wave-genre', T.menuWaveGenre, 'wave'], pinItem()];
-        const hasArtist = target.kind === 'artist' || !!target.artistUrl || !!target.track;
-        const track = target.kind === 'track';
-        // Группы через разделитель: очередь, волна, сам трек, скрыть. Пустая группа не рисуется
-        const queue: Array<[string, string, string]> = [];
-        const wave: Array<[string, string, string]> = [];
-        const about: Array<[string, string, string]> = [];
-        const hide: Array<[string, string, string]> = [];
-        if (track) {
-            queue.push(['queue-next', T.menuQueueNext, 'pick'], ['queue-last', T.menuQueueLast, 'pick']);
-            queue.push(core.pickedIndex(target) >= 0 ? ['unpick', T.menuUnpick, 'undo'] : ['pick', T.menuPick, 'pick']);
-            wave.push(['wave-track', T.menuWaveTrack, 'wave']);
+    // Подписи подменю: только меню знает о них, поэтому здесь, а не в общих текстах волны
+    const SUB_LABEL = T.lang === 'ru'
+        ? { waves: 'Ещё волны', hide: 'Скрыть', more: 'Ещё' }
+        : { waves: 'More waves', hide: 'Hide', more: 'More' };
+    const sep = (): MenuLeaf => [MENU_SEPARATOR, '', ''];
+    /** Группы в один список через разделитель; пустая группа не рисуется */
+    function joinGroups<E>(groups: E[][], separator: () => E): E[] {
+        const out: E[] = [];
+        for (const group of groups) {
+            if (!group.length) continue;
+            if (out.length) out.push(separator());
+            out.push(...group);
         }
+        return out;
+    }
+    // Единственный источник пунктов меню трека: правый клик, «⋯» в баре и на карточке, режим роликов зовут его.
+    // Общий набор одинаков везде; от места зависят только «К дропу» (у играющего трека) и пункты места (extras).
+    // У трека верхний уровень короткий (главные действия), остальное в подменю: «Ещё волны», «Ещё», «Скрыть».
+    // У артиста, плейлиста и жанра пунктов мало: список плоский
+    function menuItems(target: MenuTarget, extras: TrackMenuExtra[] = []): MenuEntry[] {
+        const extraItems: MenuLeaf[] = extras.map((extra) => [EXTRA_PREFIX + extra.id, extra.label, '']);
+        // Закрепить на главной можно плейлист, артиста и жанр (В5); у трека закрепления нет
+        const pinItem = (): MenuLeaf => (pinned(target) ? ['unpin', T.menuUnpin, 'undo'] : ['pin', T.menuPin, 'pin']);
+        const hasArtist = target.kind === 'artist' || !!target.artistUrl || !!target.track;
+        const playing = isPlaying(target);
+        if (target.kind === 'track') {
+            const waves: MenuLeaf[] = [];
+            if (hasArtist) waves.push(['wave-artist', T.menuWaveArtist, 'artist'], ['artist-all', T.menuArtistAll, 'catalog']);
+            waves.push(trackMarked(moreTracks, target) ? ['unmore', T.menuUnmore, 'undo'] : ['more', T.more, 'more']);
+            const lyricsLabel = core.lyricsLabel(target);
+            const more = joinGroups<MenuLeaf>([
+                extraItems,
+                [core.pickedIndex(target) >= 0 ? ['unpick', T.menuUnpick, 'undo'] : ['pick', T.menuPick, 'pick']],
+                [...(lyricsLabel ? [['lyrics', lyricsLabel, 'lyrics'] as MenuLeaf] : []), ['versions', T.menuVersions, 'versions']],
+            ], sep);
+            const hide: MenuLeaf[] = [
+                trackMarked(laterTracks, target) ? ['unlater', T.menuUnlater, 'undo'] : ['later', T.later, 'later'],
+                familyHidden(target) ? ['show-family', T.menuShowFamily, 'undo'] : ['hide-family', T.menuHideFamily, 'versions'],
+            ];
+            if (hasArtist) hide.push(artistExcluded(target) ? ['show-artist', T.menuShowArtist, 'undo'] : ['hide-artist', T.menuHideArtist, 'hide']);
+            const downloadLabel = core.download.label();
+            const about: MenuEntry[] = [];
+            if (downloadLabel) about.push(['download', downloadLabel, 'download']);
+            if (target.url) about.push(['copy-link', T.menuCopyLink, 'link']);
+            about.push({ sub: 'more', label: SUB_LABEL.more, icon: 'dots', items: more });
+            return joinGroups<MenuEntry>([
+                playing ? [['drop', T.menuDrop, 'drop']] : [],
+                [['queue-next', T.menuQueueNext, 'next'], ['queue-last', T.menuQueueLast, 'last']],
+                [['wave-track', T.menuWaveTrack, 'wave'], { sub: 'waves', label: SUB_LABEL.waves, icon: 'waves', items: waves }],
+                about,
+                [trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block'], { sub: 'hide', label: SUB_LABEL.hide, icon: 'eyeOff', items: hide }],
+            ], sep);
+        }
+        const head: MenuLeaf[] = [...(playing ? [['drop', T.menuDrop, 'drop'] as MenuLeaf] : []), ...extraItems];
+        if (target.kind === 'genre') return joinGroups<MenuEntry>([head, [['wave-genre', T.menuWaveGenre, 'wave'], pinItem()]], sep);
+        const wave: MenuLeaf[] = [];
         if (target.kind === 'playlist') wave.push(['wave-playlist', T.menuWavePlaylist, 'wave'], pinItem());
         if (hasArtist) wave.push(['wave-artist', T.menuWaveArtist, target.kind === 'artist' ? 'wave' : 'artist'], ['artist-all', T.menuArtistAll, 'catalog']);
         if (target.kind === 'artist') wave.push(pinItem());
-        if (track) {
-            wave.push(trackMarked(moreTracks, target) ? ['unmore', T.menuUnmore, 'undo'] : ['more', T.more, 'more']);
-            const lyricsLabel = core.lyricsLabel(target);
-            if (lyricsLabel) about.push(['lyrics', lyricsLabel, 'lyrics']);
-            about.push(['versions', T.menuVersions, 'versions']);
-            const downloadLabel = core.download.label();
-            if (downloadLabel) about.push(['download', downloadLabel, 'download']);
-        }
-        if (target.url) about.push(['copy-link', T.menuCopyLink, 'link']);
-        if (track) {
-            hide.push(trackMarked(laterTracks, target) ? ['unlater', T.menuUnlater, 'undo'] : ['later', T.later, 'later']);
-            hide.push(trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block']);
-            hide.push(familyHidden(target) ? ['show-family', T.menuShowFamily, 'undo'] : ['hide-family', T.menuHideFamily, 'block']);
-        }
+        const about: MenuLeaf[] = target.url ? [['copy-link', T.menuCopyLink, 'link']] : [];
+        const hide: MenuLeaf[] = [];
         if (target.kind === 'artist') hide.push(artistMarked(laterArtists, target) ? ['unlater-artist', T.menuUnlater, 'undo'] : ['later-artist', T.later, 'later']);
         if (hasArtist) hide.push(artistExcluded(target) ? ['show-artist', T.menuShowArtist, 'undo'] : ['hide-artist', T.menuHideArtist, 'hide']);
-        for (const group of [queue, wave, about, hide]) {
-            if (!group.length) continue;
-            if (items.length) items.push([MENU_SEPARATOR, '', '']);
-            items.push(...group);
-        }
-        return items;
+        return joinGroups<MenuEntry>([head, wave, about, hide], sep);
     }
-    function runMenu(act: string, target: MenuTarget): void {
+    /** Все действия меню подряд, с пунктами подменю: по ним кнопки знают, нажаты ли они */
+    const flatActs = (entries: MenuEntry[]): string[] =>
+        entries.flatMap((entry) => (isSub(entry) ? flatActs(entry.items) : [entry[0]])).filter((act) => act !== MENU_SEPARATOR);
+    function runMenu(act: string, target: MenuTarget, extras: TrackMenuExtra[] = []): void {
+        if (act.startsWith(EXTRA_PREFIX)) {
+            extras.find((extra) => EXTRA_PREFIX + extra.id === act)?.run();
+            return;
+        }
         switch (act) {
+            case 'drop': core.drop(); return;
             case 'queue-next':
             case 'queue-last':
                 void trackOf(target).then((track) => { if (track && !core.disposed()) addTrack(track, act === 'queue-next'); }).catch((error: unknown) => { console.warn('Очередь: трек не добавлен', error); showToast(T.toastFailed); });
@@ -372,97 +515,294 @@ export function installMenu(core: MenuCore): MenuSection {
     let menu: HTMLElement | null = null;
     let menuFor: MenuTarget | null = null;
     let menuReturn: HTMLElement | null = null;
+    // Кнопка «⋯», от которой открыто меню, и пункты её места
+    let menuAnchor: HTMLElement | null = null;
+    let menuExtras: TrackMenuExtra[] = [];
+    // Та же кнопка после пересборки блока: узел новый, ключ тот же (data-track-menu)
+    const sameAnchor = (a: Element | null, b: Element | null): boolean =>
+        !!a && !!b && (a === b || (!!(a as HTMLElement).dataset?.trackMenu && (a as HTMLElement).dataset.trackMenu === (b as HTMLElement).dataset?.trackMenu));
+    // Узел кнопки сейчас: блок волны пересобирается каждую секунду, и прежний узел мог уйти со страницы
+    const liveAnchor = (anchor: HTMLElement | null): HTMLElement | null => {
+        if (!anchor || anchor.isConnected || !anchor.dataset.trackMenu) return anchor;
+        return document.querySelector<HTMLElement>('[data-track-menu="' + anchor.dataset.trackMenu + '"]');
+    };
+    // Подменю: отдельные панели рядом с меню (не внутри: размытие фона у вложенной панели не видит страницу)
+    let panels: HTMLElement[] = [];
+    let openSub: { trigger: HTMLElement; panel: HTMLElement } | null = null;
+    // Наведение: подменю открывается с задержкой и закрывается не сразу, чтобы путь мыши наискосок до него не закрывал его
+    let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+    // Где встало меню и где ему кончаться снизу (верх плеера): по ним встают подменю
+    let menuBox = { left: 0, top: 0, bottom: 0 };
+    const inMenu = (node: Element | null): boolean => !!node && panels.some((panel) => panel.contains(node));
     function closeMenu(): void {
+        clearTimeout(hoverTimer);
+        for (const panel of panels) panel.remove();
+        panels = [];
+        openSub = null;
         menu?.remove();
+        liveAnchor(menuAnchor)?.setAttribute('aria-expanded', 'false');
         menu = null;
         menuFor = null;
         menuReturn = null;
+        menuAnchor = null;
+        menuExtras = [];
     }
     // Escape, Tab и выбор пункта возвращают фокус туда, откуда меню открыто; клик мимо фокус не трогает
     function closeMenuBack(): void {
-        const back = menuReturn;
+        const back = liveAnchor(menuReturn);
         closeMenu();
         if (back?.isConnected) back.focus({ preventScroll: true });
     }
-    function openMenu(target: MenuTarget, x: number, y: number, byKeyboard: boolean): void {
+    /** Где встать: x, y — левый верхний угол под точкой или кнопкой; aboveY — низ меню, если снизу не помещается;
+     * right — меню прижато правым краем к x (кнопка «⋯» справа) */
+    interface MenuPlace { x: number; y: number; aboveY: number; right: boolean }
+    function openMenu(target: MenuTarget, place: MenuPlace, byKeyboard: boolean, anchor: HTMLElement | null = null, extras: TrackMenuExtra[] = []): void {
         const from = document.activeElement;
         closeMenu();
         ensureStyle();
-        const root = el('div', 'dropdownMenu g-z-index-overlay scw-menu');
-        root.setAttribute('role', 'menu');
-        root.tabIndex = -1;
-        root.style.position = 'fixed';
-        const list = el('div', 'moreActions sc-list-nostyle sc-border-box sc-pt-1x sc-pb-1x');
-        const group = el('div', 'moreActions__group');
-        for (const [act, label, icon] of menuItems(target)) {
-            if (act === MENU_SEPARATOR) {
-                const line = el('div', 'scw-msep');
-                line.setAttribute('role', 'separator');
-                group.append(line);
-                continue;
-            }
-            const item = el('button', 'sc-button moreActions__button sc-button-medium sc-button-tertiary scw-mi');
+        ensureMenuStyle();
+        const host = document.fullscreenElement ?? document.body;
+        const playingWave = isPlaying(target) && !!target.track && currentCandidate()?.track.id === target.track.id;
+        const newPanel = (className: string): HTMLElement => {
+            const panel = el('div', 'scw-menu scw-m' + className);
+            panel.setAttribute('role', 'menu');
+            panel.tabIndex = -1;
+            panel.style.position = 'fixed';
+            // Выше режима «Для роликов» и плашек клиента
+            panel.style.zIndex = '2147483500';
+            return panel;
+        };
+        const leafItem = ([act, label, icon]: MenuLeaf): HTMLElement => {
+            const item = el('button', 'scw-mi');
             item.type = 'button';
+            item.tabIndex = -1;
             item.setAttribute('role', 'menuitem');
             item.dataset.menu = act;
-            const glyph = el('div', '');
-            glyph.insertAdjacentHTML('beforeend', MENU_ICON[icon]);
-            item.append(glyph, el('span', '', label));
-            group.append(item);
+            if (DANGER.has(act)) item.dataset.tone = 'danger';
+            const glyph = el('span', 'scw-mic');
+            const markup = act.startsWith(EXTRA_PREFIX) ? extras.find((extra) => EXTRA_PREFIX + extra.id === act)?.icon ?? '' : MENU_ICON[icon] ?? '';
+            if (markup) glyph.insertAdjacentHTML('beforeend', markup);
+            glyph.querySelector('svg')?.setAttribute('aria-hidden', 'true');
+            item.append(glyph, el('span', 'scw-ml', label));
+            // Сочетание клавиш есть у действий над треком, который играет в волне
+            const shortcut = SHORTCUT[act];
+            if (shortcut && (act === 'drop' || playingWave)) {
+                const hint = el('span', 'scw-mk', shortcut[0]);
+                hint.setAttribute('aria-hidden', 'true');
+                item.append(hint);
+                item.setAttribute('aria-keyshortcuts', shortcut[1]);
+            }
+            return item;
+        };
+        const separator = (): HTMLElement => {
+            const line = el('hr', 'scw-msep');
+            line.setAttribute('role', 'separator');
+            return line;
+        };
+        const root = newPanel('');
+        root.setAttribute('aria-label', T.menuActions);
+        const subs: HTMLElement[] = [];
+        for (const entry of menuItems(target, extras)) {
+            if (!isSub(entry)) {
+                root.append(entry[0] === MENU_SEPARATOR ? separator() : leafItem(entry));
+                continue;
+            }
+            if (!entry.items.length) continue;
+            const id = 'scw-msub-' + entry.sub;
+            const trigger = el('button', 'scw-mi scw-mi-sub');
+            trigger.type = 'button';
+            trigger.tabIndex = -1;
+            trigger.id = id + '-t';
+            trigger.setAttribute('role', 'menuitem');
+            trigger.setAttribute('aria-haspopup', 'menu');
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.setAttribute('aria-controls', id);
+            trigger.dataset.sub = entry.sub;
+            const glyph = el('span', 'scw-mic');
+            glyph.insertAdjacentHTML('beforeend', MENU_ICON[entry.icon] ?? '');
+            const chevron = el('span', 'scw-mch');
+            chevron.insertAdjacentHTML('beforeend', CHEVRON);
+            chevron.setAttribute('aria-hidden', 'true');
+            trigger.append(glyph, el('span', 'scw-ml', entry.label), chevron);
+            root.append(trigger);
+            const panel = newPanel(' scw-msub');
+            panel.id = id;
+            panel.hidden = true;
+            panel.setAttribute('aria-labelledby', trigger.id);
+            for (const leaf of entry.items) panel.append(leaf[0] === MENU_SEPARATOR ? separator() : leafItem(leaf));
+            subs.push(panel);
         }
-        list.append(group);
-        root.append(list);
-        root.addEventListener('click', (event) => {
-            const item = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-menu]') : null;
+        const all = [root, ...subs];
+        const itemsOf = (panel: HTMLElement): HTMLElement[] => [...panel.children].filter((node): node is HTMLElement => node.classList.contains('scw-mi'));
+        const panelOf = (trigger: HTMLElement): HTMLElement | null => subs.find((panel) => panel.id === trigger.getAttribute('aria-controls')) ?? null;
+        const closeSub = (focusTrigger: boolean): void => {
+            if (!openSub) return;
+            const { trigger, panel } = openSub;
+            openSub = null;
+            // Фокус на кнопку до того, как подменю спрячется: иначе он остался бы в скрытой панели
+            if (focusTrigger || panel.contains(document.activeElement)) trigger.focus({ preventScroll: true });
+            panel.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        };
+        const showSub = (trigger: HTMLElement, focusFirst: boolean): void => {
+            const panel = panelOf(trigger);
+            if (!panel) return;
+            if (openSub?.panel !== panel) {
+                closeSub(false);
+                panel.hidden = false;
+                trigger.setAttribute('aria-expanded', 'true');
+                openSub = { trigger, panel };
+                // Сбоку от меню на уровне своей кнопки; не влезает справа — слева; по высоте сдвигается в окно
+                const width = panel.offsetWidth;
+                const height = panel.offsetHeight;
+                const rootWidth = root.offsetWidth;
+                let left = menuBox.left + rootWidth - 3;
+                const flip = left + width > window.innerWidth - 8;
+                if (flip) left = Math.max(8, menuBox.left - width + 3);
+                const top = Math.max(8, Math.min(menuBox.top + trigger.offsetTop - root.scrollTop - 5, menuBox.bottom - height - 8));
+                panel.style.left = left + 'px';
+                panel.style.top = top + 'px';
+                panel.style.transformOrigin = (flip ? 'right ' : 'left ') + Math.max(0, menuBox.top + trigger.offsetTop - root.scrollTop - top) + 'px';
+            }
+            if (focusFirst) itemsOf(panel)[0]?.focus({ preventScroll: true });
+        };
+        const choose = (item: HTMLElement): void => {
             const chosen = menuFor;
+            const chosenExtras = menuExtras;
             closeMenuBack();
-            if (item?.dataset.menu && chosen) runMenu(item.dataset.menu, chosen);
-        });
-        root.addEventListener('keydown', (event) => {
-            const buttons = [...root.querySelectorAll<HTMLElement>('[data-menu]')];
-            const at = buttons.indexOf(document.activeElement as HTMLElement);
+            if (item.dataset.menu && chosen) runMenu(item.dataset.menu, chosen, chosenExtras);
+        };
+        const onClick = (event: MouseEvent): void => {
+            const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-mi') : null;
+            if (!item) return;
+            if (item.dataset.sub) {
+                // Кнопка подменю только открывает его; с клавиатуры (Enter, пробел) фокус сразу на первый пункт
+                clearTimeout(hoverTimer);
+                showSub(item, event.detail === 0);
+                return;
+            }
+            choose(item);
+        };
+        const onKey = (event: KeyboardEvent): void => {
+            const panel = event.currentTarget as HTMLElement;
+            const buttons = itemsOf(panel);
+            const active = document.activeElement as HTMLElement | null;
+            const at = buttons.indexOf(active as HTMLElement);
+            const inSub = panel !== root;
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 const down = event.key === 'ArrowDown';
                 // Открыто мышью: фокус на самом меню, первая стрелка встаёт на крайний пункт
                 const next = at < 0 ? (down ? 0 : buttons.length - 1) : (at + (down ? 1 : -1) + buttons.length) % buttons.length;
+                if (!inSub) closeSub(false);
                 buttons[next]?.focus();
+            } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault();
+                if (!inSub) closeSub(false);
+                buttons[event.key === 'Home' ? 0 : buttons.length - 1]?.focus();
+            } else if (event.key === 'ArrowRight' && !inSub && active?.dataset.sub) {
+                event.preventDefault();
+                showSub(active, true);
+            } else if (event.key === 'ArrowLeft' && inSub) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSub(true);
+            } else if (event.key === 'Escape' && inSub) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSub(true);
             } else if (event.key === 'Escape' || event.key === 'Tab') {
                 event.preventDefault();
+                event.stopPropagation();
                 closeMenuBack();
             }
-        });
-        document.body.append(root);
-        const left = Math.max(8, Math.min(x, window.innerWidth - root.offsetWidth - 8));
-        // Меню выше окна не вылезает и под нижний плеер не уходит: низ — верх плеера, высота ограничивается, лишнее
-        // прокручивается; место выбирается там, где больше
-        const bar = document.querySelector('.playControls')?.getBoundingClientRect();
+        };
+        // Наведение ведёт фокус: подсветка одна на мышь и клавиатуру. Подменю открывается после короткой паузы, а соседний
+        // пункт закрывает открытое не сразу: мышь по пути наискосок к подменю задевает соседей
+        const onMove = (event: PointerEvent): void => {
+            const panel = event.currentTarget as HTMLElement;
+            const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-mi') : null;
+            if (!item || document.activeElement === item) return;
+            clearTimeout(hoverTimer);
+            if (panel !== root) {
+                item.focus({ preventScroll: true });
+                return;
+            }
+            const settle = (): void => {
+                if (openSub && openSub.trigger !== item) closeSub(false);
+                item.focus({ preventScroll: true });
+                if (item.dataset.sub) hoverTimer = setTimeout(() => showSub(item, false), 110);
+            };
+            if (openSub && openSub.trigger !== item) hoverTimer = setTimeout(settle, 220);
+            else settle();
+        };
+        const onLeave = (event: PointerEvent): void => {
+            const panel = event.currentTarget as HTMLElement;
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || !panel.contains(active) || active === panel) return;
+            // Ушла мышь из подменю: подсветка возвращается на его кнопку; из меню — снимается, если подменю не открыто
+            if (panel !== root) {
+                if (!(event.relatedTarget instanceof Element && root.contains(event.relatedTarget))) openSub?.trigger.focus({ preventScroll: true });
+            } else if (!openSub && !(event.relatedTarget instanceof Element && inMenu(event.relatedTarget))) {
+                clearTimeout(hoverTimer);
+                root.focus({ preventScroll: true });
+            }
+        };
+        for (const panel of all) {
+            panel.addEventListener('click', onClick);
+            panel.addEventListener('keydown', onKey);
+            panel.addEventListener('pointermove', onMove);
+            panel.addEventListener('pointerleave', onLeave);
+        }
+        for (const panel of subs) panel.addEventListener('pointerenter', () => clearTimeout(hoverTimer));
+        // В полном экране (режим «Для роликов») видно только содержимое полноэкранного узла: меню встаёт в него
+        host.append(root, ...subs);
+        panels = subs;
+        const width = root.offsetWidth;
+        const left = Math.max(8, Math.min(place.right ? place.x - width : place.x, window.innerWidth - width - 8));
+        // Меню выше окна не вылезает и под нижний плеер не уходит: низ — верх плеера. Место снизу, не влезает — сверху,
+        // не влезает и там — сдвиг в окно. Прокрутка только в совсем низком окне. Меню от кнопки в самом плеере встаёт над ней
+        const bar = document.fullscreenElement ? null : document.querySelector('.playControls')?.getBoundingClientRect();
         const bottom = bar && bar.height > 0 && bar.top > 0 && bar.top < window.innerHeight ? bar.top : window.innerHeight;
-        const room = bottom - 16;
+        const limit = Math.max(bottom, Math.min(place.aboveY, window.innerHeight));
+        const room = limit - 16;
         if (root.offsetHeight > room) {
             root.style.maxHeight = room + 'px';
-            root.style.overflowY = 'auto';
+            root.dataset.scroll = '';
         }
         const height = root.offsetHeight;
-        const above = y + height > bottom - 8 && y - height >= 8;
+        const above = place.y + height > bottom - 8 && place.aboveY - height >= 8;
+        const top = above ? place.aboveY - height : Math.max(8, Math.min(place.y, limit - height - 8));
         root.style.left = left + 'px';
-        root.style.top = Math.max(8, Math.min(above ? y - height : y, bottom - height - 8)) + 'px';
-        // Раскрывается из точки клика
-        root.style.transformOrigin = Math.max(0, x - left) + 'px ' + (above ? 'bottom' : 'top');
+        root.style.top = top + 'px';
+        menuBox = { left, top, bottom: limit };
+        // Раскрывается из точки клика или от кнопки
+        root.style.transformOrigin = Math.max(0, Math.min(width, place.x - left)) + 'px ' + (above ? 'bottom' : 'top');
         menu = root;
         menuFor = target;
-        // Только для открытого с клавиатуры: после ПКМ возвращённый фокус сайт обводит рамкой
-        menuReturn = byKeyboard && from instanceof HTMLElement && from !== document.body ? from : null;
+        menuAnchor = anchor;
+        menuExtras = extras;
+        anchor?.setAttribute('aria-expanded', 'true');
+        // Пересобранная кнопка узнаёт по этому, что её меню открыто
+        if (anchor?.dataset.trackMenu) root.dataset.anchor = anchor.dataset.trackMenu;
+        // От кнопки фокус всегда возвращается к ней. После ПКМ — только открытое с клавиатуры: возвращённый фокус сайт обводит рамкой
+        menuReturn = anchor ?? (byKeyboard && from instanceof HTMLElement && from !== document.body ? from : null);
         // Фокус на пункте после ПКМ Chrome считает видимым, и сайт рисует ему синюю рамку
-        if (byKeyboard) root.querySelector<HTMLElement>('[data-menu]')?.focus();
+        if (byKeyboard) itemsOf(root)[0]?.focus({ preventScroll: true });
         else root.focus({ preventScroll: true });
     }
     // Узел из iframe принадлежит другому окну, и instanceof Element для него ложен
     const asElement = (value: unknown): Element | null =>
         value && typeof value === 'object' && (value as Node).nodeType === 1 ? (value as Element) : null;
+    const ready = (): boolean => !!core.player() && core.api() && !core.disposed() && core.state() !== 'unavailable';
+    function afterOpen(target: MenuTarget): void {
+        void ensureExclusions();
+        // Ссылку распознаём заранее, пока выбирают пункт
+        if (!target.track && target.url) void resolveUrl(target.url).catch((error: unknown) => console.debug('Волна: ссылка не распознана', error));
+    }
     function onContextMenu(event: MouseEvent, frame?: HTMLIFrameElement): void {
         closeMenu();
-        if (!core.player() || !core.api() || core.disposed() || core.state() === 'unavailable') return;
+        if (!ready()) return;
         const node = asElement(event.target);
         const target = node ? (frame ? frameMenuTarget(node) : menuTarget(node)) : null;
         if (!node || !target) return;
@@ -481,13 +821,40 @@ export function installMenu(core: MenuCore): MenuSection {
             x += box.left;
             y += box.top;
         }
-        openMenu(target, x, y, byKeyboard);
-        void ensureExclusions();
-        // Ссылку распознаём заранее, пока выбирают пункт
-        if (!target.track && target.url) void resolveUrl(target.url).catch((error: unknown) => console.debug('Волна: ссылка не распознана', error));
+        openMenu(target, { x, y, aboveY: y, right: false }, byKeyboard);
+        afterOpen(target);
+    }
+    function openRequest(request: TrackMenuRequest): boolean {
+        const anchor = request.anchor ?? null;
+        // Повторное нажатие той же «⋯» закрывает меню
+        if (menu && anchor && sameAnchor(menuAnchor, anchor)) {
+            closeMenu();
+            return true;
+        }
+        closeMenu();
+        if (!ready()) return false;
+        const target = request.node ? menuTarget(request.node) : playingTarget();
+        if (!target) return false;
+        let place: MenuPlace;
+        if (anchor) {
+            const rect = anchor.getBoundingClientRect();
+            place = { x: rect.right, y: rect.bottom + 6, aboveY: rect.top - 6, right: true };
+        } else {
+            const x = request.x ?? window.innerWidth / 2;
+            const y = request.y ?? window.innerHeight / 2;
+            place = { x, y, aboveY: y, right: false };
+        }
+        openMenu(target, place, !!request.byKeyboard, anchor, request.extras ?? []);
+        afterOpen(target);
+        return true;
     }
     const onOutside = (event: Event): void => {
-        if (menu && !(event.target instanceof Node && menu.contains(event.target))) closeMenu();
+        if (!menu) return;
+        const node = asElement(event.target);
+        if (node && (menu.contains(node) || inMenu(node))) return;
+        // Нажатие на свою же «⋯»: меню закроет её click, иначе оно закрылось бы здесь и тут же открылось снова
+        if (node && menuAnchor && (menuAnchor.contains(node) || sameAnchor(menuAnchor, node.closest('[data-track-menu]')))) return;
+        closeMenu();
     };
     const onDocumentKey = (event: KeyboardEvent): void => {
         if (event.key === 'Escape' && menu) closeMenuBack();
@@ -547,8 +914,9 @@ export function installMenu(core: MenuCore): MenuSection {
         },
         actsOn: (node) => {
             const target = menuTarget(node);
-            return target ? menuItems(target).map((item) => item[0]).filter((act) => act !== MENU_SEPARATOR) : [];
+            return target ? flatActs(menuItems(target)) : [];
         },
+        open: openRequest,
         watchFrames,
         dispose: () => {
             for (const cleanup of frameCleanups.values()) cleanup();

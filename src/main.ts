@@ -49,6 +49,7 @@ import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode, type EffectsMode } from './services/effectsMode';
+import { WINTER_KEY, createWinterHeader, winterAwayScript, winterChoice, winterEnabled, winterHeaderCss, winterPageCss, winterPageScript } from './services/wave/winter';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
@@ -112,6 +113,9 @@ try {
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) buildInfo = parsed as Record<string, unknown>;
     }
 } catch (error) { console.warn('Не удалось прочитать версию сборки:', error); }
+// Без упаковки app.getVersion() отдаёт версию Electron (43.8.3): в настройках и диагностике была не та версия.
+// В dev версия приложения берётся из build-info.json (scripts/build-info.cjs кладёт её из package.json)
+const appVersion = !app.isPackaged && typeof buildInfo.version === 'string' && /^\d+\.\d+\.\d+/.test(buildInfo.version) ? buildInfo.version : app.getVersion();
 
 // Dev-запуск и тестовая сборка отличаются от установленного клиента названием, иконкой и кнопкой на панели задач
 const buildLabel = !app.isPackaged ? 'Dev' : buildInfo.channel === 'test' ? 'Test' : '';
@@ -289,7 +293,7 @@ if (!isMas) {
 }
 
 const diagnostics = new DiagnosticJournal(path.join(profilePath, 'diagnostics'), {
-    build: buildInfo.build, dirty: buildInfo.dirty, version: app.getVersion(), electron: process.versions.electron, chrome: process.versions.chrome,
+    build: buildInfo.build, dirty: buildInfo.dirty, version: appVersion, electron: process.versions.electron, chrome: process.versions.chrome,
     node: process.versions.node, os: release(), arch: process.arch,
 });
 diagnostics.captureConsole();
@@ -837,7 +841,7 @@ function handleUpdateStatus(status: UpdateStatus): void {
         case 'latest':
             if (updateScreenRequested) {
                 updateScreenRequested = false;
-                show({ title: t('updateScreenCheckingTitle'), status: t('updateScreenLatest').replace('{v}', app.getVersion()), percent: 100, installing: false, done: true, later: t('updateScreenClose') });
+                show({ title: t('updateScreenCheckingTitle'), status: t('updateScreenLatest').replace('{v}', appVersion), percent: 100, installing: false, done: true, later: t('updateScreenClose') });
             } else closeUpdateScreen();
             return;
         case 'released':
@@ -965,7 +969,8 @@ async function init() {
     mainWindow.on('focus', focusTopView);
     // Фон не должен падать до 8 к/с, когда фокус просто в шапке или настройках: простой считаем по окну приложения
     const setAppIdle = (idle: boolean): void => {
-        if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle}`).catch(() => undefined);
+        if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle};${winterAwayScript(idle)}`).catch(() => undefined);
+        if (headerView && !headerView.webContents.isDestroyed()) void headerView.webContents.executeJavaScript(winterAwayScript(idle)).catch(() => undefined);
     };
     mainWindow.on('blur', () => setAppIdle(true));
     mainWindow.on('focus', () => setAppIdle(false));
@@ -1015,6 +1020,8 @@ async function init() {
     headerView.webContents.loadFile(path.join(__dirname, 'header', 'header.html'));
     headerView.webContents.on('did-finish-load', () => {
         if (recapPending) headerView?.webContents.send('history-recap', true);
+        winterHeader.reset();
+        applyWinterHeader();
     });
 
     // get selected account and define partition
@@ -1141,7 +1148,7 @@ async function init() {
     const updateMode: UpdateMode = !app.isPackaged ? 'dev' : process.platform === 'win32' && !portableDirectory ? 'installer' : 'portable';
     updateService = new UpdateService({
         mode: updateMode,
-        version: app.getVersion(),
+        version: appVersion,
         store,
         notify: queueToastNotification,
         onState: (state) => settingsManager.getView()?.webContents.send('update-state', state),
@@ -1438,10 +1445,11 @@ async function init() {
     // «Скачать» в меню правого клика: файл пишется после выбора места, ход на значке панели задач
     registerDownloadIpc(ipcMain, {
         trustedSite: isTrustedSoundCloudSender,
-        fetch: (url) => fetch(url, { redirect: 'follow' }) as unknown as Promise<DownloadResponse>,
+        fetch: (url, signal) => fetch(url, { redirect: 'follow', signal }) as unknown as Promise<DownloadResponse>,
         saveDialog: (options) => dialog.showSaveDialog(mainWindow, options),
         downloadsFolder: () => app.getPath('downloads'),
         mkdir: async (dir) => void (await fsPromises.mkdir(dir, { recursive: true })),
+        exists: (file) => fsPromises.access(file).then(() => true, () => false),
         open: async (file) => {
             const handle = await fsPromises.open(file, 'w');
             return {
@@ -1457,6 +1465,7 @@ async function init() {
             if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(value === null ? -1 : value);
         },
         notify: queueToastNotification,
+        reveal: (file) => shell.showItemInFolder(file),
         translate: (key) => translationService.translate(key),
     });
     historyManager = new HistoryManager(mainWindow, library, {
@@ -1539,7 +1548,7 @@ async function init() {
         },
         documentsFolder: () => app.getPath('documents'),
         profilePath,
-        about: { version: app.getVersion(), build: String(buildInfo.build ?? '') },
+        about: { version: appVersion, build: String(buildInfo.build ?? '') },
         applySettingChange,
         reloadNeeded: () => pending.reload || pending.network,
     });
@@ -1695,6 +1704,7 @@ async function init() {
             return;
         }
         store.set(key, data.value);
+        if (key === WINTER_KEY) { store.set(WINTER_KEY, winterChoice(data.value === true, new Date())); applyThemeToContent(); } else if (key === 'reduceMotion') applyWinterHeader();
         if (key.startsWith('proxy') || key === 'adBlocker') pending.network = true;
         // Новое расписание может сделать выпуск уже наступившим; повтор недели отсекает хранилище
         if (key === 'radarDay' || key === 'radarTime' || key === 'radarZone') radarScheduler?.wake(5000);
@@ -1812,6 +1822,15 @@ function hiddenBlocksCSS(): string {
 function currentEffectsMode() {
     return normalizeEffectsMode(store.get('effectsMode'));
 }
+// Новогодняя тема: сама с 15 декабря по 14 января, выбор из F1 запоминается
+const winterHeader = createWinterHeader();
+function winterOn(): boolean {
+    return winterEnabled(store.get(WINTER_KEY), new Date());
+}
+function applyWinterHeader(): void {
+    const animated = currentEffectsMode() === 'full' && store.get('reduceMotion', false) !== true;
+    void winterHeader.apply(headerView?.webContents, winterOn() ? winterHeaderCss(animated) : '');
+}
 function currentAppearance() {
     return effectiveAppearance(store.get('appearance'), currentEffectsMode());
 }
@@ -1860,7 +1879,9 @@ function applyThemeToContent() {
         // Оформление: стекло, скругления и прозрачный фон сайта под переливами
         appearanceCss(currentAppearance()),
         effectsModeCss(currentEffectsMode()),
+        winterPageCss(winterOn(), { mode: currentEffectsMode(), keepFramesUnfocused: currentAppearance().keepFramesUnfocused }),
     ].join('\n');
+    applyWinterHeader();
     // До первой загрузки сайта страницы нет: стили и скрипты всё равно пропали бы, их ставит did-finish-load
     if (contentView.webContents.getURL()) {
         contentView.webContents.send('soundcloud:early-blocks', hiddenBlocksCSS());
@@ -1869,6 +1890,7 @@ function applyThemeToContent() {
         void contentView.webContents.executeJavaScript(pageFeaturesScript(store.get('hideArtistUpsells', true) === true)).catch(console.error);
         // Переливы WebGL за сайтом: ставятся или обновляются без перезагрузки
         void contentView.webContents.executeJavaScript(auroraScript(currentAppearance(), currentEffectsMode())).catch(console.error);
+        void contentView.webContents.executeJavaScript(winterPageScript(winterOn())).catch(console.error);
     }
 }
 

@@ -71,6 +71,8 @@ export function downloadFileName(artist: string, title: string, ext: string): st
 /** Расширение по MIME потока или ответа сервера; неизвестное считается mp3 */
 export function extensionFor(mime: string): string {
     const type = mime.toLowerCase();
+    if (/aiff|x-aif/.test(type)) return 'aiff';
+    if (/mpegurl/.test(type)) return 'mp3';
     if (/mpeg|mp3/.test(type)) return 'mp3';
     if (/flac/.test(type)) return 'flac';
     if (/wav|wave/.test(type)) return 'wav';
@@ -104,6 +106,58 @@ export function extensionFromResponse(contentType: string | null, disposition: s
         // адрес разобран выше; здесь запасной путь
     }
     return fromName(decoded) ?? fromName(path) ?? extensionFor(fallbackMime);
+}
+
+/** Свободное имя в папке: «Имя.mp3», занято, тогда «Имя (2).mp3», «Имя (3).mp3»… (exists проверяет полный путь) */
+export async function uniqueFilePath(folder: string, fileName: string, exists: (file: string) => Promise<boolean>, join: (a: string, b: string) => string): Promise<string> {
+    const dot = fileName.lastIndexOf('.');
+    const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+    const ext = dot > 0 ? fileName.slice(dot) : '';
+    for (let n = 1; n < 1000; n++) {
+        const candidate = join(folder, n === 1 ? fileName : stem + ' (' + n + ')' + ext);
+        if (!(await exists(candidate))) return candidate;
+    }
+    return join(folder, stem + ' (' + Date.now() + ')' + ext);
+}
+
+/** Мастер-плейлист HLS (ABR): адрес варианта с наибольшим BANDWIDTH, иначе null (это обычный плейлист с кусками) */
+export function pickHlsVariant(text: string, base: string): string | null {
+    const lines = text.split('\n').map((line) => line.trim());
+    let best: { url: string; bandwidth: number } | null = null;
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].startsWith('#EXT-X-STREAM-INF:')) continue;
+        const bandwidth = Number(/BANDWIDTH=(\d+)/.exec(lines[i])?.[1]) || 0;
+        const next = lines.slice(i + 1).find((line) => line && !line.startsWith('#'));
+        if (!next) continue;
+        try {
+            const url = new URL(next, base).href;
+            if (!best || bandwidth > best.bandwidth) best = { url, bandwidth };
+        } catch {
+            // битая строка варианта пропускается
+        }
+    }
+    return best?.url ?? null;
+}
+
+/** Метка ID3v2.3 с названием и артистом для mp3 из потока (у потока своих меток нет). Пустые поля не пишутся; без полей пусто */
+export function id3Tag(title: string, artist: string): Uint8Array {
+    const frame = (id: string, value: string): number[] => {
+        if (!value) return [];
+        // UTF-16 с BOM (кодировка 1): кириллица читается во всех плеерах
+        const body = [1, 0xff, 0xfe];
+        for (let i = 0; i < value.length; i++) {
+            const code = value.charCodeAt(i);
+            body.push(code & 0xff, code >> 8);
+        }
+        const size = body.length;
+        return [...id].map((c) => c.charCodeAt(0)).concat([(size >>> 24) & 0xff, (size >>> 16) & 0xff, (size >>> 8) & 0xff, size & 0xff, 0, 0], body);
+    };
+    const frames = [...frame('TIT2', title.slice(0, 200)), ...frame('TPE1', artist.slice(0, 200))];
+    if (!frames.length) return new Uint8Array(0);
+    const size = frames.length;
+    // Размер заголовка synchsafe: по 7 бит в байте
+    const header = [0x49, 0x44, 0x33, 3, 0, 0, (size >> 21) & 0x7f, (size >> 14) & 0x7f, (size >> 7) & 0x7f, size & 0x7f];
+    return Uint8Array.from([...header, ...frames]);
 }
 
 export interface HlsPlan { init: string | null; segments: string[] }

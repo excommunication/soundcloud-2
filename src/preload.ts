@@ -369,6 +369,13 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     lyrics: (query: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:lyrics', query),
     // «Скачать» в меню правого клика: ссылку на аудио находит страница, адрес и ввод проверяет main
     downloadTrack: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('soundcloud:download-track', payload),
+    // Карточка скачивания: ход от main (место выбрано, доля) и «Показать в папке» (main открывает только скачанное им)
+    onDownloadProgress: (callback: (update: unknown) => void): (() => void) => {
+        const listener = (_event: unknown, payload: unknown): void => callback(payload);
+        ipcRenderer.on('soundcloud:download-progress', listener);
+        return () => { ipcRenderer.removeListener('soundcloud:download-progress', listener); };
+    },
+    revealDownload: (file: string): Promise<unknown> => ipcRenderer.invoke('soundcloud:download-reveal', file),
     // Запись ролика из режима «Для роликов»: разрешение на захват кадра страницы и сохранение файла; ввод проверяет main
     clipRecord: {
         arm: (state: string, note?: string): Promise<unknown> => ipcRenderer.invoke('clip:record-arm', state, note),

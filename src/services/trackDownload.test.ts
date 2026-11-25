@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { downloadFileName, extensionFor, extensionFromResponse, isDownloadUrl, parseHlsSegments, sanitizeFilePart, validateDownloadRequest } from './trackDownload';
+import {
+    downloadFileName, extensionFor, extensionFromResponse, id3Tag, isDownloadUrl, parseHlsSegments, pickHlsVariant, sanitizeFilePart, uniqueFilePath, validateDownloadRequest,
+} from './trackDownload';
 import { pickTranscoding } from './wave/download';
 import type { WaveTrack } from './waveTypes';
 
@@ -22,6 +24,28 @@ describe('имя файла', () => {
         expect(extensionFor('audio/x-wav')).toBe('wav');
         expect(extensionFor('audio/flac')).toBe('flac');
         expect(extensionFor('application/octet-stream')).toBe('mp3');
+        expect(extensionFor('audio/x-aiff')).toBe('aiff');
+    });
+    it('Windows: зарезервированные имена, управляющие символы, юникод остаётся', () => {
+        expect(sanitizeFilePart('NUL')).toBe('_NUL');
+        expect(sanitizeFilePart('lpt1')).toBe('_lpt1');
+        expect(sanitizeFilePart('a\tb\u0007c')).toBe('a b c');
+        expect(downloadFileName('Артист', 'Трек / версия 2.0.', 'm4a')).toBe('Артист - Трек версия 2.0.m4a');
+        expect(downloadFileName('  ', '...', 'mp3')).toBe('track.mp3');
+    });
+    it('свободное имя: (2), (3)…', async () => {
+        const taken = new Set(['D/a.mp3', 'D/a (2).mp3']);
+        const join = (a: string, b: string): string => a + '/' + b;
+        expect(await uniqueFilePath('D', 'a.mp3', async (file) => taken.has(file), join)).toBe('D/a (3).mp3');
+        expect(await uniqueFilePath('D', 'b.mp3', async (file) => taken.has(file), join)).toBe('D/b.mp3');
+    });
+    it('метка ID3v2.3: заголовок, synchsafe-размер, кадры TIT2 и TPE1', () => {
+        const tag = id3Tag('Т', 'A');
+        expect(String.fromCharCode(...tag.slice(0, 3))).toBe('ID3');
+        expect(tag[3]).toBe(3);
+        expect(tag[9]).toBe(tag.length - 10);
+        expect(String.fromCharCode(...tag.slice(10, 14))).toBe('TIT2');
+        expect(id3Tag('', '').length).toBe(0);
     });
     it('расширение официального файла: имя из заголовка, потом адрес, потом MIME', () => {
         expect(extensionFromResponse('audio/x-wav', null, 'https://cf-media.sndcdn.com/a')).toBe('wav');
@@ -63,6 +87,10 @@ describe('плейлист HLS', () => {
         expect(parseHlsSegments('#EXT-X-KEY:METHOD=SAMPLE-AES,URI="x"\nseg.m4s', base)).toBeNull();
         expect(parseHlsSegments('#EXT-X-KEY:METHOD=NONE\nseg.mp3', base)?.segments).toHaveLength(1);
         expect(parseHlsSegments('#EXTM3U\n', base)).toBeNull();
+    });
+    it('мастер-плейлист: лучший вариант; обычный плейлист вариантов не имеет', () => {
+        expect(pickHlsVariant('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=200\nhi.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=100\nlo.m3u8\n', base)).toBe('https://playback.media-streaming.soundcloud.cloud/x/hi.m3u8');
+        expect(pickHlsVariant('#EXTM3U\n#EXTINF:10,\nseg.m4s\n', base)).toBeNull();
     });
 });
 

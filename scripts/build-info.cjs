@@ -5,4 +5,6 @@ const dirty = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' 
 mkdirSync('tsc', { recursive: true });
 // SC_BUILD_CHANNEL=test помечает тестовую сборку: другое название и иконка, чтобы не спутать с установленной
 const channel = process.env.SC_BUILD_CHANNEL === 'test' ? 'test' : 'release';
-writeFileSync('tsc/build-info.json', JSON.stringify({ build, dirty, channel }) + '\n');
+// Версия из package.json: без упаковки (npm run dev) Electron не видит package.json приложения и отдаёт свою версию
+const { version } = require('../package.json');
+writeFileSync('tsc/build-info.json', JSON.stringify({ build, dirty, channel, version }) + '\n');

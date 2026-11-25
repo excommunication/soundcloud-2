@@ -70,6 +70,7 @@
     "browserLoginDone": "Session accepted, reloading the page",
     "browserLoginNoRefresh": "Only the access token was imported: it lasts a day. To stay signed in, export the cookies with Cookie-Editor (Export → JSON).",
     "shortLinkFailed": "Couldn’t open the link: SoundCloud didn’t find it or there’s no connection",
+    "downloadStarted": "Downloading: {name}",
     "downloadDone": "Downloaded: {name}",
     "downloadFailed": "Couldn’t download the track: SoundCloud didn’t provide the file or there’s no connection",
     "downloadSaveTitle": "Download track",
