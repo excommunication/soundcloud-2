@@ -437,9 +437,9 @@ pnpm build-win       # установщик: build/SoundCloud-2-Setup.exe
 
 ## 📄 Лицензия и благодарности
 
-Проект распространяется по лицензии [MIT](LICENSE). Он основан на [soundcloud-desktop](https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop) и не связан с SoundCloud. Товарный знак SoundCloud принадлежит его владельцу.
+Проект распространяется по лицензии [MIT](LICENSE). Он основан на [soundcloud-desktop](https://github.com/zxczxczxczxczxczxc1111/soundcloud-desktop), а тот начался с открытого клиента [soundcloud-rpc](https://github.com/richardhbtz/soundcloud-rpc) Richard Habitzreuter (MIT, 2023), чей копирайт сохранён в [LICENSE](LICENSE). Проект не связан с SoundCloud. Товарный знак SoundCloud принадлежит его владельцу.
 
-Спасибо [LRCLIB](https://lrclib.net) и Genius за тексты песен, [Castlabs](https://github.com/castlabs/electron-releases) за Electron с Widevine и всем, кто пишет об ошибках в [Issues](https://github.com/excommunication/soundcloud-2/issues).
+Спасибо [Richard Habitzreuter](https://github.com/richardhbtz) за основу, [LRCLIB](https://lrclib.net) и Genius за тексты песен, [Castlabs](https://github.com/castlabs/electron-releases) за Electron с Widevine и всем, кто пишет об ошибках в [Issues](https://github.com/excommunication/soundcloud-2/issues).
 
 <div align="center">
 
