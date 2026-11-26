@@ -5839,14 +5839,52 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             paint();
         }
     }
-    function onDown(event: MouseEvent): void {
-        if (!(event.target instanceof HTMLCanvasElement) || !event.target.classList.contains('live') || !player) return;
+    // Волна карточки тянется мышью, как полоса в нижнем баре: зажал и ведёшь, позиция идёт за курсором.
+    // Перемотка уходит не чаще раза в 120 мс, на отпускании — всегда
+    let scrub: { canvas: HTMLCanvasElement; sentAt: number; timer: ReturnType<typeof setTimeout> | undefined } | null = null;
+    function scrubTo(clientX: number, final: boolean): void {
+        if (!scrub || !player) return;
         const sound = player.getCurrentSound();
         if (!sound) return;
-        const fraction = (event.clientX - event.target.getBoundingClientRect().left) / event.target.clientWidth;
-        // seekCurrentTo плеера падает на этой версии сайта, перематывает сама модель трека
-        sound.seek(Math.max(0, Math.min(1, fraction)) * durationOf(sound));
+        const rect = scrub.canvas.getBoundingClientRect();
+        const fraction = Math.max(0, Math.min(1, rect.width ? (clientX - rect.left) / rect.width : 0));
+        hover = fraction;
+        const now = Date.now();
+        clearTimeout(scrub.timer);
+        const seek = (): void => {
+            if (!scrub) return;
+            scrub.sentAt = Date.now();
+            // seekCurrentTo плеера падает на этой версии сайта, перематывает сама модель трека
+            seekWatch.note('seek-core');
+            sound.seek(fraction * durationOf(sound));
+            paint();
+        };
+        if (final || now - scrub.sentAt >= 120) seek();
+        else scrub.timer = setTimeout(seek, 120 - (now - scrub.sentAt));
         paint();
+    }
+    function onScrubMove(event: MouseEvent): void {
+        if (!scrub) return;
+        event.preventDefault();
+        scrubTo(event.clientX, false);
+    }
+    function onScrubUp(event: MouseEvent): void {
+        if (!scrub) return;
+        scrubTo(event.clientX, true);
+        clearTimeout(scrub.timer);
+        scrub = null;
+        window.removeEventListener('mousemove', onScrubMove, true);
+        window.removeEventListener('mouseup', onScrubUp, true);
+    }
+    function onDown(event: MouseEvent): void {
+        if (event.button !== 0 || !(event.target instanceof HTMLCanvasElement) || !event.target.classList.contains('live') || !player) return;
+        if (!player.getCurrentSound()) return;
+        // Без выделения текста и перетаскивания холста, пока ведут мышью
+        event.preventDefault();
+        scrub = { canvas: event.target, sentAt: 0, timer: undefined };
+        window.addEventListener('mousemove', onScrubMove, true);
+        window.addEventListener('mouseup', onScrubUp, true);
+        scrubTo(event.clientX, true);
     }
 
     // ===== Плашка с итогом, встраивание блока, слушатели и снятие волны =====
