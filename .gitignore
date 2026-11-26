@@ -9,3 +9,9 @@ docs/
 *.log
 build-resources/*.preview.png
 build-resources/SoundCloud-2-Setup.exe
+
+# Android-прототип: сборка Gradle и скрипты страницы, которые собирает scripts/build-mobile.cjs
+mobile/android/.gradle/
+mobile/android/**/build/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/

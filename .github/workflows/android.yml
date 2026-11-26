@@ -1,0 +1,50 @@
+name: Android-прототип
+# APK прототипа: soundcloud.com в WebView со скриптами страницы клиента и фоновым плеером. Отладочная подпись,
+# ставится поверх себя. Выкладывается пререлизом android-prototype: ПК-клиент обновляется по releases/latest,
+# а пререлизы туда не попадают, так что автообновление на ПК это не трогает
+on:
+  push:
+    branches: ['feat/android*']
+    paths: ['mobile/**', 'scripts/build-mobile.cjs', 'src/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: android-prototype
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      # Без скриптов установки: Electron для сборки APK не нужен, нужен только tsc
+      - run: npx --yes pnpm@12.15.0 install --frozen-lockfile --ignore-scripts
+      - run: npx tsc && node scripts/build-mobile.cjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: gradle -p mobile/android assembleDebug --no-daemon --stacktrace
+      - run: cp mobile/android/app/build/outputs/apk/debug/app-debug.apk SoundCloud-2-Android-prototype.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoundCloud-2-Android-prototype
+          path: SoundCloud-2-Android-prototype.apk
+      - name: Пререлиз для телефона
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="Прототип для Android: проверка фонового звука, защищённых треков и скриптов клиента. Не релиз: ставится отдельным приложением, ПК-клиент не трогает. Сборка ${GITHUB_SHA::7}."
+          if gh release view android-prototype >/dev/null 2>&1; then
+            gh release upload android-prototype SoundCloud-2-Android-prototype.apk --clobber
+            gh release edit android-prototype --notes "$notes" --prerelease --target "$GITHUB_SHA"
+          else
+            gh release create android-prototype SoundCloud-2-Android-prototype.apk --prerelease --latest=false --target "$GITHUB_SHA" --title "Android-прототип" --notes "$notes"
+          fi
