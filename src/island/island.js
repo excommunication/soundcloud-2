@@ -19,6 +19,9 @@
     let pinned = false;
     let position = { elapsed: 0, duration: 0, at: 0 };
     let ticker = 0;
+    let shownKey = '';
+    let shownArt = '';
+    let backAt = 0;
 
     function seconds(value) {
         if (typeof value !== 'string' || !value) return 0;
@@ -93,6 +96,7 @@
         $('vol-fill').style.setProperty('--v', String(volume));
         volumeTrack.style.setProperty('--p', String(volume));
         volumeTrack.setAttribute('aria-valuenow', String(Math.round(volume * 100)));
+        $('vol-out').textContent = String(Math.round(volume * 100));
     }
     function readVolume() {
         if (api.volume) void api.volume().then((level) => !volumeDrag && renderVolume(level));
@@ -137,27 +141,36 @@
     });
 
 
-    // Перемотка: зажать полосу и вести мышью, как в нижнем баре. Доля уходит в main не чаще раза в 80 мс, последняя всегда
+    // Перемотка: зажать полосу и вести мышью, как в нижнем баре. Пока тянут, за мышью идёт только полоса (раз в кадр),
+    // а плеер перематывается один раз, когда отпустили: перемотка на каждом шаге заставляла сайт дёргать звук, и всё лагало
     const seekTrack = $('seek');
     let seeking = false;
-    let seekSentAt = 0;
-    let seekTimer = 0;
+    let seekFrame = 0;
+    let seekWant = 0;
     function seekAt(event) {
         const rect = seekTrack.getBoundingClientRect();
         return rect.width ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) : 0;
     }
     function seekTo(fraction, final) {
-        // Полоса и время сразу идут за мышью, не дожидаясь ответа плеера
-        position = { ...position, elapsed: position.duration * fraction, at: Date.now() };
-        renderProgress();
-        clearTimeout(seekTimer);
-        const send = () => {
-            seekSentAt = Date.now();
+        seekWant = fraction;
+        if (final) {
+            cancelAnimationFrame(seekFrame);
+            seekFrame = 0;
+            position = { ...position, elapsed: position.duration * fraction, at: Date.now() };
+            renderProgress();
             api.seek(fraction);
-        };
-        if (final || Date.now() - seekSentAt >= 80) send();
-        else seekTimer = setTimeout(send, 80);
+            // Плеер отвечает не сразу: старое время из main первые мгновения не должно отбрасывать полосу назад
+            seekHoldUntil = Date.now() + 900;
+            return;
+        }
+        if (seekFrame) return;
+        seekFrame = requestAnimationFrame(() => {
+            seekFrame = 0;
+            position = { ...position, elapsed: position.duration * seekWant, at: Date.now() };
+            renderProgress();
+        });
     }
+    let seekHoldUntil = 0;
     seekTrack.addEventListener('pointerdown', (event) => {
         if (event.button !== 0 || !position.duration) return;
         event.stopPropagation();
@@ -264,6 +277,7 @@
         text = state.language === 'en' ? TEXT.en : TEXT.ru;
         root.lang = state.language === 'en' ? 'en' : 'ru';
         root.dataset.position = settings.position || 'center';
+        root.dataset.layout = settings.layout === 'cover' ? 'cover' : 'classic';
         applyLook(settings);
         root.classList.toggle('titled', settings.showTitle !== false);
         root.classList.toggle('playing', track.isPlaying === true);
@@ -271,7 +285,12 @@
         root.classList.toggle('winter', state.winter === true);
         root.classList.toggle('shaped', state.shaped === true);
         const art = artUrl(track.artwork);
-        for (const id of ['art-sm', 'art-lg']) $(id).style.backgroundImage = art ? 'url("' + art.replace(/"/g, '%22') + '")' : '';
+        const key = (track.title || '') + '\n' + (track.author || '');
+        if (shownKey && track.title && key !== shownKey) switchTrack(shownArt, Date.now() - backAt < 4000 ? -1 : 1);
+        if (track.title) shownKey = key;
+        const image = art ? 'url("' + art.replace(/"/g, '%22') + '")' : '';
+        shownArt = image;
+        for (const id of ['art-sm', 'art-lg', 'backdrop']) $(id).style.backgroundImage = image;
         pickAccent(art);
         $('title-sm').textContent = track.title || '';
         $('title').textContent = track.title || '';
@@ -293,7 +312,7 @@
         const next = { elapsed: seconds(track.elapsed), duration: seconds(track.duration), at: Date.now(), playing: track.isPlaying === true };
         // Трек сменился или перемотали: без плавного хода, чтобы линия не ехала назад
         if (Math.abs(next.elapsed - position.elapsed - (position.playing ? (next.at - position.at) / 1000 : 0)) > 2.5 || next.duration !== position.duration) settleProgress();
-        if (!seeking) position = next;
+        if (!seeking && !(Date.now() < seekHoldUntil && Math.abs(next.elapsed - position.elapsed) > 2.5)) position = next;
         renderProgress();
         syncTicker();
         snow(state.winter === true && state.reduceMotion !== true);
@@ -329,6 +348,30 @@
         else if (!need && ticker) {
             clearInterval(ticker);
             ticker = 0;
+        }
+    }
+
+    // Смена трека: старая обложка улетает карточкой в сторону, новая влетает с пружиной, текст выезжает снизу,
+    // плашка подпрыгивает и по ней проходит блик цвета обложки. Всё на transform/opacity, без пересчёта вёрстки
+    let switchTimer = 0;
+    function switchTrack(oldImage, direction) {
+        if (state?.reduceMotion === true || state?.shaped === true) return;
+        const name = direction < 0 ? 'switch-prev' : 'switch-next';
+        island.classList.remove('switch-next', 'switch-prev');
+        void island.offsetWidth;
+        island.classList.add(name);
+        clearTimeout(switchTimer);
+        switchTimer = setTimeout(() => island.classList.remove('switch-next', 'switch-prev'), 900);
+        if (!oldImage) return;
+        for (const id of ['art-sm', 'art-lg']) {
+            const art = $(id);
+            if (!art.offsetWidth) continue;
+            const ghost = document.createElement('div');
+            ghost.className = 'art-ghost ' + (direction < 0 ? 'prev' : 'next');
+            ghost.style.cssText = 'left:' + art.offsetLeft + 'px;top:' + art.offsetTop + 'px;width:' + art.offsetWidth + 'px;height:' + art.offsetHeight + 'px;border-radius:' + window.getComputedStyle(art).borderTopLeftRadius;
+            ghost.style.backgroundImage = oldImage;
+            art.parentElement.append(ghost);
+            setTimeout(() => ghost.remove(), 600);
         }
     }
 
@@ -447,6 +490,7 @@
         }
         const target = event.target instanceof window.Element ? event.target.closest('[data-act]') : null;
         if (target && expanded()) {
+            if (target.dataset.act === 'previous') backAt = Date.now();
             api.act(target.dataset.act);
             return;
         }
@@ -465,6 +509,7 @@
     island.addEventListener('wheel', (event) => {
         if (!expanded() || volumeBox.contains(event.target) || Math.abs(event.deltaY) < 20 || Date.now() - wheelAt < 600) return;
         wheelAt = Date.now();
+        if (event.deltaY < 0) backAt = Date.now();
         api.act(event.deltaY > 0 ? 'next' : 'previous');
     }, { passive: true });
 
@@ -502,6 +547,10 @@
             act: (act) => {
                 if (act === 'toggle') demo.track.isPlaying = !demo.track.isPlaying;
                 if (act === 'like') demo.track.isLiked = !demo.track.isLiked;
+                if (act === 'next' || act === 'previous') {
+                    demo.n = (demo.n || 0) + (act === 'next' ? 1 : -1);
+                    demo.track = { ...demo.track, title: ['Ночной город', 'Северное сияние', 'Под водой'][((demo.n % 3) + 3) % 3], author: 'SoundCloud 2 · ' + demo.n, elapsed: '0:00' };
+                }
                 listeners.forEach((listener) => listener(demo));
             },
             hover: (on) => {

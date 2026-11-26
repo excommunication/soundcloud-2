@@ -9,6 +9,8 @@ export type IslandDisplay = 'primary' | 'app';
 export type IslandSize = 'small' | 'normal' | 'large';
 /** Вид плашки: стекло (по умолчанию), чёрная, белая, свой цвет или градиент из двух цветов */
 export type IslandLook = 'glass' | 'black' | 'white' | 'color' | 'gradient';
+/** Раскрытая плашка: обычная или с большой обложкой и её размытым светом на фоне, как в режиме роликов */
+export type IslandLayout = 'classic' | 'cover';
 /** Место после перетаскивания: экран (id дисплея Electron) и левый верхний угол окна от угла его рабочей области, DIP */
 export interface IslandPlace {
     display: number;
@@ -23,6 +25,7 @@ export interface IslandSettings {
     display: IslandDisplay;
     size: IslandSize;
     look: IslandLook;
+    layout: IslandLayout;
     /** Свой цвет и второй цвет градиента, #rrggbb */
     color: string;
     color2: string;
@@ -50,6 +53,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     display: 'primary',
     size: 'normal',
     look: 'glass',
+    layout: 'classic',
     color: '#2b1055',
     color2: '#ff5500',
     offset: 8,
@@ -71,6 +75,7 @@ const POSITIONS: readonly string[] = ['left', 'center', 'right'];
 const DISPLAYS: readonly string[] = ['primary', 'app'];
 const SIZES: readonly string[] = ['small', 'normal', 'large'];
 const LOOKS: readonly string[] = ['glass', 'black', 'white', 'color', 'gradient'];
+const LAYOUTS: readonly string[] = ['classic', 'cover'];
 const isHex = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
 /** Смещение места: в пределах самого большого разумного экрана, чтобы битое значение не унесло окно в бесконечность */
@@ -94,7 +99,7 @@ export function isIslandSettings(value: unknown): value is IslandSettings {
     if (keys.length !== Object.keys(ISLAND_DEFAULTS).length || keys.some((key) => !Object.prototype.hasOwnProperty.call(ISLAND_DEFAULTS, key))) return false;
     return BOOLEAN_FIELDS.every((key) => typeof record[key] === 'boolean') &&
         POSITIONS.includes(record.position as string) && DISPLAYS.includes(record.display as string) && SIZES.includes(record.size as string) &&
-        LOOKS.includes(record.look as string) && isHex(record.color) && isHex(record.color2) &&
+        LOOKS.includes(record.look as string) && LAYOUTS.includes(record.layout as string) && isHex(record.color) && isHex(record.color2) &&
         isOffset(record.offset) && (record.place === null || isIslandPlace(record.place));
 }
 
@@ -107,6 +112,7 @@ export function normalizeIsland(value: unknown): IslandSettings {
     if (DISPLAYS.includes(record.display as string)) result.display = record.display as IslandDisplay;
     if (SIZES.includes(record.size as string)) result.size = record.size as IslandSize;
     if (LOOKS.includes(record.look as string)) result.look = record.look as IslandLook;
+    if (LAYOUTS.includes(record.layout as string)) result.layout = record.layout as IslandLayout;
     if (isHex(record.color)) result.color = record.color.toLowerCase();
     if (isHex(record.color2)) result.color2 = record.color2.toLowerCase();
     if (isOffset(record.offset)) result.offset = record.offset;
@@ -117,18 +123,21 @@ export function normalizeIsland(value: unknown): IslandSettings {
 export const ISLAND_SCALE: Record<IslandSize, number> = { small: 0.86, normal: 1, large: 1.18 };
 /** Окно острова: под раскрытую плашку с тенью, DIP при масштабе 1. Пустое место окна пропускает мышь насквозь */
 export const ISLAND_WINDOW = { width: 440, height: 220 } as const;
+/** Окно под раскрытую плашку с большой обложкой */
+export const ISLAND_WINDOW_COVER = { width: 460, height: 296 } as const;
 /** Поле от края экрана для положения слева и справа */
 const EDGE = 12;
 
 /** Размер окна острова при этом масштабе, но не шире экрана */
-function windowSize(area: Rectangle, size: IslandSize): { width: number; height: number } {
+function windowSize(area: Rectangle, size: IslandSize, layout: IslandLayout = 'classic'): { width: number; height: number } {
     const scale = ISLAND_SCALE[size];
-    return { width: Math.min(area.width, Math.round(ISLAND_WINDOW.width * scale)), height: Math.min(area.height, Math.round(ISLAND_WINDOW.height * scale)) };
+    const base = layout === 'cover' ? ISLAND_WINDOW_COVER : ISLAND_WINDOW;
+    return { width: Math.min(area.width, Math.round(base.width * scale)), height: Math.min(area.height, Math.round(base.height * scale)) };
 }
 
 /** Где окно острова на экране: сверху рабочей области (панель задач сверху тоже учтена) */
-export function islandBounds(area: Rectangle, settings: Pick<IslandSettings, 'position' | 'size' | 'offset'>): Rectangle {
-    const { width, height } = windowSize(area, settings.size);
+export function islandBounds(area: Rectangle, settings: Pick<IslandSettings, 'position' | 'size' | 'offset'> & { layout?: IslandLayout }): Rectangle {
+    const { width, height } = windowSize(area, settings.size, settings.layout);
     const x = settings.position === 'left' ? area.x + EDGE : settings.position === 'right' ? area.x + area.width - width - EDGE : area.x + Math.round((area.width - width) / 2);
     return { x: Math.round(x), y: area.y + settings.offset, width, height };
 }
@@ -149,11 +158,11 @@ function clampInto(area: Rectangle, x: number, y: number, width: number, height:
 }
 
 /** Где окно: перетащенное на свой экран, а если того экрана больше нет или места нет — по умолчанию на fallback */
-export function placedBounds(screens: readonly IslandScreen[], fallback: IslandScreen, settings: Pick<IslandSettings, 'position' | 'size' | 'offset' | 'place'>): { bounds: Rectangle; display: number } {
+export function placedBounds(screens: readonly IslandScreen[], fallback: IslandScreen, settings: Pick<IslandSettings, 'position' | 'size' | 'offset' | 'place'> & { layout?: IslandLayout }): { bounds: Rectangle; display: number } {
     const place = settings.place;
     const target = place ? screens.find((item) => item.id === place.display) : undefined;
     if (!place || !target) return { bounds: islandBounds(fallback.workArea, settings), display: fallback.id };
-    const { width, height } = windowSize(target.workArea, settings.size);
+    const { width, height } = windowSize(target.workArea, settings.size, settings.layout);
     return { bounds: clampInto(target.workArea, target.workArea.x + place.x, target.workArea.y + place.y, width, height), display: target.id };
 }
 
@@ -161,7 +170,7 @@ export function placedBounds(screens: readonly IslandScreen[], fallback: IslandS
 export const SNAP_DISTANCE = 28;
 
 /** Куда положить окно, отпущенное в bounds на экране drop: своё место или null (прилипло к месту по умолчанию) */
-export function dropPlace(drop: IslandScreen, bounds: Rectangle, home: IslandScreen, settings: Pick<IslandSettings, 'position' | 'size' | 'offset'>): IslandPlace | null {
+export function dropPlace(drop: IslandScreen, bounds: Rectangle, home: IslandScreen, settings: Pick<IslandSettings, 'position' | 'size' | 'offset'> & { layout?: IslandLayout }): IslandPlace | null {
     if (drop.id === home.id) {
         const usual = islandBounds(home.workArea, settings);
         if (Math.hypot(bounds.x - usual.x, bounds.y - usual.y) <= SNAP_DISTANCE) return null;

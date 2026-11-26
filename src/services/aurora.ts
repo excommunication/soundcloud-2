@@ -1472,16 +1472,16 @@ export function auroraPage(config: AuroraConfig): void {
     window.addEventListener('resize', closeFxMenu);
     applyFx();
     // Ряд кнопок справа (2.12.2): когда он не помещается, второстепенные кнопки уходят в меню «…», а не обрезаются и не
-    // наползают на название. Лайк, кнопка эффектов и сама «…» остаются всегда. Порядок ухода: «К дропу», «Больше такого»,
-    // «Волна от трека», «Следующим», подписка, «Не нравится», очередь. Скрытая кнопка живая: пункт меню нажимает её
-    const OVF_ORDER = ['drop', 'more', 'wave', 'next', 'follow', 'dislike', 'queue'];
+    // наползают на название. Лайк, «Не нравится» (2.15.7: оценка трека, её не находили в «…»), кнопка эффектов и сама «…»
+    // остаются всегда. Порядок ухода: «К дропу», «Больше такого», «Волна от трека», «Следующим», подписка, очередь.
+    // Скрытая кнопка живая: пункт меню нажимает её
+    const OVF_ORDER = ['drop', 'more', 'wave', 'next', 'follow', 'queue'];
     const OVF_SELECTOR: Record<string, string> = {
         drop: '[data-act="drop"]',
         more: '[data-act="more"]',
         wave: '[data-act="wave"]',
         next: '[data-act="next"]',
         follow: '.sc-button-follow',
-        dislike: '[data-act="dislike"]',
         queue: '[class*="showQueue"]',
     };
     const OVF_LABEL: Record<string, string> = ruFx

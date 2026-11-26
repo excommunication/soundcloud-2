@@ -4,7 +4,7 @@
 // Плашку можно перетащить мышью на любое место любого экрана; рядом с местом по умолчанию она прилипает обратно.
 // В режиме совместимости NVIDIA (GPU в главном процессе без DirectComposition) прозрачных окон нет: там окно
 // непрозрачное и обрезано по форме плашки (shaped), что вне плашки — не окно, клики туда проходят сами
-import { BrowserWindow, ipcMain, screen, type Display, type Rectangle } from 'electron';
+import { BrowserWindow, clipboard, ipcMain, screen, type Display, type Rectangle } from 'electron';
 import { join } from 'path';
 import { trustLocalFile } from '../trustedViews';
 import type { TrackInfo } from '../types';
@@ -32,9 +32,9 @@ export interface DynamicIslandDeps {
     shaped: boolean;
 }
 
-type MenuEntry = { id: string; label: string; danger?: boolean; checked?: boolean } | { separator: true };
+type MenuEntry = { id: string; label: string; icon?: string; danger?: boolean; checked?: boolean; disabled?: boolean } | { separator: true };
 /** Размеры меню в px окна: должны совпадать с islandMenu.css */
-const MENU_WIDTH = 264;
+const MENU_WIDTH = 272;
 const MENU_ROW = 36;
 const MENU_SEPARATOR = 13;
 const MENU_INSET = 6;
@@ -171,7 +171,7 @@ export class DynamicIsland {
         const track = this.deps.track();
         return {
             track: { title: track.title, author: track.author, artwork: track.artwork, isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
-            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle },
+            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, layout: this.settings.layout },
             shaped: this.deps.shaped,
             winter: this.deps.winter(),
             reduceMotion: this.deps.reduceMotion(),
@@ -198,6 +198,7 @@ export class DynamicIsland {
 
     public configure(settings: IslandSettings): void {
         const resized = settings.size !== this.settings.size;
+        // Размер окна зависит и от вида: с большой обложкой раскрытая плашка выше
         this.settings = settings;
         if (resized && this.window && !this.window.isDestroyed()) this.window.webContents.setZoomFactor(ISLAND_SCALE[settings.size]);
         this.place();
@@ -273,6 +274,8 @@ export class DynamicIsland {
     /** Выше панели задач и обычных окон «поверх всех»: Windows иногда сбрасывает это, поэтому и на каждой проверке */
     private raise(): void {
         if (!this.window || this.window.isDestroyed() || !this.window.isVisible()) return;
+        // Пока открыто меню, остров не лезет поверх него: иначе он закрывал угол меню и первые пункты
+        if (this.menuWindow && !this.menuWindow.isDestroyed()) return;
         this.window.setAlwaysOnTop(true, 'screen-saver');
         this.window.moveTop();
     }
@@ -516,16 +519,21 @@ export class DynamicIsland {
     private menuItems(): MenuEntry[] {
         const en = this.deps.language() === 'en';
         const track = this.deps.track();
+        const playing = track.isPlaying === true;
+        // Порядок как на плашке: управление треком, затем сам трек и плашка, затем настройки, в конце выключение
         return [
-            { id: 'toggle', label: track.isPlaying ? (en ? 'Pause' : 'Пауза') : (en ? 'Play' : 'Играть') },
-            { id: 'next', label: en ? 'Next track' : 'Следующий трек' },
+            { id: 'toggle', icon: playing ? 'pause' : 'play', label: playing ? (en ? 'Pause' : 'Пауза') : (en ? 'Play' : 'Играть') },
             { id: 'previous', label: en ? 'Previous track' : 'Предыдущий трек' },
-            { id: 'like', label: track.isLiked ? (en ? 'Remove like' : 'Убрать лайк') : (en ? 'Like' : 'Нравится') },
+            { id: 'next', label: en ? 'Next track' : 'Следующий трек' },
+            { id: 'like', icon: track.isLiked ? 'liked' : 'like', label: track.isLiked ? (en ? 'Remove like' : 'Убрать лайк') : (en ? 'Like' : 'Нравится') },
             { separator: true },
             { id: 'open', label: en ? 'Open SoundCloud 2' : 'Открыть SoundCloud 2' },
+            { id: 'copy', label: en ? 'Copy track link' : 'Копировать ссылку', disabled: !track.url },
             { id: 'hide', label: en ? 'Hide until next track' : 'Скрыть до следующего трека' },
             ...(this.settings.place ? [{ id: 'reset', label: en ? 'Move back to default spot' : 'Вернуть на место' }] : []),
-            { id: 'fullscreen', label: en ? 'Hide in games and fullscreen' : 'Прятать в играх и во весь экран', checked: this.settings.hideFullscreen },
+            { separator: true },
+            { id: 'cover', label: en ? 'Big cover' : 'Большая обложка', checked: this.settings.layout === 'cover' },
+            { id: 'fullscreen', label: en ? 'Hide in games' : 'Прятать в играх', checked: this.settings.hideFullscreen },
             { id: 'settings', label: en ? 'Island settings…' : 'Настроить остров…' },
             { separator: true },
             { id: 'off', label: en ? 'Turn off island' : 'Выключить остров', danger: true },
@@ -538,6 +546,17 @@ export class DynamicIsland {
             case 'open': this.deps.open(); return;
             case 'hide': this.hideUntilNext(); return;
             case 'reset': this.resetPlace(); return;
+            case 'copy': {
+                const url = this.deps.track().url;
+                if (url) clipboard.writeText(url);
+                return;
+            }
+            case 'cover':
+                this.settings = { ...this.settings, layout: this.settings.layout === 'cover' ? 'classic' : 'cover' };
+                this.deps.save(this.settings);
+                this.place();
+                this.push();
+                return;
             case 'fullscreen':
                 this.settings = { ...this.settings, hideFullscreen: !this.settings.hideFullscreen };
                 this.deps.save(this.settings);
@@ -581,8 +600,15 @@ export class DynamicIsland {
         const height = items.reduce((total, item) => total + ('separator' in item ? MENU_SEPARATOR : MENU_ROW), MENU_INSET * 2);
         const cursor = screen.getCursorScreenPoint();
         const area = screen.getDisplayNearestPoint(cursor).workArea;
-        const x = Math.max(area.x, Math.min(cursor.x, area.x + area.width - width));
-        const y = Math.max(area.y, cursor.y + height > area.y + area.height ? cursor.y - height : cursor.y);
+        // Меню встаёт под плашкой, правым краем у курсора («⋯» справа), и не заходит на неё: раньше оно открывалось
+        // прямо у курсора, и плашка ложилась поверх его угла. Под плашкой нет места — над ней
+        const bounds = this.window.getBounds();
+        const plate = this.shapeRect ? { top: bounds.y + this.shapeRect.y, bottom: bounds.y + this.shapeRect.y + this.shapeRect.height } : null;
+        const gap = 8;
+        const x = Math.round(Math.max(area.x, Math.min(cursor.x - width + 24, area.x + area.width - width)));
+        let y = plate ? plate.bottom + gap : cursor.y + gap;
+        if (y + height > area.y + area.height) y = (plate ? plate.top : cursor.y) - gap - height;
+        y = Math.round(Math.max(area.y, y));
         const menu = new BrowserWindow({
             x: x - pad, y: y - pad, width: width + pad * 2, height: height + pad * 2,
             frame: false, transparent: !shaped, backgroundColor: shaped ? '#1c1c1e' : '#00000000', hasShadow: false, thickFrame: false,

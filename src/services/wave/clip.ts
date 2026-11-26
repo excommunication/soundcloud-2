@@ -231,8 +231,8 @@ export function clipCrop(frameW: number, frameH: number, viewW: number, viewH: n
 export function installClip(core: ClipCore): ClipSection {
     const ru = core.lang === 'ru';
     const T = ru
-        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recDenied: 'Нет доступа к захвату окна', recNotFound: 'Нет окна для захвата', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub', menu: 'Действия с треком' }
-        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recDenied: 'No access to window capture', recNotFound: 'No window to capture', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub', menu: 'Track actions' };
+        ? { mode: 'Для роликов', open: 'Обложка на всё окно для роликов', close: 'Свернуть, Esc', vertical: 'Кадр 9:16, V', text: 'Подписи, H', full: 'Полный экран, F', nothing: 'Сейчас ничего не играет', lyrics: 'Текст: {style}, L', side: 'Текст сбоку, P', flow: 'поток', punch: 'удар', off: 'выключен', searching: 'Ищу текст…', seek: 'Перемотка', controls: 'Управление', back: 'Назад на 10 с', forward: 'Вперёд на 10 с', prevTrack: 'Предыдущий трек, Shift+N', nextTrack: 'Следующий трек, N', play: 'Играть, пробел', pause: 'Пауза, пробел', mute: 'Выключить звук, M', unmute: 'Включить звук, M', volume: 'Громкость', like: 'Нравится', unlike: 'Убрать из понравившихся', noLike: 'Лайк недоступен', rec: 'Записать ролик, R (Shift+R: 15 с)', recStop: 'Остановить запись, R', fxLabel: 'Эффекты на бит, B', qr: 'Значок sc2 и QR, Q', recNo: 'Запись недоступна: клиент без поддержки захвата', recFail: 'Не удалось начать запись кадра', recDenied: 'Нет доступа к захвату окна', recNotFound: 'Нет окна для захвата', recNoAudio: 'Запись пойдёт без звука: звук сайта недоступен', recSaved: 'Ролик сохранён: {name}', recWebm: 'MP4 здесь не пишется, сохранён WebM: {name}', recSaveFail: 'Ролик не сохранился', recEmpty: 'Запись пустая, файл не создан', qrTitle: 'sc2 на GitHub', menu: 'Действия с треком', snow: 'Снег, S' }
+        : { mode: 'For videos', open: 'Full-window cover for videos', close: 'Close, Esc', vertical: '9:16 frame, V', text: 'Captions, H', full: 'Full screen, F', nothing: 'Nothing is playing', lyrics: 'Lyrics: {style}, L', side: 'Lyrics beside the cover, P', flow: 'flow', punch: 'punch', off: 'off', searching: 'Looking for lyrics…', seek: 'Seek', controls: 'Controls', back: 'Back 10 s', forward: 'Forward 10 s', prevTrack: 'Previous track, Shift+N', nextTrack: 'Next track, N', play: 'Play, Space', pause: 'Pause, Space', mute: 'Mute, M', unmute: 'Unmute, M', volume: 'Volume', like: 'Like', unlike: 'Unlike', noLike: 'Like unavailable', rec: 'Record a clip, R (Shift+R: 15 s)', recStop: 'Stop recording, R', fxLabel: 'Beat effects, B', qr: 'sc2 badge and QR, Q', recNo: 'Recording unavailable: this client cannot capture', recFail: 'Could not start capturing the frame', recDenied: 'No access to window capture', recNotFound: 'No window to capture', recNoAudio: 'Recording without sound: the site audio is unavailable', recSaved: 'Clip saved: {name}', recWebm: 'MP4 is not supported here, saved WebM: {name}', recSaveFail: 'The clip could not be saved', recEmpty: 'Nothing was recorded, no file created', qrTitle: 'sc2 on GitHub', menu: 'Track actions', snow: 'Snow, S' };
     const ICON: Record<string, string> = {
         clip: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11A1.5 1.5 0 0 1 4.5 1zm.2 1.5v11h6.6v-11zM6.9 5.6l3.2 2.1-3.2 2.1z"/></svg>',
         close: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.4 8 6.9l4.5-4.5 1.1 1.1L9.1 8l4.5 4.5-1.1 1.1L8 9.1l-4.5 4.5-1.1-1.1L6.9 8 2.4 3.5z"/></svg>',
@@ -255,6 +255,7 @@ export function installClip(core: ClipCore): ClipSection {
         rec: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zm0 1.5a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z"/></svg>',
         fx: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 1.5l1.5 4L12.5 7 8.5 8.5 7 12.5 5.5 8.5 1.5 7l4-1.5zM12.5 9l.8 2.2L15.5 12l-2.2.8-.8 2.2-.8-2.2L9.5 12l2.2-.8z"/></svg>',
         qr: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h5v5H2zm1.4 1.4v2.2h2.2V3.4zM9 2h5v5H9zm1.4 1.4v2.2h2.2V3.4zM2 9h5v5H2zm1.4 1.4v2.2h2.2v-2.2zM9 9h2v2H9zm3 0h2v2h-2zm-3 3h2v2H9zm3 1h2v1h-2z"/></svg>',
+        snow: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.25 1h1.5v2.2l1.4-1.1.9 1.2-2.3 1.8v2.2l1.9-1.1.4-2.9 1.5.2-.3 1.8 1.9-1.1.75 1.3-1.9 1.1 1.7.7-.6 1.4-2.7-1.1L9.5 8l1.9 1.1 2.7-1.1.6 1.4-1.7.7 1.9 1.1-.75 1.3-1.9-1.1.3 1.8-1.5.2-.4-2.9-1.9-1.1v2.2l2.3 1.8-.9 1.2-1.4-1.1V15h-1.5v-2.2l-1.4 1.1-.9-1.2 2.3-1.8V8.7l-1.9 1.1-.4 2.9-1.5-.2.3-1.8-1.9 1.1-.75-1.3 1.9-1.1-1.7-.7.6-1.4 2.7 1.1L6.5 8 4.6 6.9l-2.7 1.1-.6-1.4 1.7-.7-1.9-1.1.75-1.3 1.9 1.1-.3-1.8 1.5-.2.4 2.9 1.9 1.1V5.1L5 3.3l.9-1.2 1.4 1.1z"/></svg>',
         // Три точки: меню трека, то же, что по правому клику
         dots: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>',
         heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.6-4.55-9.33-9.4C1.5 7.6 3.6 4 7.15 4c2.05 0 3.56 1.1 4.85 2.85C13.29 5.1 14.8 4 16.85 4c3.55 0 5.65 3.6 4.48 6.9C19.6 15.75 12 20.3 12 20.3z"/></svg>',
@@ -320,9 +321,20 @@ export function installClip(core: ClipCore): ClipSection {
                 // Montserrat Black (вшит в клиент, 2.10.1): геометрический гротеск в духе Proxima Nova, с кириллицей. «Поток» остаётся шрифтом сайта
                 'font-family:"SC2 Montserrat",Montserrat,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;font-weight:900;letter-spacing:-.02em;' +
                 'text-shadow:0 .04em 0 rgba(0,0,0,.3),0 6px 26px rgba(0,0,0,.55)}',
-            '.scc-pl>span{display:inline-block;opacity:0;transform:translateY(.35em) scale(1.7) rotate(-6deg);filter:blur(6px);transition:opacity .16s ease-out,transform .32s cubic-bezier(.2,1.6,.4,1),filter .2s ease-out}',
-            '.scc-pl>span:nth-child(even){transform:translateY(.35em) scale(1.7) rotate(6deg)}',
-            '.scc-pl>span.on{opacity:1;transform:none;filter:none}',
+            // Слова строки видны заранее полупрозрачными, как следующие строки в «Потоке»; сказанное загорается и «бьёт» на месте
+            '.scc-pl>span{display:inline-block;opacity:.3;transition:opacity .16s ease-out}',
+            '.scc-pl>span.on{opacity:1;animation:scc-pop .38s cubic-bezier(.2,.9,.3,1) both}',
+            '.scc-pl>span.on:nth-child(even){animation-name:scc-pop2}',
+            '@keyframes scc-pop{0%{opacity:.3;transform:none;filter:blur(1px)}35%{opacity:1;transform:translateY(-.05em) scale(1.32) rotate(-5deg);filter:none}100%{transform:none}}',
+            '@keyframes scc-pop2{0%{opacity:.3;transform:none;filter:blur(1px)}35%{opacity:1;transform:translateY(-.05em) scale(1.32) rotate(5deg);filter:none}100%{transform:none}}',
+            // Следующая строка под текущей, мелко и в дымке: видно, что будет дальше
+            '.scc-pnext{position:absolute;left:7%;right:7%;top:calc(50% + 16cqw);text-align:center;font-family:"SC2 Montserrat",Montserrat,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;font-size:4.4cqw;line-height:1.1;font-weight:800;text-transform:uppercase;letter-spacing:-.01em;color:rgba(255,255,255,.32);filter:blur(.6px);text-shadow:0 2px 14px rgba(0,0,0,.6);transition:opacity .3s ease,transform .45s cubic-bezier(.2,.8,.2,1);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+            '.scc-pnext.in{animation:scc-next-in .45s cubic-bezier(.2,.8,.2,1) both}',
+            '@keyframes scc-next-in{from{opacity:0;transform:translateY(.8em)}}',
+            '.scc.side .scc-pnext{left:0;right:0;text-align:left}',
+            '.scc.vertical.side .scc-pnext{text-align:center}',
+            // Снег (S): один canvas поверх кадра, попадает и в запись ролика
+            '.scc-snow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}',
             '.scc-pl>span.big{color:color-mix(in srgb,var(--sca-c1,#ffd24a) 55%,#fff);}',
             '.scc-pl.small{font-size:7cqw}',
             '.scc-pl.tiny{font-size:5.2cqw}',
@@ -538,6 +550,8 @@ export function installClip(core: ClipCore): ClipSection {
     // Эффекты на бит и значок с QR (2.11.0): по умолчанию выключены, помнятся между запусками
     let fx = read('sc2-clip-fx') === 'on';
     let qrOn = read('sc2-clip-qr') === 'on';
+    // Снег поверх кадра: для зимних роликов, помнится между запусками
+    let snowOn = read('sc2-clip-snow') === 'on';
     // Только системное «Отключить анимации»: флажок «Меньше анимаций» и режимы эффектов (класс scm-reduce) режим роликов не упрощают
     const reduced = (): boolean => clipSimpleText(false, 'full', typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -596,8 +610,10 @@ export function installClip(core: ClipCore): ClipSection {
         layer.querySelector('[data-clip="fx"]')?.setAttribute('aria-pressed', String(fx));
         layer.querySelector('[data-clip="qr"]')?.setAttribute('aria-pressed', String(qrOn));
         layer.classList.toggle('qr', qrOn);
+        layer.querySelector('[data-clip="snow"]')?.setAttribute('aria-pressed', String(snowOn));
         syncFx();
         syncQr();
+        syncSnow();
         const sideBtn = layer.querySelector<HTMLElement>('[data-clip="side"]');
         if (sideBtn) {
             sideBtn.setAttribute('aria-pressed', String(side));
@@ -848,6 +864,19 @@ export function installClip(core: ClipCore): ClipSection {
             const line = lyrLines ? lyrLines[index] : null;
             const text = line ? line.text : index >= 0 ? lyrPlain[index] ?? '' : '';
             if (index >= 0) stage.append(punchLine(text, line ? line.words : []));
+            // Под строкой — следующая, в дымке
+            const nextText = (lyrLines ? lyrLines[index + 1]?.text : lyrPlain[index + 1]) ?? '';
+            let next = stage.querySelector<HTMLElement>('.scc-pnext');
+            if (!next) {
+                next = document.createElement('div');
+                next.className = 'scc-pnext';
+                next.setAttribute('aria-hidden', 'true');
+                stage.append(next);
+            }
+            next.textContent = nextText.trim();
+            next.classList.remove('in');
+            void next.offsetWidth;
+            if (nextText.trim()) next.classList.add('in');
             if (!first && index >= 0) kick();
         }
         const current = stage.querySelector<HTMLElement>('.scc-pl.now');
@@ -869,7 +898,10 @@ export function installClip(core: ClipCore): ClipSection {
         lyrWord = lit;
         words.forEach((word, i) => {
             if (i <= lit && !word.classList.contains('on')) {
-                if (!(lyrLines && lyrLines[index]?.words.length)) word.style.transitionDelay = i * 70 + 'ms';
+                if (!(lyrLines && lyrLines[index]?.words.length)) {
+                    word.style.transitionDelay = i * 70 + 'ms';
+                    word.style.animationDelay = i * 70 + 'ms';
+                }
                 word.classList.add('on');
             }
         });
@@ -1765,6 +1797,8 @@ export function installClip(core: ClipCore): ClipSection {
             if (!event.repeat) toggleRecord(event.shiftKey);
         } else if (key === 'b' || key === 'и') {
             if (!event.repeat) toggleFx();
+        } else if (key === 's' || key === 'ы') {
+            if (!event.repeat) toggleSnow();
         } else if (key === 'q' || key === 'й') {
             if (!event.repeat) toggleQr();
         }
@@ -1791,6 +1825,96 @@ export function installClip(core: ClipCore): ClipSection {
         fx = !fx;
         save('sc2-clip-fx', fx ? 'on' : 'off');
         layout();
+    }
+    function toggleSnow(): void {
+        snowOn = !snowOn;
+        save('sc2-clip-snow', snowOn ? 'on' : 'off');
+        layout();
+    }
+    // ===== Снег: хлопья трёх «глубин» — дальние мелкие и медленные, ближние крупнее и быстрее, все покачиваются =====
+    // На ударе баса (огибающая fxk, когда включены эффекты) хлопья чуть вспыхивают. Кадр рисуется, только пока режим открыт
+    type Flake = { x: number; y: number; r: number; vy: number; sway: number; phase: number; o: number };
+    let snowCanvas: HTMLCanvasElement | null = null;
+    let snowRaf = 0;
+    let snowAt = 0;
+    let flakes: Flake[] = [];
+    function newFlake(w: number, h: number, anywhere: boolean): Flake {
+        const depth = Math.random();
+        return {
+            x: Math.random() * w,
+            y: anywhere ? Math.random() * h : -10,
+            r: (0.8 + depth * 2.6) * Math.max(1, h / 900),
+            vy: (18 + depth * 46) * Math.max(1, h / 900),
+            sway: 6 + Math.random() * 18,
+            phase: Math.random() * Math.PI * 2,
+            o: 0.35 + depth * 0.55,
+        };
+    }
+    function syncSnow(): void {
+        const frame = layer?.querySelector<HTMLElement>('.scc-frame');
+        const want = !!frame && snowOn && !reduced();
+        let canvas = frame?.querySelector<HTMLCanvasElement>('.scc-snow') ?? null;
+        if (!want) {
+            canvas?.remove();
+            cancelAnimationFrame(snowRaf);
+            snowRaf = 0;
+            snowCanvas = null;
+            flakes = [];
+            return;
+        }
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.className = 'scc-snow';
+            canvas.setAttribute('aria-hidden', 'true');
+            frame!.append(canvas);
+        }
+        snowCanvas = canvas;
+        if (!snowRaf) {
+            snowAt = performance.now();
+            snowRaf = requestAnimationFrame(snowStep);
+        }
+    }
+    function snowStep(time: number): void {
+        snowRaf = 0;
+        const canvas = snowCanvas;
+        if (!canvas || !layer || !canvas.isConnected) {
+            snowCanvas = null;
+            flakes = [];
+            return;
+        }
+        const dt = Math.min(0.05, Math.max(0, (time - snowAt) / 1000));
+        snowAt = time;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+            flakes = [];
+        }
+        const want = Math.min(260, Math.round((w * h) / 7000));
+        while (flakes.length < want) flakes.push(newFlake(w, h, true));
+        if (flakes.length > want) flakes.length = want;
+        const ctx = canvas.getContext('2d');
+        if (ctx && w && h) {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const glow = 1 + fxk * 0.5;
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < flakes.length; i++) {
+                const f = flakes[i];
+                f.y += f.vy * dt;
+                f.phase += dt * 1.3;
+                if (f.y > h + 10) flakes[i] = newFlake(w, h, false);
+                const x = f.x + Math.sin(f.phase) * f.sway;
+                ctx.globalAlpha = Math.min(1, f.o * glow);
+                ctx.beginPath();
+                ctx.arc(x, f.y, f.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        snowRaf = requestAnimationFrame(snowStep);
     }
     function toggleQr(): void {
         qrOn = !qrOn;
@@ -1841,7 +1965,7 @@ export function installClip(core: ClipCore): ClipSection {
         frame.className = 'scc-frame';
         const tools = document.createElement('div');
         tools.className = 'scc-tools';
-        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('side', T.side, 'side'), tool('text', T.text, 'text'), tool('rec', T.rec, 'rec'), tool('fx', T.fxLabel, 'fx'), tool('qr', T.qr, 'qr'), tool('full', T.full, 'full'), ...menuTool(), tool('close', T.close, 'close'));
+        tools.append(tool('vertical', T.vertical, 'vertical'), tool('lyrics', T.lyrics, 'lyrics'), tool('side', T.side, 'side'), tool('text', T.text, 'text'), tool('rec', T.rec, 'rec'), tool('fx', T.fxLabel, 'fx'), tool('qr', T.qr, 'qr'), tool('snow', T.snow, 'snow'), tool('full', T.full, 'full'), ...menuTool(), tool('close', T.close, 'close'));
         tools.addEventListener('click', (event) => {
             const control = (event.target as Element | null)?.closest<HTMLElement>('[data-clip]');
             switch (control?.dataset.clip) {
@@ -1852,6 +1976,7 @@ export function installClip(core: ClipCore): ClipSection {
                 case 'rec': toggleRecord(false); break;
                 case 'fx': toggleFx(); break;
                 case 'qr': toggleQr(); break;
+                case 'snow': toggleSnow(); break;
                 case 'full': void toggleFull(); break;
                 case 'close': close(); break;
                 case 'menu': openTrackMenu(control as HTMLElement, (event as MouseEvent).detail === 0); break;
@@ -1906,6 +2031,10 @@ export function installClip(core: ClipCore): ClipSection {
         barCanvas = null;
         fxCanvas = null;
         particles = [];
+        cancelAnimationFrame(snowRaf);
+        snowRaf = 0;
+        snowCanvas = null;
+        flakes = [];
         fxk = 0;
         fxShown = -1;
         clearTimeout(idleTimer);

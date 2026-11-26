@@ -15,7 +15,8 @@ const RING = 'outline:2px solid var(--sc2-accent,#fff)!important;outline-offset:
 
 /** Кнопки карточки «сейчас играет», которые видны только при наведении на карточку или фокусе внутри неё:
  *  те же действия есть в меню «⋯» и на клавишах (Ctrl+D, Ctrl+M), громкость и ролики есть в нижнем баре */
-export const HERO_QUIET = ['[data-act="later"]', '[data-act="dislike"]', '[data-act="more"]', '.scc-open', '.scv'];
+// «Не нравится» не прячется (2.15.7): это оценка трека наравне с лайком, её искали и не находили, пока не наведёшь на карточку
+export const HERO_QUIET = ['[data-act="later"]', '[data-act="more"]', '.scc-open', '.scv'];
 
 function hero(): string[] {
     const resting = HERO_QUIET.map((item) => `${W} .scw-body:not(:hover):not(:focus-within) .scw-meta>${item}`).join(',');

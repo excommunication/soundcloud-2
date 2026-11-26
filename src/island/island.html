@@ -9,7 +9,11 @@
     <body>
         <div class="stage" id="stage">
             <main class="island" id="island" data-state="compact" aria-live="polite">
+                <!-- Размытая обложка на фоне раскрытой плашки в виде «Большая обложка» -->
+                <div class="backdrop" id="backdrop" aria-hidden="true"></div>
                 <div class="snow" id="snow" aria-hidden="true"></div>
+                <!-- Блик через всю плашку при смене трека -->
+                <div class="sweep" aria-hidden="true"></div>
                 <!-- Свёрнутая: обложка, название, полоски звука -->
                 <section class="compact" aria-hidden="false">
                     <div class="art sm" id="art-sm"></div>
@@ -40,6 +44,7 @@
                             <svg viewBox="0 0 16 16"><path class="spk" d="M2 6h2.5L8 3v10L4.5 10H2z" /><path class="w1" d="M10.5 5.8a3 3 0 0 1 0 4.4" /><path class="w2" d="M12.4 3.9a5.6 5.6 0 0 1 0 8.2" /><path class="x" d="M10.5 6l4 4M14.5 6l-4 4" /></svg>
                         </button>
                         <div class="vol-track" id="vol-track" role="slider" aria-label="Громкость" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><div class="vol-fill" id="vol-fill"></div></div>
+                        <span class="vol-out" id="vol-out">0</span>
                     </div>
                     <div class="controls">
                         <button class="ctl like" data-act="like" id="like" aria-label="Лайк" aria-pressed="false"><svg viewBox="0 0 16 16"><path d="M8 14s-5.5-3.3-5.5-7.3A3 3 0 0 1 8 4.6a3 3 0 0 1 5.5 2.1C13.5 10.7 8 14 8 14z" /></svg></button>
