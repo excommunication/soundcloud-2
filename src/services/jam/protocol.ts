@@ -83,7 +83,8 @@ export type JamClientMsg =
     | { t: 'seek'; positionMs: number }
     /** from: id трека, который закончился; повтор от второго клиента не пропустит лишний трек */
     | { t: 'next'; from?: number }
-    | { t: 'add'; track: JamTrack }
+    /** next: поставить первым в очереди (старый сервер поле игнорирует и ставит в конец) */
+    | { t: 'add'; track: JamTrack; next?: boolean }
     | { t: 'remove'; qid: string }
     | { t: 'move'; qid: string; to: number }
     | { t: 'grant'; id: string; on: boolean }
@@ -97,7 +98,8 @@ export type JamEvent =
     | { t: 'member'; member: JamMember }
     | { t: 'host'; id: string }
     | { t: 'now'; now: JamNow | null }
-    | { t: 'qadd'; item: JamQueueItem; seq: number }
+    /** at: позиция в очереди; без неё в конец */
+    | { t: 'qadd'; item: JamQueueItem; seq: number; at?: number }
     | { t: 'qrm'; qid: string }
     | { t: 'qmove'; qid: string; to: number }
     | { t: 'settings'; settings: JamSettings };
@@ -260,7 +262,8 @@ export function parseClientMsg(raw: unknown): JamClientMsg | null {
         }
         case 'add': {
             const track = parseTrack(value.track);
-            return track ? { t: 'add', track } : null;
+            if (!track) return null;
+            return value.next === true ? { t: 'add', track, next: true } : { t: 'add', track };
         }
         case 'remove': {
             const qid = str(value.qid, 16, 1);
@@ -337,7 +340,9 @@ export function parseServerMsg(raw: unknown): JamServerMsg | null {
         case 'qadd': {
             const item = parseItem(value.item);
             const seq = num(value.seq, 0, 1e9);
-            return item && seq !== null ? { t: 'qadd', item, seq } : null;
+            if (!item || seq === null) return null;
+            const at = value.at === undefined ? null : num(value.at, 0, JAM_LIMITS.queue);
+            return at === null ? { t: 'qadd', item, seq } : { t: 'qadd', item, seq, at };
         }
         case 'qrm': {
             const qid = str(value.qid, 16, 1);

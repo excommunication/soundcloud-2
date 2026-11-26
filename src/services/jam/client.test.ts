@@ -60,7 +60,7 @@ describe('создание и вход', () => {
         const t = setup();
         const result = await t.client.create(BASE, 'Me', '');
         expect(result).toEqual({ ok: true, code: 'ABC234' });
-        expect(t.sockets[0].url).toBe('wss://sc2-jam.x.workers.dev/rooms/ABC234/ws?name=Me&token=' + 'f'.repeat(48));
+        expect(t.sockets[0].url).toMatch(/^wss:\/\/sc2-jam\.x\.workers\.dev\/rooms\/ABC234\/ws\?name=Me&token=f{48}&cid=[0-9a-f]{16}$/);
     });
     it('сервер недоступен или ответил мусором: ошибка и тишина', async () => {
         expect(await setup(async () => { throw new Error('net'); }).client.create(BASE, 'Me', '')).toEqual({ ok: false, error: 'unreachable' });

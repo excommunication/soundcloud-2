@@ -39,6 +39,8 @@ export interface JamSavedSession {
     avatar: string;
     /** Адрес сервера (http-форма): после смены сервера запись не подходит */
     server: string;
+    /** Постоянный id клиента; у старых записей пустой */
+    cid?: string;
 }
 /** Запись с диска -> проверенная запись; null — мусор (записи не верим: файл можно было править) */
 export function parseSavedSession(value: unknown): JamSavedSession | null {
@@ -49,7 +51,8 @@ export function parseSavedSession(value: unknown): JamSavedSession | null {
     const token = typeof v.token === 'string' && (v.token === '' || /^[0-9a-f]{48}$/.test(v.token)) ? v.token : null;
     const server = typeof v.server === 'string' && v.server.length <= 200 ? v.server : null;
     if (!code || !name || token === null || !server) return null;
-    return { code, token, name, avatar: cleanAvatar(v.avatar), server };
+    const cid = typeof v.cid === 'string' && /^[0-9a-f]{16}$/.test(v.cid) ? v.cid : '';
+    return { code, token, name, avatar: cleanAvatar(v.avatar), server, cid };
 }
 
 export type JamStatus = 'idle' | 'connecting' | 'open' | 'reconnecting';
@@ -83,12 +86,20 @@ export function backoffDelay(attempt: number, random: number): number {
 
 export const JAM_MAX_ATTEMPTS = 8;
 
+function newCid(): string {
+    let out = '';
+    for (let i = 0; i < 16; i++) out += Math.floor(Math.random() * 16).toString(16);
+    return out;
+}
+
 interface Session {
     base: { http: string; ws: string };
     code: string;
     token: string;
     name: string;
     avatar: string;
+    /** Постоянный id этого клиента в комнате: сервер по нему убирает прежнее (зависшее) соединение того же клиента */
+    cid: string;
     /** Поднята с диска при запуске: если комнаты уже нет, молча забываем */
     restoring?: boolean;
 }
@@ -135,7 +146,7 @@ export class JamClient {
         const code = parseCode(body?.code);
         if (reply.status === 503) return this.fail(generation, 'busy');
         if (reply.status !== 200 || !code || typeof body?.hostToken !== 'string' || !/^[0-9a-f]{48}$/.test(body.hostToken)) return this.fail(generation, 'unreachable');
-        this.session = { base, code, token: body.hostToken, name, avatar };
+        this.session = { base, code, token: body.hostToken, name, avatar, cid: newCid() };
         this.open();
         return { ok: true, code };
     }
@@ -144,7 +155,7 @@ export class JamClient {
         if (!clean) return { ok: false, error: 'invalid' };
         if (this.active) this.leave();
         ++this.generation;
-        this.session = { base, code: clean, token: '', name, avatar };
+        this.session = { base, code: clean, token: '', name, avatar, cid: newCid() };
         this.setStatus('connecting');
         this.open();
         return { ok: true, code: clean };
@@ -159,7 +170,7 @@ export class JamClient {
         if (!saved) { this.forget(); return false; }
         if (saved.server !== base.http) return false;
         ++this.generation;
-        this.session = { base, code: saved.code, token: saved.token, name: saved.name, avatar: saved.avatar, restoring: true };
+        this.session = { base, code: saved.code, token: saved.token, name: saved.name, avatar: saved.avatar, cid: saved.cid || newCid(), restoring: true };
         this.persisted = true;
         this.setStatus('connecting');
         this.open();
@@ -187,7 +198,7 @@ export class JamClient {
         const s = this.session;
         if (!s || this.persisted || !this.deps.saved) return;
         this.persisted = true;
-        try { this.deps.saved.save({ code: s.code, token: s.token, name: s.name, avatar: s.avatar, server: s.base.http }); } catch { /* не критично */ }
+        try { this.deps.saved.save({ code: s.code, token: s.token, name: s.name, avatar: s.avatar, server: s.base.http, cid: s.cid }); } catch { /* не критично */ }
     }
     /** Отправка в комнату; false, пока соединения нет */
     send(msg: JamClientMsg): boolean {
@@ -227,6 +238,7 @@ export class JamClient {
         const query = new URLSearchParams({ name: s.name });
         if (s.avatar) query.set('avatar', s.avatar);
         if (s.token) query.set('token', s.token);
+        query.set('cid', s.cid);
         return s.base.ws + '/rooms/' + s.code + '/ws?' + query.toString();
     }
     private open(): void {

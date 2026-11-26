@@ -141,6 +141,17 @@ describe('воспроизведение по часам сервера', () => 
         state = run(state, 'h', { t: 'next' }).state;
         expect(state.now).toBeNull();
     });
+    it('add с next ставит трек первым, клиент по событию сходится с сервером', () => {
+        const before = run(run(room(), 'h', { t: 'add', track: track(7) }).state, 'h', { t: 'add', track: track(8) }).state;
+        const out = run(before, 'h', { t: 'add', track: track(9), next: true });
+        expect(out.state.queue.map((item) => item.id)).toEqual([9, 7, 8]);
+        expect(out.events[0]).toMatchObject({ t: 'qadd', at: 0 });
+        expect(replay(before, out).queue).toEqual(out.state.queue);
+        const last = run(before, 'h', { t: 'add', track: track(9) });
+        expect(last.state.queue.map((item) => item.id)).toEqual([7, 8, 9]);
+        expect(replay(before, last).queue).toEqual(last.state.queue);
+        expect(run(room(), 'a', { t: 'add', track: track(1), next: true }).reply[0]).toEqual({ t: 'error', code: 'forbidden' });
+    });
     it('next от закончившегося чужого трека (from) не пропускает лишнее', () => {
         let state = run(room(), 'h', { t: 'add', track: track(7) }).state;
         state = run(state, 'h', { t: 'play', track: track(1), positionMs: 0 }).state;

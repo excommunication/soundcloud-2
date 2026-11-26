@@ -35,6 +35,8 @@ export interface JamSection {
     sync(): void;
     /** Поставить кнопку в слот новой главной: сама следит, чтобы осталась там */
     mount(slot: HTMLElement): void;
+    /** Трек из меню «Слушать следующим / В конец очереди»: в активном джеме уходит в общую очередь. handled=false — джема нет, трек идёт в обычную очередь сайта */
+    addTrack(track: JamTrack, next: boolean): { handled: boolean; error?: string };
     dispose(): void;
 }
 
@@ -117,6 +119,7 @@ export function installJam(core: JamCore): JamSection {
     let last: Snap | null = null;
     let grantedUntil = 0;
     let opening = false;
+    let reopen = false;
     let advanced = '';
     let followKey = '';
 
@@ -219,7 +222,9 @@ export function installJam(core: JamCore): JamSection {
     }
     async function openJam(): Promise<void> {
         const now = state?.now;
-        if (!now || opening) return;
+        if (!now) return;
+        // Трек сменился, пока открывался прежний: открыть актуальный сразу после него, а не потерять смену
+        if (opening) { reopen = true; return; }
         const path = pathOf(now.track.url);
         const open = (window as unknown as { __scOpenTrack?: (path: string, navigate?: boolean) => Promise<string> }).__scOpenTrack;
         if (!path || !open) return;
@@ -231,6 +236,11 @@ export function installJam(core: JamCore): JamSection {
             console.warn('Джем: трек не открылся', error);
         } finally {
             opening = false;
+        }
+        const latest = state?.now;
+        if (reopen || (latest && latest.track.id !== now.track.id)) {
+            reopen = false;
+            if (!core.disposed() && latest) { follow(); return; }
         }
         grantedUntil = Date.now() + 2500;
         // Сайт ставит трек не мгновенно: перематываем чуть позже, остаток доведёт слежение за расхождением
@@ -567,8 +577,8 @@ export function installJam(core: JamCore): JamSection {
             '.scj-hint,.scj-sub{font-size:12px;font-weight:600;color:rgba(255,255,255,.55)}',
             '.scj-warn{font-size:14px;font-weight:800;margin:6px 0}',
             '.scj-msg{margin:8px 0;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.08);font-size:12px}',
-            '.scj-code{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 4px}',
-            '.scj-codetext{font-size:34px;font-weight:900;letter-spacing:.14em;font-variant-numeric:tabular-nums}',
+            '.scj-code{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin:6px 0 4px}',
+            '.scj-codetext{font-size:clamp(24px,9vw,34px);font-weight:900;letter-spacing:.1em;font-variant-numeric:tabular-nums;white-space:nowrap}',
             '.scj-btn{appearance:none;border:0;border-radius:999px;padding:7px 14px;margin:6px 0 0;background:rgba(255,255,255,.1);color:#fff;font:inherit;font-weight:700;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}',
             '.scj-btn:hover:not(:disabled){background:rgba(255,255,255,.18)}.scj-btn:disabled{opacity:.5;cursor:default}',
             '.scj-btn.primary{background:#f50;box-shadow:none}.scj-btn.primary:hover:not(:disabled){background:#ff6a26}',
@@ -723,6 +733,14 @@ export function installJam(core: JamCore): JamSection {
         close,
         isOpen: () => !!panel,
         sync,
+        addTrack(track, next) {
+            if (!state || !me()) return { handled: false };
+            if (!canAddNow()) return { handled: true, error: T.errors.forbidden };
+            const ref = refOf({ track, positionMs: 0, playing: false });
+            if (!ref) return { handled: true, error: T.errors.noLink };
+            send(next ? { t: 'add', track: ref, next: true } : { t: 'add', track: ref });
+            return { handled: true };
+        },
         mount(target) {
             button ??= makeButton();
             button.classList.remove('bar');

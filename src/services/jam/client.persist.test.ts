@@ -45,7 +45,7 @@ const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 
 
 describe('джем: запись комнаты на диске', () => {
     it('запись проверяется: код, токен, имя, аватарка; мусор отбрасывается', () => {
-        expect(parseSavedSession(SAVED)).toEqual(SAVED);
+        expect(parseSavedSession(SAVED)).toEqual({ ...SAVED, cid: '' });
         expect(parseSavedSession({ ...SAVED, avatar: 'https://evil.com/a.jpg' })?.avatar).toBe('');
         for (const bad of [null, 'x', [], { ...SAVED, code: 'bad' }, { ...SAVED, token: 'zz' }, { ...SAVED, name: '' }, { ...SAVED, server: 5 }]) expect(parseSavedSession(bad)).toBeNull();
         expect(parseSavedSession({ ...SAVED, token: '' })?.token).toBe('');
@@ -56,7 +56,7 @@ describe('джем: запись комнаты на диске', () => {
         expect(t.writes).toEqual([]);
         t.sockets[0].onopen?.({});
         t.hello(t.sockets[0]);
-        expect(t.disk()).toEqual(SAVED);
+        expect(t.disk()).toEqual({ ...SAVED, cid: expect.stringMatching(/^[0-9a-f]{16}$/) });
         t.hello(t.sockets[0]);
         expect(t.writes).toHaveLength(1);
     });

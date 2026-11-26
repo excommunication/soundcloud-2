@@ -73,6 +73,8 @@ describe('сообщения клиента', () => {
         expect(ok({ t: 'next' })).toEqual({ t: 'next' });
         expect(ok({ t: 'next', from: 5 })).toEqual({ t: 'next', from: 5 });
         expect(ok({ t: 'add', track })).toMatchObject({ t: 'add' });
+        expect(ok({ t: 'add', track, next: true })).toMatchObject({ t: 'add', next: true });
+        expect(ok({ t: 'add', track, next: 'yes' })).not.toHaveProperty('next');
         expect(ok({ t: 'remove', qid: 'a' })).toEqual({ t: 'remove', qid: 'a' });
         expect(ok({ t: 'move', qid: 'a', to: 3 })).toEqual({ t: 'move', qid: 'a', to: 3 });
         expect(ok({ t: 'grant', id: 'x', on: true })).toEqual({ t: 'grant', id: 'x', on: true });

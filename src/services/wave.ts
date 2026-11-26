@@ -804,7 +804,12 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         familyHidden,
         setExcluded,
         setFamily,
-        addTrack: (track, next) => queueControls.add(track, next),
+        addTrack: (track, next) => {
+            // В активном джеме трек уходит в общую очередь комнаты, а не в очередь сайта
+            const result = jamSection.addTrack({ id: track.id, url: track.permalink_url ?? '', title: track.title ?? '', artist: track.user?.username ?? '', artwork: artworkUrl(track, 't300x300'), durationMs: Math.round(track.full_duration ?? track.duration ?? 0) }, next);
+            if (!result.handled) return queueControls.add(track, next);
+            if (result.error) showToast(result.error);
+        },
         pickedIndex: shelfSection.pickedIndex,
         pick: shelfSection.pick,
         openVersions: versions.open,

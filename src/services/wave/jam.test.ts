@@ -130,3 +130,52 @@ describe('Джем: очередь «Далее»', () => {
         section.dispose();
     });
 });
+
+describe('Джем: трек из меню очереди', () => {
+    afterEach(() => {
+        document.body.textContent = '';
+    });
+    const track = { id: 5, url: 'https://soundcloud.com/a/b', title: 'T', artist: 'A', artwork: '', durationMs: 1000 };
+    function make(everyoneCanAdd: boolean, member: 'm0' | 'm1') {
+        const sent: unknown[] = [];
+        let emit: (event: unknown) => void = () => undefined;
+        const api = {
+            create: async () => ({ ok: true }), join: async () => ({ ok: true }), leave: async () => undefined,
+            send: async (msg: unknown) => { sent.push(msg); }, snapshot: async () => null,
+            onState: (callback: (event: unknown) => void) => { emit = callback; return () => undefined; },
+        };
+        const section = installJam({ lang: 'ru', disposed: () => false, api: () => api, current: () => null, seek: () => undefined, setPlaying: () => undefined });
+        const members = [0, 1].map((index) => ({ id: 'm' + index, name: 'u' + index, avatar: '', isHost: index === 0, canControl: false }));
+        const live = () => {
+            emit({ type: 'status', status: 'open' });
+            emit({ type: 'state', state: { code: 'ABC123', members, queue: [], now: null, settings: { everyoneCanAdd, everyoneCanControl: false } }, you: member, offset: 0, synced: true });
+        };
+        return { section, sent, live };
+    }
+    it('без джема не берёт трек себе', () => {
+        const { section, sent } = make(false, 'm0');
+        expect(section.addTrack(track, false)).toEqual({ handled: false });
+        expect(sent).toEqual([]);
+    });
+    it('в активном джеме шлёт add, «следующим» с next', () => {
+        const { section, sent, live } = make(false, 'm0');
+        live();
+        expect(section.addTrack(track, false)).toEqual({ handled: true });
+        expect(section.addTrack(track, true)).toEqual({ handled: true });
+        expect(sent).toEqual([{ t: 'add', track }, { t: 'add', track, next: true }]);
+    });
+    it('без права добавлять трек не уходит, ошибка показывается', () => {
+        const { section, sent, live } = make(false, 'm1');
+        live();
+        const result = section.addTrack(track, false);
+        expect(result.handled).toBe(true);
+        expect(result.error).toBeTruthy();
+        expect(sent).toEqual([]);
+    });
+    it('если все могут добавлять, участник добавляет', () => {
+        const { section, sent, live } = make(true, 'm1');
+        live();
+        expect(section.addTrack(track, false)).toEqual({ handled: true });
+        expect(sent).toHaveLength(1);
+    });
+});

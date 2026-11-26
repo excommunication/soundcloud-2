@@ -145,9 +145,9 @@ export function reduce(state: JamState, sender: JamMember, msg: JamClientMsg, no
             if (state.queue.length >= JAM_LIMITS.queue) return refuse(state, 'queue-full');
             const seq = state.seq + 1;
             const item: JamQueueItem = { ...msg.track, qid: seq.toString(36), addedBy: me.name, ...(me.avatar ? { addedAvatar: me.avatar } : {}) };
-            const queue = [...state.queue, item];
+            const queue = msg.next ? [item, ...state.queue] : [...state.queue, item];
             if (queueBytes(queue) > JAM_LIMITS.queueBytes) return refuse(state, 'queue-full');
-            return done({ ...state, queue, seq }, [{ t: 'qadd', item, seq }]);
+            return done({ ...state, queue, seq }, [{ t: 'qadd', item, seq, ...(msg.next ? { at: 0 } : {}) }]);
         }
         case 'remove': {
             const item = state.queue.find((entry) => entry.qid === msg.qid);
@@ -203,7 +203,10 @@ export function applyEvent(state: JamState, event: JamEvent): JamState {
         case 'leave': return { ...state, members: state.members.filter((member) => member.id !== event.id).map((member) => ({ ...member, isHost: member.id === event.hostId })) };
         case 'host': return { ...state, members: state.members.map((member) => ({ ...member, isHost: member.id === event.id })) };
         case 'now': return { ...state, now: event.now };
-        case 'qadd': return { ...state, queue: [...state.queue, event.item], seq: Math.max(state.seq, event.seq) };
+        case 'qadd': {
+            const at = event.at === undefined ? state.queue.length : Math.max(0, Math.min(event.at, state.queue.length));
+            return { ...state, queue: [...state.queue.slice(0, at), event.item, ...state.queue.slice(at)], seq: Math.max(state.seq, event.seq) };
+        }
         case 'qrm': return { ...state, queue: state.queue.filter((item) => item.qid !== event.qid) };
         case 'qmove': {
             const from = state.queue.findIndex((item) => item.qid === event.qid);

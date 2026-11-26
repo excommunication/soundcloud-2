@@ -16,6 +16,7 @@ interface Stored {
 }
 interface Attachment {
     id: string;
+    cid?: string;
 }
 
 function hex(bytes: Uint8Array): string {
@@ -118,12 +119,23 @@ export class JamRoom extends DurableObject<Env> {
         const id = hex(random(4));
         // После перезапуска объекта (выкладка, сбой) webSocketClose для старых сокетов не приходит: их участники остаются
         // в хранилище. Перед входом убираем всех, у кого нет открытого сокета, иначе комната со временем «полна» призраков
+        // Тот же клиент (cid) вернулся по новому сокету: прежний, возможно полуоткрытый, сокет и его участник убираются,
+        // иначе в списке слушателей появляются двойники
+        const rawCid = url.searchParams.get('cid') ?? '';
+        const cid = /^[0-9a-f]{16}$/.test(rawCid) ? rawCid : '';
         const live = new Set<string>();
+        const replaced: WebSocket[] = [];
         for (const ws of this.ctx.getWebSockets()) {
-            const liveId = (ws.deserializeAttachment() as Attachment | null)?.id;
-            if (liveId) live.add(liveId);
+            const attached = ws.deserializeAttachment() as Attachment | null;
+            if (!attached?.id) continue;
+            if (cid && attached.cid === cid) { replaced.push(ws); continue; }
+            live.add(attached.id);
         }
         const pruned = pruneMembers(this.state(), live);
+        for (const ws of replaced) {
+            ws.serializeAttachment({ id: '' } satisfies Attachment);
+            try { ws.close(1000, 'replaced'); } catch { /* уже закрыт */ }
+        }
         const added = addMember(pruned.state, { id, name, avatar: cleanAvatar(url.searchParams.get('avatar')) }, asHost);
 
         const pair = new WebSocketPair();
@@ -138,7 +150,7 @@ export class JamRoom extends DurableObject<Env> {
             server.close(1013, 'full');
             return new Response(null, { status: 101, webSocket: client });
         }
-        server.serializeAttachment({ id } satisfies Attachment);
+        server.serializeAttachment({ id, cid } satisfies Attachment);
         // Остальные узнают о новом участнике; ему самому уходит снимок комнаты
         for (const ws of this.ctx.getWebSockets()) if (ws !== server) for (const event of [...pruned.events, ...added.events]) this.send(ws, event);
         await this.save(added.state);
