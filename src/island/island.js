@@ -91,6 +91,7 @@
         volumeBox.hidden = false;
         volumeBox.dataset.level = volume === 0 ? '0' : volume < 0.5 ? '1' : '2';
         $('vol-fill').style.setProperty('--v', String(volume));
+        volumeTrack.style.setProperty('--p', String(volume));
         volumeTrack.setAttribute('aria-valuenow', String(Math.round(volume * 100)));
     }
     function readVolume() {
@@ -180,8 +181,21 @@
     // Режим совместимости NVIDIA: окно без прозрачности обрезается по плашке, поэтому main должен знать её размер.
     // Там размер меняется сразу, без пружины: обрезка не успевала бы за анимацией
     let shapeKey = '';
+    // Прямоугольник плашки нужен main и без обрезки: по нему он понимает, ушёл ли курсор (сквозной режим)
+    let shapeLate = 0;
     function reportShape() {
-        if (!state?.shaped || !api.shape) return;
+        if (!api.shape) return;
+        // Без обрезки размер меняется пружиной: второй замер, когда она доехала
+        if (!state?.shaped) {
+            clearTimeout(shapeLate);
+            shapeLate = setTimeout(() => {
+                shapeKey = '';
+                measureShape();
+            }, 650);
+        }
+        measureShape();
+    }
+    function measureShape() {
         requestAnimationFrame(() => {
             const rect = island.getBoundingClientRect();
             const radius = parseFloat(window.getComputedStyle(island).borderTopLeftRadius) || 0;
@@ -290,7 +304,9 @@
     function renderProgress() {
         const passed = position.playing ? (Date.now() - position.at) / 1000 : 0;
         const elapsed = position.duration ? Math.min(position.duration, position.elapsed + passed) : position.elapsed + passed;
-        const share = 'scaleX(' + (position.duration ? Math.min(1, elapsed / position.duration) : 0) + ')';
+        const ratio = position.duration ? Math.min(1, elapsed / position.duration) : 0;
+        const share = 'scaleX(' + ratio + ')';
+        $('seek').style.setProperty('--p', String(ratio));
         // Линия в свёрнутой плашке считается всегда, поэтому при раскрытии полоса уже на месте и не «догоняет»
         $('mini-fill').style.transform = share;
         $('fill').style.transform = share;
@@ -336,8 +352,17 @@
         const rect = island.getBoundingClientRect();
         return event.clientX >= rect.left - 2 && event.clientX <= rect.right + 2 && event.clientY >= rect.top - 2 && event.clientY <= rect.bottom + 2;
     }
+    // Сквозной режим: на свёрнутую плашку курсор сначала заходит «призраком» — main делает её бледной и пропускает клики
+    // насквозь, пока курсор движется. Остановился — main присылает wake, плашка оживает и раскрывается
+    let ghosting = false;
     function setHovered(on) {
+        if (ghosting) return;
         if (on === hovered) return;
+        if (on && !expanded() && !pinned) {
+            ghosting = true;
+            api.hover('ghost');
+            return;
+        }
         hovered = on;
         api.hover(on);
         clearTimeout(expandTimer);
@@ -353,10 +378,40 @@
     let press = null;
     let dragging = false;
     let swallowClick = false;
+    // main сам ведёт перетаскивание по кнопке мыши; если он начал его в этом нажатии, клик в конце не считается
+    let draggedPress = false;
     island.addEventListener('pointerdown', (event) => {
+        draggedPress = false;
         // Кнопки тоже могут начать перетаскивание (в раскрытой плашке почти всё кнопки): клик без сдвига остаётся кликом
         if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('.vol-track, .track'))) return;
         press = { x: event.screenX, y: event.screenY, id: event.pointerId };
+        api.drag('press');
+    });
+    api.onDragState?.((on) => {
+        if (on) {
+            draggedPress = true;
+            if (dragging) return;
+            dragging = true;
+            clearTimeout(expandTimer);
+            island.classList.add('dragging');
+            setExpanded(false);
+        } else {
+            dragging = false;
+            press = null;
+            island.classList.remove('dragging');
+        }
+    });
+    api.onWake?.((wake) => {
+        ghosting = false;
+        if (wake) {
+            hovered = true;
+            clearTimeout(collapseTimer);
+            if (state?.settings?.expandOnHover !== false) setExpanded(true);
+        } else {
+            hovered = false;
+            pinned = false;
+            scheduleCollapse(380);
+        }
     });
     island.addEventListener('pointermove', (event) => {
         if (!press || dragging || event.pointerId !== press.id) return;
@@ -386,7 +441,10 @@
     document.addEventListener('mousemove', (event) => !dragging && setHovered(inside(event)));
     document.addEventListener('mouseleave', () => setHovered(false));
     document.addEventListener('click', (event) => {
-        if (swallowClick) return;
+        if (swallowClick || draggedPress) {
+            draggedPress = false;
+            return;
+        }
         const target = event.target instanceof window.Element ? event.target.closest('[data-act]') : null;
         if (target && expanded()) {
             api.act(target.dataset.act);
@@ -438,6 +496,7 @@
             volume: 0.6,
         };
         const listeners = [];
+        const wakeListeners = [];
         return {
             state: () => Promise.resolve(demo),
             act: (act) => {
@@ -445,7 +504,11 @@
                 if (act === 'like') demo.track.isLiked = !demo.track.isLiked;
                 listeners.forEach((listener) => listener(demo));
             },
-            hover: () => undefined,
+            hover: (on) => {
+                if (on === 'ghost') setTimeout(() => wakeListeners.forEach((listener) => listener(true)), 380);
+            },
+            onDragState: () => undefined,
+            onWake: (listener) => wakeListeners.push(listener),
             drag: () => undefined,
             shape: () => undefined,
             seek: () => undefined,

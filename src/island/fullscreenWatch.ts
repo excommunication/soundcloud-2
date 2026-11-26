@@ -30,6 +30,8 @@ export interface FullscreenBridge {
     foreground(): ForegroundInfo;
     /** Монитор, на котором окно с этим HWND */
     monitorOf(hwnd: number): number;
+    /** Зажата ли сейчас левая (основная) кнопка мыши: перетаскивание острова кончается по ней, а не по событию страницы */
+    primaryButtonDown(): boolean;
 }
 
 /** Окна оболочки Windows: рабочий стол и панель задач во весь экран, но это не игра */
@@ -70,12 +72,16 @@ export function loadFullscreenBridge(): Promise<FullscreenBridge> {
         const getClassName = user32.func('int __stdcall GetClassNameW(intptr_t hwnd, void *name, int max)') as Call<[number, Buffer, number]>;
         const isZoomed = user32.func('int __stdcall IsZoomed(intptr_t hwnd)') as Call<[number]>;
         const isIconic = user32.func('int __stdcall IsIconic(intptr_t hwnd)') as Call<[number]>;
+        const getAsyncKeyState = user32.func('int16_t __stdcall GetAsyncKeyState(int key)') as Call<[number]>;
+        const getSystemMetrics = user32.func('int __stdcall GetSystemMetrics(int index)') as Call<[number]>;
         const queryState = shell32.func('long __stdcall SHQueryUserNotificationState(_Out_ int *state)') as Call<[number[]]>;
         const MONITOR_DEFAULTTONEAREST = 2;
         const num = (value: unknown): number => (typeof value === 'number' ? value : typeof value === 'bigint' ? Number(value) : 0);
         const empty = (): ScreenRect => ({ left: 0, top: 0, right: 0, bottom: 0 });
         return {
             monitorOf: (hwnd) => num(monitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)),
+            // SM_SWAPBUTTON: у левшей основная кнопка правая
+            primaryButtonDown: () => (num(getAsyncKeyState(num(getSystemMetrics(23)) ? 0x02 : 0x01)) & 0x8000) !== 0,
             foreground() {
                 const state = [0];
                 const notificationState = num(queryState(state)) >= 0 ? state[0] : 0;

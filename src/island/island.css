@@ -141,9 +141,9 @@ html.playing .bars i:nth-child(5) { animation-duration: 0.83s; animation-delay: 
 .vol-icon .x { display: none; }
 .volume[data-level='0'] .w1, .volume[data-level='0'] .w2, .volume[data-level='1'] .w2 { display: none; }
 .volume[data-level='0'] .x { display: block; }
-.vol-track { position: relative; flex: 1; height: 7px; border-radius: 4px; background: rgba(var(--fg), 0.14); overflow: hidden; cursor: pointer; transform: scaleY(0.58); transition: transform 180ms var(--spring); }
+.vol-track { position: relative; flex: 1; height: 7px; border-radius: 4px; background: rgba(var(--fg), 0.14); overflow: visible; cursor: pointer; transform: scaleY(0.58); transition: transform 180ms var(--spring); }
 .volume:hover .vol-track, .vol-track.dragging { transform: none; }
-.vol-fill { height: 100%; width: 100%; background: rgba(var(--fg), 0.82); transform: scaleX(var(--v, 0)); transform-origin: 0 50%; }
+.vol-fill { height: 100%; width: 100%; border-radius: inherit; background: rgba(var(--fg), 0.82); transform: scaleX(var(--v, 0)); transform-origin: 0 50%; }
 .volume[data-level='0'] .vol-fill { background: rgba(var(--fg), 0.35); }
 
 /* Управление: шесть кнопок, «играть» точно по центру. Слева лайк, в центре предыдущий/играть/следующий, справа открыть и «⋯» */
@@ -247,3 +247,11 @@ html.reduce-motion .snow { display: none; }
     .island, .compact, .expanded { transition-duration: 0ms; animation: none; }
     .bars i, .snow i { animation: none !important; }
 }
+
+/* Кружок-ручка на полосе и громкости: появляется при наведении и пока тянут, стоит на конце заполненной части */
+.progress .track::after, .vol-track::after { content: ''; position: absolute; top: 50%; left: calc(var(--p, 0) * 100%); width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: rgb(var(--fg)); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); transform: scale(0); transition: transform 160ms var(--spring); pointer-events: none; }
+.progress:hover .track::after, .island.seeking .track::after, .volume:hover .vol-track::after, .vol-track.dragging::after { transform: scale(1); }
+/* У громкости дорожка сжата по высоте, пока не наведёшь: ручка показывается только раскрытой */
+.vol-track::after { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; }
+html.shaped .progress .track::after, html.shaped .vol-track::after { box-shadow: none; }
+.island.live .progress .track::after { transition: transform 160ms var(--spring), left 1s linear; }

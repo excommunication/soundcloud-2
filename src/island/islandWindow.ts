@@ -50,6 +50,10 @@ const FULLSCREEN_CONFIRM_MS = 350;
 const DRAG_STEP_MS = 16;
 /** Отпускание потерялось (кнопку отпустили вне окна, пока оно не успело догнать): перетаскивание кончается само */
 const DRAG_LIMIT_MS = 60_000;
+/** Сквозной режим: прозрачность бледной плашки, сколько держать курсор, чтобы она ожила, и шаг проверки */
+const GHOST_OPACITY = 0.3;
+const GHOST_WAKE_MS = 380;
+const GHOST_STEP_MS = 40;
 
 export class DynamicIsland {
     private window: BrowserWindow | null = null;
@@ -79,6 +83,13 @@ export class DynamicIsland {
         this.refresh();
     };
     private menuWindow: BrowserWindow | null = null;
+    private menuOpenedAt = 0;
+    /** Плашка внутри окна (DIP): для «сквозного» режима и проверки курсора */
+    private shapeRect: { x: number; y: number; width: number; height: number } | null = null;
+    /** Нажатие на плашке: main сам следит за кнопкой мыши и начинает или кончает перетаскивание */
+    private pressPoll: ReturnType<typeof setInterval> | null = null;
+    /** Курсор над свёрнутой плашкой, но ещё не остановился: окно полупрозрачное и пропускает клики насквозь */
+    private ghost: ReturnType<typeof setInterval> | null = null;
     private watched: BrowserWindow | null = null;
     private drag: { timer: ReturnType<typeof setInterval>; until: number; cursor: Electron.Point; from: Rectangle } | null = null;
 
@@ -96,17 +107,19 @@ export class DynamicIsland {
         });
         ipcMain.on('island:drag', (event, phase: unknown) => {
             if (!this.owns(event.sender)) return;
-            if (phase === 'start') this.startDrag();
+            if (phase === 'press') this.press();
+            else if (phase === 'start') this.startDrag();
             else if (phase === 'end') this.endDrag();
         });
         // Плашка поменяла размер: в режиме совместимости окно обрезается по ней, в CSS-пикселях до масштаба
         ipcMain.on('island:shape', (event, rect: unknown) => {
-            if (!this.owns(event.sender) || !this.deps.shaped || !rect || typeof rect !== 'object') return;
+            if (!this.owns(event.sender) || !rect || typeof rect !== 'object') return;
             const { x, y, width, height, radius } = rect as Record<string, unknown>;
             if (![x, y, width, height, radius].every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 5000)) return;
             const zoom = ISLAND_SCALE[this.settings.size];
             const scaled = { x: (x as number) * zoom, y: (y as number) * zoom, width: (width as number) * zoom, height: (height as number) * zoom };
-            this.window!.setShape(roundedShape(scaled, (radius as number) * zoom));
+            this.shapeRect = scaled;
+            if (this.deps.shaped) this.window!.setShape(roundedShape(scaled, (radius as number) * zoom));
         });
         ipcMain.handle('island:volume', (event, value: unknown) => {
             if (!this.owns(event.sender)) return -1;
@@ -115,7 +128,12 @@ export class DynamicIsland {
         });
         ipcMain.handle('island:state', (event) => (this.owns(event.sender) ? this.state() : null));
         ipcMain.on('island:hover', (event, inside: unknown) => {
-            if (!this.owns(event.sender) || this.deps.shaped) return;
+            if (!this.owns(event.sender)) return;
+            if (inside === 'ghost') return this.startGhost();
+            if (this.deps.shaped) {
+                if (inside !== true) this.raise();
+                return;
+            }
             // Над плашкой окно ловит мышь, вне её пропускает насквозь, но продолжает слышать движение
             if (inside === true) this.window!.setIgnoreMouseEvents(false);
             else {
@@ -322,11 +340,99 @@ export class DynamicIsland {
         this.window.setBounds(this.target());
     }
 
-    // Перетаскивание: окно идёт за курсором, пока страница не скажет, что кнопку отпустили
-    private startDrag(): void {
-        if (!this.window || this.window.isDestroyed() || this.drag) return;
+    private async loadBridge(): Promise<FullscreenBridge | null> {
+        if (process.platform !== 'win32') return null;
+        try {
+            this.bridge ??= await loadFullscreenBridge();
+            return this.bridge;
+        } catch {
+            return null;
+        }
+    }
+
+    /** Курсор над плашкой: по прямоугольнику, который прислала страница */
+    private cursorOnIsland(point: Electron.Point): boolean {
+        if (!this.window || this.window.isDestroyed() || !this.shapeRect) return false;
+        const bounds = this.window.getBounds();
+        const r = this.shapeRect;
+        return point.x >= bounds.x + r.x - 2 && point.x <= bounds.x + r.x + r.width + 2 && point.y >= bounds.y + r.y - 2 && point.y <= bounds.y + r.y + r.height + 2;
+    }
+
+    // «Сквозной» режим: курсор пролетает над свёрнутой плашкой (к вкладкам браузера, к кнопкам окна под ней) —
+    // плашка бледнеет и клики проходят насквозь. Остановил курсор на GHOST_WAKE_MS — она становится обычной и раскрывается
+    private startGhost(): void {
+        if (this.ghost || this.drag || !this.window || this.window.isDestroyed()) return;
         const window = this.window;
-        const drag = { until: Date.now() + DRAG_LIMIT_MS, cursor: screen.getCursorScreenPoint(), from: window.getBounds(), timer: setInterval(() => {
+        window.setIgnoreMouseEvents(true, { forward: true });
+        window.setOpacity(GHOST_OPACITY);
+        let last = screen.getCursorScreenPoint();
+        let since = Date.now();
+        this.ghost = setInterval(() => {
+            if (window.isDestroyed()) return this.stopGhost(false);
+            const point = screen.getCursorScreenPoint();
+            if (!this.cursorOnIsland(point)) return this.stopGhost(false);
+            if (Math.hypot(point.x - last.x, point.y - last.y) > 3) {
+                last = point;
+                since = Date.now();
+            } else if (Date.now() - since >= GHOST_WAKE_MS) this.stopGhost(true);
+        }, GHOST_STEP_MS);
+    }
+
+    private stopGhost(wake: boolean): void {
+        if (!this.ghost) return;
+        clearInterval(this.ghost);
+        this.ghost = null;
+        if (!this.window || this.window.isDestroyed()) return;
+        this.window.setOpacity(1);
+        if (wake || this.deps.shaped) this.window.setIgnoreMouseEvents(false);
+        else this.window.setIgnoreMouseEvents(true, { forward: true });
+        this.send(wake ? 'island:wake' : 'island:sleep');
+        if (!wake) this.raise();
+    }
+
+    // Нажатие: кнопку мыши main проверяет сам (GetAsyncKeyState). Сдвиг на 5 px начинает перетаскивание, отпускание
+    // заканчивает его, даже если страница не получила ни движения, ни отпускания (курсор ушёл за обрезанное окно)
+    private press(): void {
+        if (this.pressPoll || this.drag) return;
+        const from = screen.getCursorScreenPoint();
+        void this.loadBridge().then((bridge) => {
+            if (!bridge || this.pressPoll || this.disposed) return;
+            this.pressPoll = setInterval(() => {
+                let down: boolean;
+                try {
+                    down = bridge.primaryButtonDown();
+                } catch {
+                    down = false;
+                }
+                if (!down) {
+                    this.stopPress();
+                    if (this.drag) {
+                        this.endDrag();
+                        this.send('island:drag-state', false);
+                    }
+                    return;
+                }
+                if (this.drag) return;
+                const point = screen.getCursorScreenPoint();
+                if (Math.hypot(point.x - from.x, point.y - from.y) >= 5) {
+                    this.startDrag(from);
+                    this.send('island:drag-state', true);
+                }
+            }, DRAG_STEP_MS);
+        });
+    }
+
+    private stopPress(): void {
+        if (this.pressPoll) clearInterval(this.pressPoll);
+        this.pressPoll = null;
+    }
+
+    // Перетаскивание: окно идёт за курсором, пока не отпустят кнопку
+    private startDrag(fromCursor?: Electron.Point): void {
+        if (!this.window || this.window.isDestroyed() || this.drag) return;
+        this.stopGhost(false);
+        const window = this.window;
+        const drag = { until: Date.now() + DRAG_LIMIT_MS, cursor: fromCursor ?? screen.getCursorScreenPoint(), from: window.getBounds(), timer: setInterval(() => {
             if (window.isDestroyed() || Date.now() > drag.until) return this.endDrag();
             const cursor = screen.getCursorScreenPoint();
             // setBounds с прежним размером: setPosition на Windows с масштабом экрана может менять размер окна
@@ -449,7 +555,14 @@ export class DynamicIsland {
     private closeMenu(): void {
         const menu = this.menuWindow;
         this.menuWindow = null;
-        if (menu && !menu.isDestroyed()) menu.destroy();
+        // Уничтожать окно прямо в его же событии (blur) или в ответе на его IPC нельзя: Electron от этого падал вместе
+        // с клиентом (правый клик по «⋯» открывал второе меню, пока первое закрывалось). Сначала спрятать, закрыть следующим тиком
+        if (menu && !menu.isDestroyed()) {
+            menu.hide();
+            setTimeout(() => {
+                if (!menu.isDestroyed()) menu.close();
+            }, 0);
+        }
         // Окно меню забирало верх: после него остров вставал под окна
         setTimeout(() => this.raise(), 50);
     }
@@ -457,6 +570,9 @@ export class DynamicIsland {
     /** Своё тёмное меню вместо системного (оно стеклянное и не в тон): отдельное окно у курсора, закрывается по потере фокуса */
     private menu(): void {
         if (!this.window || this.window.isDestroyed()) return;
+        // Правый клик и клик по «⋯» почти одновременно: второе меню поверх первого не открываем
+        if (Date.now() - this.menuOpenedAt < 350) return;
+        this.menuOpenedAt = Date.now();
         this.closeMenu();
         const items = this.menuItems();
         const shaped = this.deps.shaped;
@@ -506,6 +622,9 @@ export class DynamicIsland {
         ipcMain.removeAllListeners('island:shape');
         ipcMain.removeAllListeners('island:seek');
         this.setPolling(false);
+        this.stopPress();
+        if (this.ghost) clearInterval(this.ghost);
+        this.ghost = null;
         this.closeMenu();
         ipcMain.removeHandler('island-menu:items');
         ipcMain.removeAllListeners('island-menu:pick');

@@ -48,6 +48,13 @@ export function installAudioMonitor(): void {
         const metadata = navigator.mediaSession?.metadata;
         const play = query('.playControls__play, .playControl');
         const useMedia = media !== null && Number.isFinite(media.duration) && media.duration > 0;
+        const passedText = query('.playbackTimeline__timePassed span:last-child')?.textContent?.trim() || '';
+        const durationText = query('.playbackTimeline__duration span:last-child')?.textContent?.trim() || '';
+        // Длительность со страницы: у потоковых треков media.duration бывает длиной уже загруженного куска, и полоса
+        // острова стояла в конце. Сайт может показывать остаток «-1:01»: тогда длительность = прошло + остаток
+        const shown = durationText ? toSeconds(durationText) : 0;
+        const pageDuration = shown < 0 ? toSeconds(passedText) - shown : shown;
+        const durationSeconds = pageDuration > 0 ? pageDuration : useMedia ? media!.duration : 0;
         return {
             title:
                 artwork?.getAttribute('aria-label') ||
@@ -58,12 +65,8 @@ export function installAudioMonitor(): void {
             author: artist?.textContent?.trim() || metadata?.artist || '',
             artwork:
                 artwork?.style.backgroundImage.replace(/^url\(["']?|["']?\)$/g, '') || metadata?.artwork[0]?.src || '',
-            elapsed: useMedia
-                ? format(media!.currentTime)
-                : query('.playbackTimeline__timePassed span:last-child')?.textContent?.trim() || '',
-            duration: useMedia
-                ? format(media!.duration)
-                : query('.playbackTimeline__duration span:last-child')?.textContent?.trim() || '',
+            elapsed: useMedia ? format(media!.currentTime) : passedText,
+            duration: durationSeconds > 0 ? format(durationSeconds) : durationText,
             url: title?.href.split('?')[0] || '',
             artistUrl: artist instanceof HTMLAnchorElement ? artist.href.split('?')[0] : '',
             isPlaying: play ? play.classList.contains('playing') : useMedia && !media!.paused && !media!.ended,
