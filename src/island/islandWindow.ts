@@ -424,7 +424,12 @@ export class DynamicIsland {
 
     private place(): void {
         if (!this.window || this.window.isDestroyed() || this.drag) return;
-        this.window.setBounds(this.target());
+        const target = this.target();
+        this.window.setBounds(target);
+        // Окно на мониторе с другим масштабом: первое setBounds считается в масштабе старого монитора и промахивается,
+        // второе, уже в новом, ставит куда надо
+        const got = this.window.getBounds();
+        if (got.x !== target.x || got.y !== target.y || got.width !== target.width || got.height !== target.height) this.window.setBounds(target);
     }
 
     private async loadBridge(): Promise<FullscreenBridge | null> {
@@ -523,11 +528,18 @@ export class DynamicIsland {
         if (!this.window || this.window.isDestroyed() || this.drag) return;
         this.stopGhost(false);
         const window = this.window;
-        const drag = { until: Date.now() + DRAG_LIMIT_MS, cursor: fromCursor ?? screen.getCursorScreenPoint(), from: window.getBounds(), timer: setInterval(() => {
+        // Ход считается в физических пикселях: у мониторов с разным масштабом общие DIP-координаты неравномерны, и окно,
+        // которое двигают по ним, на границе мониторов прыгало на другой экран. Разность курсора в пикселях одна на все экраны
+        const startCursor = screen.dipToScreenPoint(fromCursor ?? screen.getCursorScreenPoint());
+        const startBounds = window.getBounds();
+        const startPixels = screen.dipToScreenRect(window, startBounds);
+        const drag = { until: Date.now() + DRAG_LIMIT_MS, cursor: fromCursor ?? screen.getCursorScreenPoint(), from: startBounds, timer: setInterval(() => {
             if (window.isDestroyed() || Date.now() > drag.until) return this.endDrag();
-            const cursor = screen.getCursorScreenPoint();
-            // setBounds с прежним размером: setPosition на Windows с масштабом экрана может менять размер окна
-            window.setBounds({ x: Math.round(drag.from.x + cursor.x - drag.cursor.x), y: Math.round(drag.from.y + cursor.y - drag.cursor.y), width: drag.from.width, height: drag.from.height });
+            const cursor = screen.dipToScreenPoint(screen.getCursorScreenPoint());
+            const now = screen.dipToScreenRect(window, window.getBounds());
+            const moved = screen.screenToDipRect(window, { x: startPixels.x + cursor.x - startCursor.x, y: startPixels.y + cursor.y - startCursor.y, width: now.width, height: now.height });
+            // Размер прежний (в DIP): setPosition на Windows с масштабом экрана может менять размер окна
+            window.setBounds({ x: moved.x, y: moved.y, width: drag.from.width, height: drag.from.height });
         }, DRAG_STEP_MS) };
         this.drag = drag;
     }
