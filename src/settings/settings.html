@@ -184,6 +184,19 @@
                         <p class="hint pad" id="islandUnavailable" hidden>Остров есть только в версии для Windows</p>
                         <label class="row"><span class="text"><span>Показывать остров</span><span class="hint">Чёрная плашка сверху экрана, как Dynamic Island у iPhone: что играет, наведи — раскроется управление. Правый клик — меню</span></span><span class="toggle"><input type="checkbox" data-island="enabled" /><span class="slider"></span></span></label>
                         <div class="island-fields" id="islandFields">
+                            <div class="group">Вид</div>
+                            <div class="row">
+                                <span class="text"><span>Оформление</span><span class="hint">Стекло — по умолчанию</span></span>
+                                <select class="input" data-island="look" aria-label="Оформление">
+                                    <option value="glass">Стекло</option>
+                                    <option value="black">Чёрный</option>
+                                    <option value="white">Белый</option>
+                                    <option value="color">Свой цвет</option>
+                                    <option value="gradient">Градиент</option>
+                                </select>
+                            </div>
+                            <div class="row" id="islandColorRow" hidden><span class="text">Цвет</span><input type="color" class="input" data-island="color" aria-label="Цвет плашки" /></div>
+                            <div class="row" id="islandColor2Row" hidden><span class="text">Второй цвет градиента</span><input type="color" class="input" data-island="color2" aria-label="Второй цвет градиента" /></div>
                             <div class="group">Где</div>
                             <div class="row">
                                 <span class="text">Положение</span>

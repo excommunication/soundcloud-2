@@ -916,3 +916,6 @@ input[type='range']:active::-webkit-slider-thumb { transform: scale(1.15); }
 /* Остров выключен: его настройки видны, но притушены */
 .island-fields { transition: opacity 160ms ease; }
 .island-fields.off { opacity: 0.45; }
+
+/* Цвет плашки острова */
+input[type='color'].input { width: 44px; height: 30px; padding: 2px; cursor: pointer; }

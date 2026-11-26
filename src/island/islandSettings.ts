@@ -7,6 +7,8 @@ export const ISLAND_KEY = 'island';
 export type IslandPosition = 'left' | 'center' | 'right';
 export type IslandDisplay = 'primary' | 'app';
 export type IslandSize = 'small' | 'normal' | 'large';
+/** Вид плашки: стекло (по умолчанию), чёрная, белая, свой цвет или градиент из двух цветов */
+export type IslandLook = 'glass' | 'black' | 'white' | 'color' | 'gradient';
 /** Место после перетаскивания: экран (id дисплея Electron) и левый верхний угол окна от угла его рабочей области, DIP */
 export interface IslandPlace {
     display: number;
@@ -20,6 +22,10 @@ export interface IslandSettings {
     /** primary: основной экран; app: экран, где окно клиента */
     display: IslandDisplay;
     size: IslandSize;
+    look: IslandLook;
+    /** Свой цвет и второй цвет градиента, #rrggbb */
+    color: string;
+    color2: string;
     /** Отступ от верха рабочей области, DIP */
     offset: number;
     /** Раскрываться при наведении */
@@ -43,6 +49,9 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     position: 'center',
     display: 'primary',
     size: 'normal',
+    look: 'glass',
+    color: '#2b1055',
+    color2: '#ff5500',
     offset: 8,
     expandOnHover: true,
     announceTrack: true,
@@ -61,6 +70,8 @@ const BOOLEAN_FIELDS = ['enabled', 'expandOnHover', 'announceTrack', 'showTitle'
 const POSITIONS: readonly string[] = ['left', 'center', 'right'];
 const DISPLAYS: readonly string[] = ['primary', 'app'];
 const SIZES: readonly string[] = ['small', 'normal', 'large'];
+const LOOKS: readonly string[] = ['glass', 'black', 'white', 'color', 'gradient'];
+const isHex = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
 /** Смещение места: в пределах самого большого разумного экрана, чтобы битое значение не унесло окно в бесконечность */
 const PLACE_LIMIT = 20000;
@@ -83,6 +94,7 @@ export function isIslandSettings(value: unknown): value is IslandSettings {
     if (keys.length !== Object.keys(ISLAND_DEFAULTS).length || keys.some((key) => !Object.prototype.hasOwnProperty.call(ISLAND_DEFAULTS, key))) return false;
     return BOOLEAN_FIELDS.every((key) => typeof record[key] === 'boolean') &&
         POSITIONS.includes(record.position as string) && DISPLAYS.includes(record.display as string) && SIZES.includes(record.size as string) &&
+        LOOKS.includes(record.look as string) && isHex(record.color) && isHex(record.color2) &&
         isOffset(record.offset) && (record.place === null || isIslandPlace(record.place));
 }
 
@@ -94,6 +106,9 @@ export function normalizeIsland(value: unknown): IslandSettings {
     if (POSITIONS.includes(record.position as string)) result.position = record.position as IslandPosition;
     if (DISPLAYS.includes(record.display as string)) result.display = record.display as IslandDisplay;
     if (SIZES.includes(record.size as string)) result.size = record.size as IslandSize;
+    if (LOOKS.includes(record.look as string)) result.look = record.look as IslandLook;
+    if (isHex(record.color)) result.color = record.color.toLowerCase();
+    if (isHex(record.color2)) result.color2 = record.color2.toLowerCase();
     if (isOffset(record.offset)) result.offset = record.offset;
     if (isIslandPlace(record.place)) result.place = { display: record.place.display, x: Math.round(record.place.x), y: Math.round(record.place.y) };
     return result;

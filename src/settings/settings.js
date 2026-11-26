@@ -418,6 +418,8 @@ async function initializeSettings() {
             else input.value = String(value ?? '');
         }
         document.getElementById('islandOffsetOut').textContent = (island.offset ?? 0) + ' px';
+        document.getElementById('islandColorRow').hidden = island.look !== 'color' && island.look !== 'gradient';
+        document.getElementById('islandColor2Row').hidden = island.look !== 'gradient';
         const available = initial.islandAvailable !== false;
         document.getElementById('islandUnavailable').hidden = available;
         for (const input of islandInputs) input.disabled = !available || (input.dataset.island !== 'enabled' && island.enabled !== true);

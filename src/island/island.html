@@ -16,6 +16,8 @@
                     <span class="title-sm" id="title-sm"></span>
                     <svg class="flake" id="flake" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v14M2 4.5l12 7M2 11.5l12-7M8 1 6.6 2.6M8 1l1.4 1.6M8 15l-1.4-1.6M8 15l1.4-1.6" /></svg>
                     <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                    <!-- Сколько осталось до конца: тонкая линия цвета обложки с мягким свечением -->
+                    <div class="mini" aria-hidden="true"><div class="mini-fill" id="mini-fill"></div></div>
                 </section>
                 <!-- Раскрытая: обложка и трек, прогресс, управление -->
                 <section class="expanded" aria-hidden="true">
@@ -26,6 +28,7 @@
                             <span id="author"></span>
                         </button>
                         <div class="bars big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                        <button class="hide" data-act="hide" id="hide" aria-label="Скрыть до следующего трека" title="Скрыть до следующего трека"><svg viewBox="0 0 16 16"><path d="M2 8s2.3-4 6-4 6 4 6 4-2.3 4-6 4-6-4-6-4zM3 13 13 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
                     </div>
                     <div class="progress">
                         <span id="elapsed">0:00</span>

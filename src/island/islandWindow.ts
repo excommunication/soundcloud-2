@@ -4,7 +4,7 @@
 // Плашку можно перетащить мышью на любое место любого экрана; рядом с местом по умолчанию она прилипает обратно.
 // В режиме совместимости NVIDIA (GPU в главном процессе без DirectComposition) прозрачных окон нет: там окно
 // непрозрачное и обрезано по форме плашки (shaped), что вне плашки — не окно, клики туда проходят сами
-import { BrowserWindow, Menu, ipcMain, screen, type Display, type Rectangle } from 'electron';
+import { BrowserWindow, ipcMain, screen, type Display, type Rectangle } from 'electron';
 import { join } from 'path';
 import { trustLocalFile } from '../trustedViews';
 import type { TrackInfo } from '../types';
@@ -30,8 +30,20 @@ export interface DynamicIslandDeps {
     shaped: boolean;
 }
 
+type MenuEntry = { id: string; label: string; danger?: boolean; checked?: boolean } | { separator: true };
+/** Размеры меню в px окна: должны совпадать с islandMenu.css */
+const MENU_WIDTH = 264;
+const MENU_ROW = 36;
+const MENU_SEPARATOR = 13;
+const MENU_INSET = 6;
+const MENU_RADIUS = 14;
+/** Поле под тень вокруг меню, пока окно прозрачное */
+const MENU_PAD = 14;
+
 /** Как часто смотреть, нет ли впереди полноэкранного окна */
 const FULLSCREEN_POLL_MS = 1500;
+/** Через сколько повторить проверку, прежде чем спрятать остров: переходные кадры при сворачивании окон не считаются */
+const FULLSCREEN_CONFIRM_MS = 350;
 /** Шаг перетаскивания: окно идёт за курсором с частотой кадров */
 const DRAG_STEP_MS = 16;
 /** Отпускание потерялось (кнопку отпустили вне окна, пока оно не успело догнать): перетаскивание кончается само */
@@ -64,6 +76,7 @@ export class DynamicIsland {
         this.appFocused = false;
         this.refresh();
     };
+    private menuWindow: BrowserWindow | null = null;
     private watched: BrowserWindow | null = null;
     private drag: { timer: ReturnType<typeof setInterval>; until: number; cursor: Electron.Point; from: Rectangle } | null = null;
 
@@ -109,6 +122,7 @@ export class DynamicIsland {
                     return;
                 case 'open': this.deps.open(); return;
                 case 'menu': this.menu(); return;
+                case 'hide': this.hideUntilNext(); return;
                 case 'ready':
                     this.ready = true;
                     this.push();
@@ -130,7 +144,7 @@ export class DynamicIsland {
         const track = this.deps.track();
         return {
             track: { title: track.title, author: track.author, artwork: track.artwork, isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
-            settings: { position: this.settings.position, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle },
+            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle },
             shaped: this.deps.shaped,
             winter: this.deps.winter(),
             reduceMotion: this.deps.reduceMotion(),
@@ -251,11 +265,19 @@ export class DynamicIsland {
         if (this.bridgeBroken) return;
         try {
             this.bridge ??= await loadFullscreenBridge();
-            const info = this.bridge.foreground();
-            const own = this.window && !this.window.isDestroyed() ? this.window.getNativeWindowHandle() : null;
-            const hwnd = own ? Number(own.length >= 8 ? own.readBigUInt64LE(0) : own.readUInt32LE(0)) : 0;
-            const monitor = hwnd ? this.bridge.monitorOf(hwnd) : 0;
-            const covered = coversIsland(info, monitor);
+            const bridge = this.bridge;
+            const read = (): boolean => {
+                const own = this.window && !this.window.isDestroyed() ? this.window.getNativeWindowHandle() : null;
+                const hwnd = own ? Number(own.length >= 8 ? own.readBigUInt64LE(0) : own.readUInt32LE(0)) : 0;
+                return coversIsland(bridge.foreground(), hwnd ? bridge.monitorOf(hwnd) : 0);
+            };
+            let covered = read();
+            // Сворачивание и переключение окон на миг даёт «полный экран»: прячем остров, только если оно не прошло за 350 мс
+            if (covered && !this.fullscreen) {
+                await new Promise((resolve) => setTimeout(resolve, FULLSCREEN_CONFIRM_MS));
+                if (!this.poll) return;
+                covered = read();
+            }
             if (covered === this.fullscreen) {
                 if (!covered) this.raise();
                 return;
@@ -298,7 +320,8 @@ export class DynamicIsland {
         const drag = { until: Date.now() + DRAG_LIMIT_MS, cursor: screen.getCursorScreenPoint(), from: window.getBounds(), timer: setInterval(() => {
             if (window.isDestroyed() || Date.now() > drag.until) return this.endDrag();
             const cursor = screen.getCursorScreenPoint();
-            window.setPosition(Math.round(drag.from.x + cursor.x - drag.cursor.x), Math.round(drag.from.y + cursor.y - drag.cursor.y));
+            // setBounds с прежним размером: setPosition на Windows с масштабом экрана может менять размер окна
+            window.setBounds({ x: Math.round(drag.from.x + cursor.x - drag.cursor.x), y: Math.round(drag.from.y + cursor.y - drag.cursor.y), width: drag.from.width, height: drag.from.height });
         }, DRAG_STEP_MS) };
         this.drag = drag;
     }
@@ -363,24 +386,99 @@ export class DynamicIsland {
         return window;
     }
 
-    private menu(): void {
-        if (!this.window || this.window.isDestroyed()) return;
+    /** «Скрыть до следующего трека»: из меню и из кнопки на плашке */
+    private hideUntilNext(): void {
+        this.snoozedFor = this.trackKey;
+        this.refresh();
+    }
+
+    private menuItems(): MenuEntry[] {
         const en = this.deps.language() === 'en';
-        Menu.buildFromTemplate([
-            { label: en ? 'Open SoundCloud 2' : 'Открыть SoundCloud 2', click: () => this.deps.open() },
-            { label: en ? 'Hide until next track' : 'Скрыть до следующего трека', click: () => {
-                this.snoozedFor = this.trackKey;
+        const track = this.deps.track();
+        return [
+            { id: 'toggle', label: track.isPlaying ? (en ? 'Pause' : 'Пауза') : (en ? 'Play' : 'Играть') },
+            { id: 'next', label: en ? 'Next track' : 'Следующий трек' },
+            { id: 'previous', label: en ? 'Previous track' : 'Предыдущий трек' },
+            { id: 'like', label: track.isLiked ? (en ? 'Remove like' : 'Убрать лайк') : (en ? 'Like' : 'Нравится') },
+            { separator: true },
+            { id: 'open', label: en ? 'Open SoundCloud 2' : 'Открыть SoundCloud 2' },
+            { id: 'hide', label: en ? 'Hide until next track' : 'Скрыть до следующего трека' },
+            ...(this.settings.place ? [{ id: 'reset', label: en ? 'Move back to default spot' : 'Вернуть на место' }] : []),
+            { id: 'fullscreen', label: en ? 'Show in games' : 'Показывать в играх', checked: !this.settings.hideFullscreen },
+            { id: 'settings', label: en ? 'Island settings…' : 'Настроить остров…' },
+            { separator: true },
+            { id: 'off', label: en ? 'Turn off island' : 'Выключить остров', danger: true },
+        ];
+    }
+
+    private runMenu(id: string): void {
+        switch (id) {
+            case 'toggle': case 'next': case 'previous': case 'like': this.deps.command(id); return;
+            case 'open': this.deps.open(); return;
+            case 'hide': this.hideUntilNext(); return;
+            case 'reset': this.resetPlace(); return;
+            case 'fullscreen':
+                this.settings = { ...this.settings, hideFullscreen: !this.settings.hideFullscreen };
+                this.deps.save(this.settings);
                 this.refresh();
-            } },
-            ...(this.settings.place ? [{ label: en ? 'Move back to default spot' : 'Вернуть на место', click: () => this.resetPlace() }] : []),
-            { label: en ? 'Island settings…' : 'Настроить остров…', click: () => this.deps.open('island') },
-            { type: 'separator' },
-            { label: en ? 'Turn off island' : 'Выключить остров', click: () => {
+                return;
+            case 'settings': this.deps.open('island'); return;
+            case 'off':
                 this.settings = { ...this.settings, enabled: false };
                 this.deps.save(this.settings);
                 this.refresh();
-            } },
-        ]).popup({ window: this.window });
+                return;
+        }
+    }
+
+    private closeMenu(): void {
+        const menu = this.menuWindow;
+        this.menuWindow = null;
+        if (menu && !menu.isDestroyed()) menu.destroy();
+    }
+
+    /** Своё тёмное меню вместо системного (оно стеклянное и не в тон): отдельное окно у курсора, закрывается по потере фокуса */
+    private menu(): void {
+        if (!this.window || this.window.isDestroyed()) return;
+        this.closeMenu();
+        const items = this.menuItems();
+        const shaped = this.deps.shaped;
+        const pad = shaped ? 0 : MENU_PAD;
+        const width = MENU_WIDTH;
+        const height = items.reduce((total, item) => total + ('separator' in item ? MENU_SEPARATOR : MENU_ROW), MENU_INSET * 2);
+        const cursor = screen.getCursorScreenPoint();
+        const area = screen.getDisplayNearestPoint(cursor).workArea;
+        const x = Math.max(area.x, Math.min(cursor.x, area.x + area.width - width));
+        const y = Math.max(area.y, cursor.y + height > area.y + area.height ? cursor.y - height : cursor.y);
+        const menu = new BrowserWindow({
+            x: x - pad, y: y - pad, width: width + pad * 2, height: height + pad * 2,
+            frame: false, transparent: !shaped, backgroundColor: shaped ? '#1c1c1e' : '#00000000', hasShadow: false, thickFrame: false,
+            resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, show: false,
+            webPreferences: { preload: join(__dirname, 'islandMenuPreload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
+        });
+        this.menuWindow = menu;
+        menu.setAlwaysOnTop(true, 'screen-saver');
+        if (shaped) menu.setShape(roundedShape({ x: 0, y: 0, width, height }, MENU_RADIUS));
+        menu.webContents.setZoomFactor(1);
+        ipcMain.removeHandler('island-menu:items');
+        ipcMain.removeAllListeners('island-menu:pick');
+        ipcMain.handle('island-menu:items', (event) => (this.menuWindow && event.sender === this.menuWindow.webContents ? { items, shaped } : null));
+        ipcMain.on('island-menu:pick', (event, id: unknown) => {
+            if (!this.menuWindow || event.sender !== this.menuWindow.webContents) return;
+            this.closeMenu();
+            if (typeof id === 'string') this.runMenu(id);
+        });
+        menu.once('ready-to-show', () => {
+            if (!menu.isDestroyed()) menu.show();
+        });
+        menu.on('blur', () => {
+            if (this.menuWindow === menu) this.closeMenu();
+        });
+        menu.on('closed', () => {
+            if (this.menuWindow === menu) this.menuWindow = null;
+        });
+        trustLocalFile(menu.webContents, join(__dirname, 'islandMenu.html'));
+        void menu.loadFile(join(__dirname, 'islandMenu.html')).catch((error: unknown) => console.error('Меню острова не открылось:', error));
     }
 
     public dispose(): void {
@@ -390,6 +488,9 @@ export class DynamicIsland {
         ipcMain.removeAllListeners('island:drag');
         ipcMain.removeAllListeners('island:shape');
         this.setPolling(false);
+        this.closeMenu();
+        ipcMain.removeHandler('island-menu:items');
+        ipcMain.removeAllListeners('island-menu:pick');
         if (this.pauseTimer) clearTimeout(this.pauseTimer);
         screen.off('display-metrics-changed', this.onDisplays);
         screen.off('display-added', this.onDisplays);

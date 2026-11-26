@@ -1870,7 +1870,7 @@ function hiddenBlocksCSS(): string {
         homeBlocksCss((key) => store.get(key, homeBlockDefaults[key]) === true),
         store.get('hideArtistUpsells', true) ? ARTIST_TOOLS_CSS : '',
         store.get('hideHeaderExtras', true) ? '.header .header__fanUpsell,.header .header__forArtistsButton,.header .header__soundInput{display:none!important}' : '',
-        store.get('hidePromotions', true) ? '.banner.m-promotion{display:none!important}' : '',
+        store.get('hidePromotions', true) ? '.banner.m-promotion,.announcementBanner,[class*="nnouncementBanner"],[class*="nnouncement_banner"]{display:none!important}' : '',
         store.get('hideEventsNearYou', true) ? '.velvetCakeModule{display:none!important}' : '',
         store.get('hideArtistUpsells', true) ? '.creatorSubscriptionsButton.header__creatorUpsell,.artistConnectItem.m-upsellNextPro,.dropdownMenu [href*="checkout.soundcloud.com"],.spotlight:has(.spotlight__upsellBanner),.spotlight__upsellBanner,.spotlight__upsellCTA,.sidebarContent:has(.velvetCakeIframe),.artistConnectContainer .tileGallery__sliderPeekForward,.artistConnectContainer .tileGallery__sliderPeekBackward,.MuiBox-root:has(a[href*="getstarted/fan-support"]){display:none!important}' : '',
     ].join('\n');

@@ -160,6 +160,8 @@
         if (on && !expanded()) readVolume();
         island.dataset.state = on ? 'expanded' : 'compact';
         reportShape();
+        renderProgress();
+        settleProgress();
         island.querySelector('.compact').setAttribute('aria-hidden', String(on));
         island.querySelector('.expanded').setAttribute('aria-hidden', String(!on));
         renderProgress();
@@ -178,6 +180,27 @@
         }, delay);
     }
 
+    // Вид плашки: стекло, чёрная, белая, свой цвет, градиент. Цвет текста (светлый/тёмный) выбирается по яркости фона
+    const HEX = /^#[0-9a-f]{6}$/i;
+    function luminance(hex) {
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    function applyLook(settings) {
+        const look = ['glass', 'black', 'white', 'color', 'gradient'].includes(settings.look) ? settings.look : 'glass';
+        const first = HEX.test(settings.color) ? settings.color : '#2b1055';
+        const second = HEX.test(settings.color2) ? settings.color2 : '#ff5500';
+        root.dataset.look = look;
+        let light = look === 'white';
+        if (look === 'color') light = luminance(first) > 0.6;
+        if (look === 'gradient') light = (luminance(first) + luminance(second)) / 2 > 0.6;
+        root.dataset.tone = light ? 'light' : 'dark';
+        if (look === 'white') root.style.setProperty('--island-bg', '#f5f5f7');
+        else if (look === 'color') root.style.setProperty('--island-bg', first);
+        else if (look === 'gradient') root.style.setProperty('--island-bg', 'linear-gradient(135deg,' + first + ',' + second + ')');
+        else root.style.removeProperty('--island-bg');
+    }
+
     function render() {
         if (!state) return;
         const track = state.track || {};
@@ -185,6 +208,7 @@
         text = state.language === 'en' ? TEXT.en : TEXT.ru;
         root.lang = state.language === 'en' ? 'en' : 'ru';
         root.dataset.position = settings.position || 'center';
+        applyLook(settings);
         root.classList.toggle('titled', settings.showTitle !== false);
         root.classList.toggle('playing', track.isPlaying === true);
         root.classList.toggle('reduce-motion', state.reduceMotion === true);
@@ -205,7 +229,10 @@
         for (const button of document.querySelectorAll('[data-act="previous"]')) button.setAttribute('aria-label', text.previous);
         for (const button of document.querySelectorAll('[data-act="next"]')) button.setAttribute('aria-label', text.next);
         island.title = [track.title, track.author].filter(Boolean).join(' — ');
-        position = { elapsed: seconds(track.elapsed), duration: seconds(track.duration), at: Date.now(), playing: track.isPlaying === true };
+        const next = { elapsed: seconds(track.elapsed), duration: seconds(track.duration), at: Date.now(), playing: track.isPlaying === true };
+        // Трек сменился или перемотали: без плавного хода, чтобы линия не ехала назад
+        if (Math.abs(next.elapsed - position.elapsed - (position.playing ? (next.at - position.at) / 1000 : 0)) > 2.5 || next.duration !== position.duration) settleProgress();
+        position = next;
         renderProgress();
         syncTicker();
         snow(state.winter === true && state.reduceMotion !== true);
@@ -214,15 +241,27 @@
 
     // Прогресс тикает сам между обновлениями из main, но только пока плашка раскрыта и трек играет
     function renderProgress() {
-        if (!expanded()) return;
         const passed = position.playing ? (Date.now() - position.at) / 1000 : 0;
         const elapsed = position.duration ? Math.min(position.duration, position.elapsed + passed) : position.elapsed + passed;
+        const share = 'scaleX(' + (position.duration ? Math.min(1, elapsed / position.duration) : 0) + ')';
+        // Линия в свёрнутой плашке считается всегда, поэтому при раскрытии полоса уже на месте и не «догоняет»
+        $('mini-fill').style.transform = share;
+        $('fill').style.transform = share;
+        if (!expanded()) return;
         $('elapsed').textContent = clock(elapsed);
         $('duration').textContent = position.duration ? clock(position.duration) : '—';
-        $('fill').style.transform = 'scaleX(' + (position.duration ? Math.min(1, elapsed / position.duration) : 0) + ')';
+    }
+    // Плавный ход полосы включается только после того, как она встала на место: иначе при раскрытии она ползла бы с нуля
+    let liveFrame = 0;
+    function settleProgress() {
+        island.classList.remove('live');
+        cancelAnimationFrame(liveFrame);
+        liveFrame = requestAnimationFrame(() => {
+            liveFrame = requestAnimationFrame(() => island.classList.add('live'));
+        });
     }
     function syncTicker() {
-        const need = expanded() && position.playing;
+        const need = position.playing;
         if (need && !ticker) ticker = setInterval(renderProgress, 1000);
         else if (!need && ticker) {
             clearInterval(ticker);
@@ -268,7 +307,8 @@
     let dragging = false;
     let swallowClick = false;
     island.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('button, .vol-track'))) return;
+        // Кнопки тоже могут начать перетаскивание (в раскрытой плашке почти всё кнопки): клик без сдвига остаётся кликом
+        if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('.vol-track'))) return;
         press = { x: event.screenX, y: event.screenY, id: event.pointerId };
     });
     island.addEventListener('pointermove', (event) => {

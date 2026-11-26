@@ -52,6 +52,17 @@ describe('полноэкранное окно впереди', () => {
         expect(coversIsland(window({ monitor: 2 }), 1)).toBe(false);
         expect(coversIsland(window({ none: true }), 1)).toBe(false);
     });
+    it('свёрнутое окно, рабочий стол и трей впереди не прячут остров даже при состоянии игры', () => {
+        expect(coversIsland(window({ iconic: true, rect: { left: -32000, top: -32000, right: -31840, bottom: -31972 } }), 1)).toBe(false);
+        expect(coversIsland(window({ iconic: true, notificationState: 3 }), 1)).toBe(false);
+        expect(coversIsland(window({ className: 'Shell_TrayWnd', notificationState: 3 }), 1)).toBe(false);
+        expect(coversIsland(window({ className: 'Progman', notificationState: 4 }), 1)).toBe(false);
+        expect(coversIsland(window({ rect: { left: 0, top: 0, right: 0, bottom: 0 } }), 1)).toBe(false);
+    });
+    it('состояние 7 без полноэкранной геометрии (обычное окно Store) не прячет остров', () => {
+        expect(coversIsland(window({ rect: { left: 100, top: 100, right: 900, bottom: 700 }, notificationState: 7 }), 1)).toBe(false);
+        expect(coversIsland(window({ notificationState: 7 }), 1)).toBe(true);
+    });
     it('эксклюзивный полный экран DirectX и презентация прячут всегда', () => {
         expect(coversIsland(window({ none: true, notificationState: 3 }), 1)).toBe(true);
         expect(coversIsland(window({ rect: { left: 0, top: 0, right: 10, bottom: 10 }, notificationState: 4 }), 1)).toBe(true);
