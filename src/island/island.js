@@ -7,8 +7,8 @@
     const api = window.islandAPI || demoApi();
 
     const TEXT = {
-        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка' },
-        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek' },
+        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка', lyrics: 'Текст песни' },
+        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek', lyrics: 'Lyrics' },
     };
     let state = null;
     let text = TEXT.ru;
@@ -344,6 +344,9 @@
         $('author').textContent = track.author || '';
         $('like').setAttribute('aria-pressed', String(track.isLiked === true));
         $('like').setAttribute('aria-label', text.like);
+        $('lyr').setAttribute('aria-pressed', String(settings.showLyrics !== false));
+        $('lyr').setAttribute('aria-label', text.lyrics);
+        $('lyr').title = text.lyrics;
         $('play').setAttribute('aria-label', track.isPlaying ? text.pause : text.play);
         $('vol-mute').setAttribute('aria-label', text.mute);
         $('more').setAttribute('aria-label', text.more);

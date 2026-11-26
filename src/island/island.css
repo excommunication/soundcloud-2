@@ -144,8 +144,18 @@ html[data-layout='cover'] .island[data-state='expanded']:hover .meta { -webkit-m
 .progress .fill {
     height: 100%; width: 100%; border-radius: inherit; transform: scaleX(0); transform-origin: 0 50%;
     background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, rgb(var(--fg))), rgb(var(--fg)) 70%);
-    box-shadow: 0 0 8px -1px color-mix(in srgb, var(--accent) 70%, transparent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 85%, transparent), 0 0 14px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+    position: relative;
 }
+/* Мягкий свет цвета обложки вокруг пройденной части, как у линии в свёрнутой плашке: растягивается вместе с полосой */
+.progress .fill::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 30px; margin-top: -15px; z-index: -1; pointer-events: none;
+    background: radial-gradient(60% 50% at 70% 50%, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--accent) 16%, transparent) 60%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000);
+    mask-image: linear-gradient(90deg, transparent, #000 15%, #000);
+}
+html:not(.playing) .progress .fill::after { opacity: 0.4; }
+html.shaped .progress .fill::after { display: none; }
 .island.seeking .fill { transition: none; }
 
 /* Громкость: значок (клик выключает звук) и тонкая дорожка, которая толстеет под курсором, как в iOS */
@@ -166,12 +176,18 @@ html[data-layout='cover'] .island[data-state='expanded']:hover .meta { -webkit-m
 
 /* Управление: шесть кнопок, «играть» точно по центру. Слева лайк, в центре предыдущий/играть/следующий, справа открыть и «⋯» */
 .controls { display: grid; grid-template-columns: 34px 34px 1fr 34px 44px 34px 1fr 34px 34px; column-gap: 8px; align-items: center; height: 38px; padding: 0 2px; }
-.controls > :nth-child(1) { grid-column: 1; }
-.controls > :nth-child(2) { grid-column: 4; }
-.controls > :nth-child(3) { grid-column: 5; }
-.controls > :nth-child(4) { grid-column: 6; }
-.controls > :nth-child(5) { grid-column: 8; }
-.controls > :nth-child(6) { grid-column: 9; }
+.controls > [data-act='like'] { grid-column: 1; }
+/* Текст песни рядом с лайком, в пустой колонке слева: только в «Большой обложке», где текст и показывается */
+.controls > [data-act='lyrics'] { grid-column: 2; display: none; }
+html[data-layout='cover'] .controls > [data-act='lyrics'] { display: grid; }
+.controls > [data-act='previous'] { grid-column: 4; }
+.controls > [data-act='toggle'] { grid-column: 5; }
+.controls > [data-act='next'] { grid-column: 6; }
+.controls > [data-act='open'] { grid-column: 8; }
+.controls > [data-act='menu'] { grid-column: 9; }
+.ctl.lyr svg { fill: none; }
+.ctl.lyr[aria-pressed='false'] { color: rgba(var(--fg), 0.4); }
+.ctl.lyr[aria-pressed='true'] { color: var(--accent); }
 .ctl { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; color: rgba(var(--fg), 0.82); transition: background 120ms, transform 160ms var(--spring), color 120ms; }
 .ctl:hover { background: rgba(var(--fg), 0.1); color: rgb(var(--fg)); }
 .ctl:active { transform: scale(0.88); }

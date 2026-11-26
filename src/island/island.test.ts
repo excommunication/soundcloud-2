@@ -25,6 +25,10 @@ describe('настройки острова', () => {
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: 1.2 })).toBe(false);
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: '1' })).toBe(false);
         expect(normalizeIsland({ opacity: 0.456 }).opacity).toBe(0.46);
+        // Текст песни: по умолчанию включён, выключение сохраняется, не булево не принимается
+        expect(normalizeIsland({}).showLyrics).toBe(true);
+        expect(normalizeIsland({ showLyrics: false }).showLyrics).toBe(false);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, showLyrics: 1 })).toBe(false);
         expect(normalizeIsland({ opacity: 5 }).opacity).toBe(1);
         expect(normalizeIsland({}).opacity).toBe(1);
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, display: 'all' })).toBe(false);

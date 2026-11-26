@@ -39,6 +39,8 @@ export interface IslandSettings {
     announceTrack: boolean;
     /** Название трека в свёрнутой плашке */
     showTitle: boolean;
+    /** Текст песни в виде «Большая обложка» */
+    showLyrics: boolean;
     /** Прятаться, пока на этом экране игра или видео во весь экран */
     hideFullscreen: boolean;
     /** Прятаться, пока окно клиента впереди: там и так видно, что играет */
@@ -63,6 +65,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     expandOnHover: true,
     announceTrack: true,
     showTitle: true,
+    showLyrics: true,
     hideFullscreen: true,
     hideInApp: false,
     hideWhenPaused: true,
@@ -74,7 +77,7 @@ export const ISLAND_OPACITY_MIN = 0.3;
 /** Пауза, после которой плашка уходит, если включено hideWhenPaused */
 export const PAUSE_HIDE_MS = 20_000;
 
-const BOOLEAN_FIELDS = ['enabled', 'expandOnHover', 'announceTrack', 'showTitle', 'hideFullscreen', 'hideInApp', 'hideWhenPaused'] as const;
+const BOOLEAN_FIELDS = ['enabled', 'expandOnHover', 'announceTrack', 'showTitle', 'showLyrics', 'hideFullscreen', 'hideInApp', 'hideWhenPaused'] as const;
 const POSITIONS: readonly string[] = ['left', 'center', 'right'];
 const DISPLAYS: readonly string[] = ['primary', 'app'];
 const SIZES: readonly string[] = ['small', 'normal', 'large'];

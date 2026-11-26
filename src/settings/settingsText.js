@@ -42,6 +42,8 @@ window.SETTINGS_EN = {
     'Показывать новый трек': 'Announce new track',
     'При смене трека плашка раскрывается на пару секунд': 'The pill expands for a couple of seconds when the track changes',
     'Название в свёрнутой плашке': 'Title in the collapsed pill',
+    'Текст песни': 'Lyrics',
+    'С большой обложкой: текущая строка и следующая, если для трека нашёлся текст со временем': 'With the big cover: the current and next line, when synced lyrics are found',
     'Когда прятать': 'When to hide',
     'В играх и видео во весь экран': 'In fullscreen games and videos',
     'Плашка уходит, пока на её экране что-то развёрнуто на весь экран': 'The pill steps aside while something is fullscreen on its screen',

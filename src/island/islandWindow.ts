@@ -168,6 +168,7 @@ export class DynamicIsland {
                 case 'open': this.deps.open(); return;
                 case 'menu': this.menu(); return;
                 case 'hide': this.hideUntilNext(); return;
+                case 'lyrics': this.toggleLyrics(); return;
                 case 'ready':
                     this.ready = true;
                     this.push();
@@ -189,8 +190,8 @@ export class DynamicIsland {
         const track = this.deps.track();
         return {
             track: { title: track.title, author: track.author, artwork: track.artwork, artworkLarge: track.artwork ? largeArtwork(track.artwork) : '', isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
-            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, layout: this.settings.layout },
-            lyrics: this.settings.layout === 'cover' ? this.lyricLines : [],
+            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, showLyrics: this.settings.showLyrics, layout: this.settings.layout },
+            lyrics: this.settings.layout === 'cover' && this.settings.showLyrics ? this.lyricLines : [],
             shaped: this.deps.shaped,
             winter: this.deps.winter(),
             reduceMotion: this.deps.reduceMotion(),
@@ -248,10 +249,19 @@ export class DynamicIsland {
         if (this.ready) this.send('island:state', this.state());
     }
 
+    /** Текст песни вкл/выкл: кнопка на плашке, меню и F1 */
+    private toggleLyrics(): void {
+        this.settings = { ...this.settings, showLyrics: !this.settings.showLyrics };
+        this.deps.save(this.settings);
+        // Строки уже найденного трека остаются в памяти: при включении текст появляется сразу, без нового запроса
+        this.ensureLyrics();
+        this.push();
+    }
+
     /** Текст ищется один раз на трек и только в виде «Большая обложка»; уже найденное для волны берётся из общего кэша main */
     private ensureLyrics(): void {
         const track = this.deps.track();
-        if (this.settings.layout !== 'cover' || !track.title) return;
+        if (this.settings.layout !== 'cover' || !this.settings.showLyrics || !track.title) return;
         const key = track.title + '\n' + track.author;
         // Длительность появляется на миг позже названия: без неё LRCLIB подберёт не ту запись
         if (key === this.lyricsKey || !trackSeconds(track.elapsed, track.duration).duration) return;
@@ -599,6 +609,8 @@ export class DynamicIsland {
             ...(this.settings.place ? [{ id: 'reset', label: en ? 'Move back to default spot' : 'Вернуть на место' }] : []),
             { separator: true },
             { id: 'cover', label: en ? 'Big cover' : 'Большая обложка', checked: this.settings.layout === 'cover' },
+            // Текст виден только с большой обложкой: в обычном виде пункт ничего бы не менял
+            ...(this.settings.layout === 'cover' ? [{ id: 'lyrics', label: en ? 'Lyrics' : 'Текст песни', checked: this.settings.showLyrics }] : []),
             { id: 'fullscreen', label: en ? 'Hide in games' : 'Прятать в играх', checked: this.settings.hideFullscreen },
             { id: 'settings', label: en ? 'Island settings…' : 'Настроить остров…' },
             { separator: true },
@@ -611,6 +623,7 @@ export class DynamicIsland {
             case 'toggle': case 'next': case 'previous': case 'like': this.deps.command(id); return;
             case 'open': this.deps.open(); return;
             case 'hide': this.hideUntilNext(); return;
+            case 'lyrics': this.toggleLyrics(); return;
             case 'reset': this.resetPlace(); return;
             case 'copy': {
                 const url = this.deps.track().url;
