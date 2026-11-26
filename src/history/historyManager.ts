@@ -1,3 +1,4 @@
+import { webContentsGone } from '../services/webContentsGone';
 import { WebContentsView, BrowserWindow, app, clipboard, dialog, ipcMain, nativeImage, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -305,7 +306,7 @@ export class HistoryManager {
         this.view = null;
         if (!view) return;
         if (!this.parentWindow.isDestroyed()) this.parentWindow.contentView.removeChildView(view);
-        if (!view.webContents.isDestroyed()) {
+        if (!webContentsGone(view)) {
             view.webContents.once('destroyed', () => {
                 if (!this.disposed && !this.view && !this.parentWindow.isDestroyed()) this.host.restoreFocus();
             });
@@ -314,22 +315,22 @@ export class HistoryManager {
         if (!this.disposed) this.host.onState(false);
     }
     public focused(): boolean {
-        return !!this.view && !this.view.webContents.isDestroyed() && this.view.webContents.isFocused();
+        return !!this.view && !webContentsGone(this.view) && this.view.webContents.isFocused();
     }
     public focus(): boolean {
-        if (!this.view || this.view.webContents.isDestroyed()) return false;
+        if (!this.view || webContentsGone(this.view)) return false;
         this.view.webContents.focus();
         return true;
     }
     /** Журнал поменялся не со страницы (восстановление копии): открытое окно перечитывает период */
     public changed(): void {
-        if (this.view && !this.view.webContents.isDestroyed()) this.view.webContents.send('history:changed');
+        if (this.view && !webContentsGone(this.view)) this.view.webContents.send('history:changed');
     }
     /** Плеер сайта сменил трек */
     public setNowPlaying(id: number): void {
         if (!isId(id) || id === this.nowPlaying) return;
         this.nowPlaying = id;
-        if (this.view && !this.view.webContents.isDestroyed()) this.view.webContents.send('history:now', id);
+        if (this.view && !webContentsGone(this.view)) this.view.webContents.send('history:now', id);
     }
     private markRecapSeen(): void {
         if (!this.recapPending) return;

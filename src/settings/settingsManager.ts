@@ -1,3 +1,4 @@
+import { webContentsGone } from '../services/webContentsGone';
 import { trustLocalFile } from '../trustedViews';
 import { homeBlockDefaults } from '../services/homeBlocks';
 import { DEFAULT_RADAR_SCHEDULE, systemTimeZone } from '../services/radarSchedule';
@@ -65,14 +66,14 @@ export class SettingsManager {
     private ready = (event: IpcMainInvokeEvent): void => {
         if (!this.owns(event)) return;
         const view = this.view!;
-        if (view.webContents.isDestroyed()) return;
+        if (webContentsGone(view)) return;
         view.webContents.send('update-translations');
         if (this.section) view.webContents.send('settings-section', this.section);
         this.section = '';
         view.setVisible(true);
         view.webContents.focus();
         void view.webContents.executeJavaScript("requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('visible')))").catch((error: unknown) => {
-            if (this.view === view && !view.webContents.isDestroyed()) console.error('Не удалось показать настройки:', error);
+            if (this.view === view && !webContentsGone(view)) console.error('Не удалось показать настройки:', error);
         });
     };
 
@@ -118,7 +119,7 @@ export class SettingsManager {
     public toggle(section = ''): void {
         if (this.disposed) return;
         if (this.view) {
-            if (section && !this.view.webContents.isDestroyed()) {
+            if (section && !webContentsGone(this.view)) {
                 this.view.webContents.send('settings-section', section);
                 return;
             }
@@ -153,7 +154,7 @@ export class SettingsManager {
         this.view = null;
         if (!view) return;
         if (!this.parentWindow.isDestroyed()) this.parentWindow.contentView.removeChildView(view);
-        if (!view.webContents.isDestroyed()) {
+        if (!webContentsGone(view)) {
             view.webContents.once('destroyed', () => {
                 if (!this.disposed && !this.view && !this.parentWindow.isDestroyed()) this.restoreFocus();
             });

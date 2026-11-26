@@ -1,6 +1,7 @@
 import { DiagnosticJournal, LOOP_RESOLUTION_MS, loopDelayStats, metricsDue } from './services/diagnosticJournal';
 import { monitorEventLoopDelay } from 'perf_hooks';
 import { installRendererRecovery } from './services/rendererRecovery';
+import { webContentsGone } from './services/webContentsGone';
 import { isShortLink, protectContent, shortLinkTarget, sitePagePath } from './contentPolicy';
 import { DISCORD_TEXT_KEYS, type SettingChange } from './settings/validateSetting';
 import { applyPreferenceMigrations } from './settings/preferenceMigrations';
@@ -394,7 +395,7 @@ function installDesktopFile() {
 
 // Два кадра анимации страницы после показа окна: к этому времени окно нарисовано и его можно проявлять
 function pagePainted(): Promise<unknown> {
-    if (!contentView || contentView.webContents.isDestroyed()) return Promise.resolve();
+    if (!contentView || webContentsGone(contentView)) return Promise.resolve();
     return contentView.webContents.executeJavaScript('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 }
 
@@ -407,7 +408,7 @@ function focusTopView(): void {
     const pages = [settings, headerView?.webContents, contentView?.webContents];
     if (historyManager?.focused() || pages.some((contents) => contents && !contents.isDestroyed() && contents.isFocused())) return;
     if (settings && !settings.isDestroyed()) settings.focus();
-    else if (!historyManager?.focus() && contentView && !contentView.webContents.isDestroyed()) contentView.webContents.focus();
+    else if (!historyManager?.focus() && contentView && !webContentsGone(contentView)) contentView.webContents.focus();
 }
 
 // История под открытыми настройками не видна: оттуда Ctrl+H и кнопка показывают её, а не прячут
@@ -429,7 +430,7 @@ function navigateBack(): void {
     if (contentView && contentView.webContents.navigationHistory.canGoBack()) contentView.webContents.navigationHistory.goBack();
 }
 function closeQueueDialog(): void {
-    if (contentView && !contentView.webContents.isDestroyed()) {
+    if (contentView && !webContentsGone(contentView)) {
         void contentView.webContents.executeJavaScript('document.getElementById("sc-desktop-queue")?.close()').catch((error: unknown) => console.warn('Очередь не закрыта', error));
     }
 }
@@ -451,7 +452,7 @@ function openIslandSettings(): void {
     showMainWindow();
     if (!settingsManager) return;
     const view = settingsManager.getView();
-    if (view && !view.webContents.isDestroyed()) view.webContents.send('settings-section', 'island');
+    if (view && !webContentsGone(view)) view.webContents.send('settings-section', 'island');
     else settingsManager.toggle('island');
 }
 function ensureIsland(): void {
@@ -520,7 +521,7 @@ async function startBrowserLogin(): Promise<void> {
             done: (result) => {
                 closeGoogleWindows();
                 queueToastNotification(t(result.ok && !result.refresh ? 'browserLoginNoRefresh' : 'browserLoginDone'));
-                if (!contentView.webContents.isDestroyed()) contentView.webContents.reload();
+                if (!webContentsGone(contentView)) contentView.webContents.reload();
             },
             record: (step, data) => diagnostics.record('auth.' + step, data),
         });
@@ -584,7 +585,7 @@ function applyAppLanguage(): void {
         trayMenu = buildTrayMenu();
         if (process.platform !== 'win32') tray.setContextMenu(trayMenu);
     }
-    if (headerView && !headerView.webContents.isDestroyed()) headerView.webContents.send('header-texts', headerTexts());
+    if (headerView && !webContentsGone(headerView)) headerView.webContents.send('header-texts', headerTexts());
     historyManager?.setLanguage(appLanguage());
     if (mainWindow && !mainWindow.isDestroyed()) thumbarService?.restore(mainWindow);
     presenceService?.refresh();
@@ -691,7 +692,7 @@ function startIconicThumbnail(): void {
         return image.isEmpty() ? null : { image, moving: moving === true };
     };
     const peek = async (): Promise<{ image: NativeImage; x: number; y: number } | null> => {
-        if (contentView.webContents.isDestroyed() || mainWindow.isMinimized()) return null;
+        if (webContentsGone(contentView) || mainWindow.isMinimized()) return null;
         const image = await contentView.webContents.capturePage();
         if (image.isEmpty()) return null;
         const bounds = contentView.getBounds();
@@ -829,7 +830,7 @@ function setupWindowControls() {
     });
 
     const sendMaximizedState = (): void => {
-        if (headerView && !headerView.webContents.isDestroyed()) headerView.webContents.send('window-maximized-changed', mainWindow.isMaximized());
+        if (headerView && !webContentsGone(headerView)) headerView.webContents.send('window-maximized-changed', mainWindow.isMaximized());
     };
 
     mainWindow.on('maximize', () => {
@@ -957,7 +958,7 @@ async function init() {
     const guardStartedAt = Date.now();
     let lastGuardReloadAt = guardStartedAt;
     memoryGuardTimer = setInterval(() => {
-        if (store.get('memoryGuard', true) === false || !contentView || contentView.webContents.isDestroyed() || contentView.webContents.isLoading()) return;
+        if (store.get('memoryGuard', true) === false || !contentView || webContentsGone(contentView) || contentView.webContents.isLoading()) return;
         const pid = contentView.webContents.getOSProcessId();
         const page = app.getAppMetrics().find((item) => item.pid === pid);
         if (!page) return;
@@ -973,7 +974,7 @@ async function init() {
     powerMonitor.on('suspend', () => { diagnostics.record('system.suspend'); diagnostics.flush(); });
     powerMonitor.on('resume', () => {
         diagnostics.record('system.resume');
-        if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript('window.__scResume?.()').catch(console.error);
+        if (contentView && !webContentsGone(contentView)) void contentView.webContents.executeJavaScript('window.__scResume?.()').catch(console.error);
         radarScheduler?.wake();
     });
     powerMonitor.on('lock-screen', () => { awayTracker.lock(); screenLocked = true; applyWinterStill(); });
@@ -1018,8 +1019,8 @@ async function init() {
     mainWindow.on('focus', focusTopView);
     // Фон не должен падать до 8 к/с, когда фокус просто в шапке или настройках: простой считаем по окну приложения
     const setAppIdle = (idle: boolean): void => {
-        if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle};${winterAwayScript(idle)}`).catch(() => undefined);
-        if (headerView && !headerView.webContents.isDestroyed()) void headerView.webContents.executeJavaScript(winterAwayScript(idle)).catch(() => undefined);
+        if (contentView && !webContentsGone(contentView)) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle};${winterAwayScript(idle)}`).catch(() => undefined);
+        if (headerView && !webContentsGone(headerView)) void headerView.webContents.executeJavaScript(winterAwayScript(idle)).catch(() => undefined);
         applyWinterStill();
     };
     mainWindow.on('blur', () => setAppIdle(true));
@@ -1099,7 +1100,7 @@ async function init() {
     // (её содержимое без шапки и рамки окна), без выбора окна и без звука системы
     contentView.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
         const frame = request.frame;
-        const page = contentView && !contentView.webContents.isDestroyed() ? contentView.webContents : null;
+        const page = contentView && !webContentsGone(contentView) ? contentView.webContents : null;
         if (!clipGrant.take() || !frame || !page || !request.videoRequested || request.audioRequested || frame !== page.mainFrame) {
             callback({});
             return;
@@ -1114,7 +1115,7 @@ async function init() {
     // все снимаются с окончанием загрузки. Запас до 30, чтобы предупреждение осталось сигналом настоящей утечки
     contentView.webContents.setMaxListeners(30);
     watchHiddenPage(mainWindow, () =>
-        contentView.webContents.isDestroyed() ? Promise.resolve('gone') : contentView.webContents.executeJavaScript('document.visibilityState'),
+        webContentsGone(contentView) ? Promise.resolve('gone') : contentView.webContents.executeJavaScript('document.visibilityState'),
     );
     contentView.setBounds(contentLayout(mainWindow.getContentBounds(), HEADER_HEIGHT).page);
 
@@ -1185,7 +1186,7 @@ async function init() {
         () => {
             // Настройки открывались поверх истории: фокус возвращается в неё
             if (historyManager?.focus()) return;
-            if (!contentView.webContents.isDestroyed()) contentView.webContents.focus();
+            if (!webContentsGone(contentView)) contentView.webContents.focus();
         },
         (contents) => shortcutService.attachToWebContents(contents),
         closeQueueDialog,
@@ -1321,7 +1322,7 @@ async function init() {
         // Запись снимает экран: страница не должна замедляться, когда окно перекрыто или без фокуса
         // Не должно мешать записи: сбой здесь только значит, что страница может притормаживать
         try {
-            if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.setBackgroundThrottling(!on);
+            if (contentView && !webContentsGone(contentView)) contentView.webContents.setBackgroundThrottling(!on);
         } catch (error) {
             console.warn('Фон страницы не переключён на время записи:', error instanceof Error ? error.name : 'Error');
         }
@@ -1359,10 +1360,10 @@ async function init() {
         saved: { load: () => store.get('jamSession', null), save: (value) => (value ? store.set('jamSession', value) : store.delete('jamSession')) },
         reachable: async (httpBase) => (await fetch(httpBase + '/', { signal: AbortSignal.timeout(8000) })).ok,
     }, (event) => {
-        if (contentView && !contentView.webContents.isDestroyed()) contentView.webContents.send('jam:event', event);
+        if (contentView && !webContentsGone(contentView)) contentView.webContents.send('jam:event', event);
     });
     // Закрытие приложения не выход из комнаты: запись остаётся, при запуске клиент вернётся
-    app.once('before-quit', () => jamClient.suspend());
+    app.once('before-quit', () => { try { jamClient.suspend(); } catch (error) { console.warn('Выход: комната не приостановлена', error); } });
     registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', ''), clipboard });
     const jamBase = jamServerOf(store.get('jamServer', ''));
     if (jamBase) jamClient.restore(jamBase);
@@ -1481,14 +1482,14 @@ async function init() {
         },
         applySettingChange,
         notifyPage: () => {
-            if (contentView && !contentView.webContents.isDestroyed())
+            if (contentView && !webContentsGone(contentView))
                 void contentView.webContents.executeJavaScript('window.__scVibeStatus && window.__scVibeStatus()').catch(console.error);
         },
     });
     // Пятничный радар: расписание здесь, сбор каталога на странице сайта, выпуск считает и пишет worker
     radarScheduler?.stop();
     const radarPage = async (script: string): Promise<unknown> =>
-        contentView && !contentView.webContents.isDestroyed() ? contentView.webContents.executeJavaScript(script) as Promise<unknown> : null;
+        contentView && !webContentsGone(contentView) ? contentView.webContents.executeJavaScript(script) as Promise<unknown> : null;
     radarScheduler = createRadarScheduler({ store, library, diagnostics, online: () => net.isOnline(), page: radarPage });
     radarScheduler.start();
     registerRadarIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, store, library, diagnostics, scheduler: () => radarScheduler });
@@ -1520,7 +1521,7 @@ async function init() {
         translate: (key) => translationService.translate(key),
     });
     historyManager = new HistoryManager(mainWindow, library, {
-        site: () => (contentView.webContents.isDestroyed() ? null : contentView.webContents),
+        site: () => (webContentsGone(contentView) ? null : contentView.webContents),
         fallbackUser: () => waveExclusions?.currentUser() ?? 0,
         language: appLanguage,
         reduceMotion: () => reduceMotionNow(),
@@ -1529,10 +1530,10 @@ async function init() {
             if (settingsManager.getView()) settingsManager.toggle();
         },
         onState: (open) => {
-            if (headerView && !headerView.webContents.isDestroyed()) headerView.webContents.send('history-state', open);
+            if (headerView && !webContentsGone(headerView)) headerView.webContents.send('history-state', open);
         },
         restoreFocus: () => {
-            if (!contentView.webContents.isDestroyed()) contentView.webContents.focus();
+            if (!webContentsGone(contentView)) contentView.webContents.focus();
         },
         attach: (contents) => shortcutService.attachToWebContents(contents),
         recapSeen: () => {
@@ -1542,7 +1543,7 @@ async function init() {
         setRecapSeen: (key) => store.set('recapSeen', key),
         onRecap: (pending) => {
             recapPending = pending;
-            if (headerView && !headerView.webContents.isDestroyed()) headerView.webContents.send('history-recap', pending);
+            if (headerView && !webContentsGone(headerView)) headerView.webContents.send('history-recap', pending);
         },
     });
     clearInterval(recapTimer);
@@ -1883,7 +1884,7 @@ const winterHeader = createWinterHeader();
 // Снег без фокуса идёт редкими кадрами, а на заблокированном экране и в долгом простое системы стоит совсем
 let screenLocked = false;
 function applyWinterStill(): void {
-    if (!contentView || contentView.webContents.isDestroyed()) return;
+    if (!contentView || webContentsGone(contentView)) return;
     let idle: number;
     try {
         idle = powerMonitor.getSystemIdleTime();
@@ -1909,7 +1910,7 @@ function reduceMotionNow(flag: boolean = store.get('reduceMotion', false) === tr
 // Режим применяется сразу, без перезагрузки: фон, стекло и анимации сайта
 function applyEffectsMode(): void {
     applyThemeToContent();
-    if (contentView && !contentView.webContents.isDestroyed()) {
+    if (contentView && !webContentsGone(contentView)) {
         void contentView.webContents.executeJavaScript(pageMotionScript(reduceMotionNow())).catch(console.error);
     }
 }
@@ -1938,7 +1939,7 @@ function showAppearanceMenu(anchor: { x: number; y: number }): void {
     ]).popup({ window: mainWindow, x: Math.round(anchor.x), y: Math.round(anchor.y) });
 }
 function applyThemeToContent() {
-    if (!contentView || contentView.webContents.isDestroyed()) return;
+    if (!contentView || webContentsGone(contentView)) return;
     const css = [
         ':root{--background-base:#121212;--background-surface:#212121;--text-base:#ffffff;}',
         // Стандартные свойства: ::-webkit-scrollbar рисуется главным потоком и отстаёт от прокрутки.
@@ -1974,7 +1975,7 @@ function initializeShortcuts() {
     );
     // Волна: лайк, «Не сейчас», «Больше такого», «Встряхнуть» для играющего трека. Ctrl+F, N, B и P заняты переходами
     const waveKey = (action: string) => () => {
-        if (contentView && !contentView.webContents.isDestroyed())
+        if (contentView && !webContentsGone(contentView))
             void contentView.webContents.executeJavaScript('window.__scWaveKey ? window.__scWaveKey(' + JSON.stringify(action) + ') : false').catch(console.error);
     };
     shortcutService.register('waveLike', 'CommandOrControl+L', 'Like', waveKey('like'));
@@ -2053,14 +2054,18 @@ app.on('activate', function () {
 let waveSignalsTaken = false;
 let libraryStopped = false;
 app.on('before-quit', (event) => {
-    radarScheduler?.stop();
-    clearInterval(recapTimer);
-    clearTimeout(autoBackupTimer);
+    try {
+        radarScheduler?.stop();
+        clearInterval(recapTimer);
+        clearTimeout(autoBackupTimer);
+    } catch (error) {
+        console.warn('Выход: таймеры не остановлены', error);
+    }
     // Последнее прослушивание страница отдаёт до закрытия окон: её pagehide приходит уже после записи журнала
-    if (!waveSignalsTaken && waveSignals && contentView && !contentView.webContents.isDestroyed()) {
+    if (!waveSignalsTaken && waveSignals && contentView && !webContentsGone(contentView)) {
         waveSignalsTaken = true;
         event.preventDefault();
-        const taken = contentView.webContents.executeJavaScript('(async()=>{await window.__scSaveSession?.();return window.__scWaveTakeSignals?.() ?? null})()') as Promise<unknown>;
+        const taken = Promise.resolve().then(() => contentView.webContents.executeJavaScript('(async()=>{await window.__scSaveSession?.();return window.__scWaveTakeSignals?.() ?? null})()') as Promise<unknown>);
         const late = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
         void Promise.race([taken, late])
             .then((result) => {
@@ -2073,48 +2078,53 @@ app.on('before-quit', (event) => {
     if (!libraryStopped && listeningLibrary) {
         libraryStopped = true;
         event.preventDefault();
-        waveSignals?.flush();
-        void listeningLibrary.close()
+        try { waveSignals?.flush(); } catch (error) { console.warn('Выход: сигналы волны не записаны', error); }
+        void Promise.resolve().then(() => listeningLibrary?.close())
             .catch((error: unknown) => console.warn('Библиотека не закрыта перед выходом', error))
             .finally(() => app.quit());
         return;
     }
-    clearInterval(diagnosticTimer);
-    clearInterval(memoryGuardTimer);
-    clearInterval(awayTimer);
     isQuitting = true;
-    if (presenceService) void presenceService.dispose();
-    proxyService?.dispose();
-    adblockService?.dispose();
-    webhookService?.dispose();
-    waveJournal?.flush();
-    waveSignals?.flush();
-    updateService?.dispose();
-    settingsManager?.dispose();
-    island?.dispose();
-    island = null;
-    historyManager?.dispose();
-    notificationManager?.dispose();
-    if (shortcutService) {
-        shortcutService.destroy();
-    }
-    if (tray) {
-        tray.destroy();
-        tray = null;
+    // Каждый шаг в своей защите: сбой одного (например, вид уже снят после падения отрисовки) не должен ни показать окно
+    // ошибки при выходе, ни оставить остальные службы незакрытыми
+    const steps: Array<[string, () => unknown]> = [
+        ['таймеры', () => { clearInterval(diagnosticTimer); clearInterval(memoryGuardTimer); clearInterval(awayTimer); }],
+        ['присутствие', () => presenceService?.dispose()],
+        ['прокси', () => proxyService?.dispose()],
+        ['блокировщик', () => adblockService?.dispose()],
+        ['вебхуки', () => webhookService?.dispose()],
+        ['журнал волны', () => waveJournal?.flush()],
+        ['сигналы волны', () => waveSignals?.flush()],
+        ['обновления', () => updateService?.dispose()],
+        ['настройки', () => settingsManager?.dispose()],
+        ['остров', () => { const closing = island; island = null; closing?.dispose(); }],
+        ['история', () => historyManager?.dispose()],
+        ['уведомления', () => notificationManager?.dispose()],
+        ['горячие клавиши', () => shortcutService?.destroy()],
+        ['трей', () => { const closing = tray; tray = null; if (closing && !closing.isDestroyed()) closing.destroy(); }],
+    ];
+    for (const [name, step] of steps) {
+        try {
+            const result = step();
+            if (result instanceof Promise) result.catch((error: unknown) => console.warn(`Выход: «${name}» не закрыто`, error));
+        } catch (error) {
+            console.warn(`Выход: «${name}» не закрыто`, error);
+        }
     }
 });
 
 app.on('will-quit', () => {
-    store.set('gpuCompatibilityRunning', false);
-    clearInterval(diagnosticTimer);
-    clearInterval(memoryGuardTimer);
-    loopDelay.disable();
-    diagnostics.close();
-    // Сигналы, которые страница успела дослать после before-quit
-    waveSignals?.flush();
-    if (tray) {
-        tray.destroy();
-        tray = null;
+    const steps: Array<[string, () => unknown]> = [
+        ['флаг GPU', () => store.set('gpuCompatibilityRunning', false)],
+        ['таймеры', () => { clearInterval(diagnosticTimer); clearInterval(memoryGuardTimer); }],
+        ['замер цикла', () => loopDelay.disable()],
+        ['журнал', () => diagnostics.close()],
+        // Сигналы, которые страница успела дослать после before-quit
+        ['сигналы волны', () => waveSignals?.flush()],
+        ['трей', () => { const closing = tray; tray = null; if (closing && !closing.isDestroyed()) closing.destroy(); }],
+    ];
+    for (const [name, step] of steps) {
+        try { step(); } catch (error) { console.warn(`Выход: «${name}» не закрыто`, error); }
     }
 });
 
@@ -2164,7 +2174,7 @@ function openTrackLink(trackPath: string, attempt = 0, request = ++openLinkReque
         else console.warn('Ссылка на трек: сайт не готов за 30 секунд');
     };
     const view = contentView as BrowserView | undefined;
-    if (!view || view.webContents.isDestroyed() || view.webContents.isLoading()) {
+    if (!view || webContentsGone(view) || view.webContents.isLoading()) {
         retry();
         return;
     }

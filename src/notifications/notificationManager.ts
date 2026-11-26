@@ -1,3 +1,4 @@
+import { webContentsGone } from '../services/webContentsGone';
 import { isTrustedLocalSender, trustLocalView } from '../trustedViews';
 import { randomBytes } from 'crypto';
 import { WebContentsView, BrowserWindow, ipcMain } from 'electron';
@@ -70,7 +71,7 @@ export class NotificationManager {
         this.view = null;
         if (!view) return;
         if (!this.parentWindow.isDestroyed()) this.parentWindow.contentView.removeChildView(view);
-        if (!view.webContents.isDestroyed()) view.webContents.close();
+        if (!webContentsGone(view)) view.webContents.close();
     }
 
     public show(message: string): void {
