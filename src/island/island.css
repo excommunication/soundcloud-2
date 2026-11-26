@@ -1,5 +1,6 @@
-/* Остров: чёрная плашка, как вырез экрана. Размер меняется пружиной, содержимое не тянется, а сменяется через
-   прозрачность с размытием. Окно прозрачное и чуть больше раскрытой плашки, чтобы ей было куда отбросить тень */
+/* Остров: плашка как вырез экрана. Размер меняется пружиной, содержимое не тянется, а сменяется через прозрачность.
+   Окно прозрачное: 440×220, плашка прижата к верху, по бокам 20px (.stage), под раскрытой 44px. Все внешние тени
+   подобраны так, чтобы затухнуть внутри этих полей и не упираться в край окна: вверх не уходят вовсе, вбок меньше 20px */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
     --accent: #ff5500;
@@ -9,6 +10,11 @@
     /* Пружина с перелётом около 5%: как у острова iPhone, без резиновой тряски */
     --spring: linear(0, 0.063 1.4%, 0.232 3.2%, 0.52 6.1%, 0.764 9.1%, 0.912 11.9%, 1.006 15%, 1.04 17.5%, 1.05 19.6%, 1.047 22.4%, 1.028 26.4%, 1.009 31.5%, 0.998 37.4%, 0.997 44.5%, 1 61.6%, 1);
     --spring-time: 560ms;
+    /* Внешние тени: смещены вниз и поджаты spread, поэтому вверх не выходят, а вбок гаснут раньше 20px */
+    --drop-compact: 0 8px 14px -8px rgba(0, 0, 0, 0.55), 0 4px 6px -4px rgba(0, 0, 0, 0.35);
+    --drop-expanded: 0 18px 26px -16px rgba(0, 0, 0, 0.6), 0 6px 10px -6px rgba(0, 0, 0, 0.4);
+    /* Кромка внутри плашки */
+    --rim: inset 0 0 0 1px rgba(var(--fg), 0.08), inset 0 1px 0 rgba(var(--fg), 0.06);
 }
 html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
 body {
@@ -28,9 +34,9 @@ html[data-position='right'] .stage { justify-content: flex-end; }
     height: var(--h, 34px);
     border-radius: var(--r, 17px);
     background: var(--island-bg);
-    /* Тонкая кромка, чтобы плашка читалась на тёмных обоях и окнах */
-    box-shadow: inset 0 0 0 1px rgba(var(--fg), 0.075), 0 10px 28px -12px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--rim), var(--drop-compact);
     overflow: hidden;
+    isolation: isolate;
     transition: width var(--spring-time) var(--spring), height var(--spring-time) var(--spring), border-radius var(--spring-time) var(--spring);
     /* Содержимое внутри абсолютное: пересчёт размера не задевает соседей, внешняя тень не обрезается, поэтому без paint */
     contain: layout style;
@@ -38,15 +44,17 @@ html[data-position='right'] .stage { justify-content: flex-end; }
     transform: translateZ(0);
     transform-origin: 50% 0;
     animation: island-in 520ms var(--spring) both;
+    cursor: default;
+    touch-action: none;
 }
 @keyframes island-in { from { transform: scale(0.6, 0.5); opacity: 0; } }
 html:not(.titled) .island { --w: 168px; }
-.island[data-state='expanded'] {
-    --w: 400px;
-    --h: 176px;
-    --r: 36px;
-    box-shadow: inset 0 0 0 1px rgba(var(--fg), 0.09), 0 18px 40px -14px rgba(0, 0, 0, 0.85);
-}
+.island[data-state='expanded'] { --w: 400px; --h: 176px; --r: 36px; box-shadow: var(--rim), var(--drop-expanded); }
+
+/* Слои материала: ::before под содержимым (блик и подсветка обложкой), ::after поверх (кромка с градиентом) */
+.island::before, .island::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.island::before { z-index: -1; background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%); }
+html[data-tone='light'] .island::before { background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 50%); }
 
 .compact, .expanded {
     position: absolute;
@@ -56,58 +64,76 @@ html:not(.titled) .island { --w: 168px; }
     backface-visibility: hidden;
 }
 .compact { display: flex; align-items: center; gap: 9px; padding: 0 12px 0 5px; }
-.expanded { padding: 16px 18px 12px; opacity: 0; transform: scale(0.94); pointer-events: none; }
+.expanded { padding: 14px 18px 12px; opacity: 0; transform: scale(0.94); pointer-events: none; }
 .island[data-state='expanded'] .compact { opacity: 0; transform: scale(1.06); pointer-events: none; transition-duration: 120ms, 300ms; }
 .island[data-state='expanded'] .expanded { opacity: 1; transform: none; pointer-events: auto; transition-delay: 90ms; }
 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+button:focus-visible { outline: 2px solid rgba(var(--fg), 0.5); outline-offset: 1px; }
 .art { flex: none; background: #1c1c1e center/cover no-repeat; }
-.art.sm { width: 24px; height: 24px; border-radius: 7px; }
-.art.lg { width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.9); transition: transform 160ms ease; }
+.art.sm { width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12); }
+.art.lg { width: 58px; height: 58px; border-radius: 14px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 6px 14px -6px rgba(0, 0, 0, 0.8); transition: transform 160ms ease; }
 .art.lg:hover { transform: scale(1.04); }
 html:not(.playing) .art.sm { filter: saturate(0.4) brightness(0.75); }
 
-.title-sm { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 500; color: rgba(var(--fg), 0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title-sm { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 500; color: rgba(var(--fg), 0.86); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html:not(.titled) .title-sm { display: none; }
 html:not(.titled) .compact { justify-content: space-between; }
 
 /* Полоски звука цвета обложки; на паузе ложатся */
 .bars { display: flex; align-items: center; gap: 2.5px; height: 16px; flex: none; }
 .bars i { display: block; width: 3px; height: 100%; border-radius: 2px; background: var(--accent); transform: scaleY(0.22); transform-origin: 50% 50%; transition: transform 300ms ease; }
-html.playing .bars i { will-change: transform; }
-html.playing .bars i { animation: bar 1s ease-in-out infinite alternate; }
+html.playing .bars i { will-change: transform; animation: bar 1s ease-in-out infinite alternate; }
 html.playing .bars i:nth-child(2) { animation-duration: 0.72s; animation-delay: -0.3s; }
 html.playing .bars i:nth-child(3) { animation-duration: 0.9s; animation-delay: -0.55s; }
 html.playing .bars i:nth-child(4) { animation-duration: 0.64s; animation-delay: -0.1s; }
 html.playing .bars i:nth-child(5) { animation-duration: 0.83s; animation-delay: -0.42s; }
 @keyframes bar { 0% { transform: scaleY(0.25); } 50% { transform: scaleY(0.95); } 100% { transform: scaleY(0.45); } }
-.bars.big { height: 22px; gap: 3px; align-self: center; }
+.bars.big { height: 22px; gap: 3px; align-self: center; transition: opacity 160ms ease; }
 .bars.big i { width: 3.5px; }
 
-.head { display: flex; align-items: center; gap: 13px; }
+.head { position: relative; display: flex; align-items: center; gap: 13px; }
 .meta { flex: 1; min-width: 0; display: block; }
 .meta b, .meta span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta b { font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; }
-.meta span { font-size: 13px; color: rgba(var(--fg), 0.6); }
+.meta span { font-size: 13px; color: rgba(var(--fg), 0.62); }
 .meta:hover b { text-decoration: underline; text-decoration-color: rgba(var(--fg), 0.3); text-underline-offset: 3px; }
 
-.progress { display: flex; align-items: center; gap: 9px; margin: 12px 2px 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(var(--fg), 0.55); }
-.progress .track { flex: 1; height: 4px; border-radius: 2px; background: rgba(var(--fg), 0.16); overflow: hidden; }
-.progress .fill { height: 100%; width: 100%; border-radius: inherit; background: rgb(var(--fg)); transform: scaleX(0); transform-origin: 0 50%; }
+/* Пилюля «Скрыть» на месте полосок: стеклянный чип, появляется при наведении на раскрытую плашку */
+.hide {
+    position: absolute; right: -4px; top: 50%; height: 28px; margin-top: -14px; padding: 0 12px 0 10px; border-radius: 999px;
+    display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: rgba(var(--fg), 0.88);
+    background: linear-gradient(180deg, rgba(var(--fg), 0.16), rgba(var(--fg), 0.08));
+    box-shadow: inset 0 0 0 0.5px rgba(var(--fg), 0.16), inset 0 1px 0 rgba(var(--fg), 0.12);
+    opacity: 0; transform: scale(0.85); transform-origin: 100% 50%; pointer-events: none;
+    transition: opacity 160ms ease, transform 200ms var(--spring), background 120ms, color 120ms;
+}
+.hide svg { width: 14px; height: 14px; }
+.hide:hover { background: linear-gradient(180deg, rgba(var(--fg), 0.24), rgba(var(--fg), 0.14)); color: rgb(var(--fg)); }
+.hide:active { transform: scale(0.95); }
+.island[data-state='expanded']:hover .hide { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
+.island[data-state='expanded']:hover .bars.big { opacity: 0; transition-delay: 0s; }
 
-.controls { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
-.ctl { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; color: rgba(var(--fg), 0.85); transition: background 120ms, transform 120ms, color 120ms; }
-.ctl:hover { background: rgba(var(--fg), 0.1); color: rgb(var(--fg)); }
-.ctl:active { transform: scale(0.9); }
-.ctl svg { width: 16px; height: 16px; fill: currentColor; }
-.ctl.main { width: 40px; height: 40px; }
-.ctl.main svg { width: 20px; height: 20px; }
-.ctl.main .i-pause, html.playing .ctl.main .i-play { display: none; }
-html.playing .ctl.main .i-pause { display: block; }
-.ctl.like[aria-pressed='true'] { color: var(--accent); }
+/* Полоса перемотки: тянется мышью, под курсором толще (через scaleY, без перерасчёта вёрстки); зона нажатия выше полосы */
+.progress { display: flex; align-items: center; gap: 10px; height: 18px; margin: 10px 2px 2px; font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(var(--fg), 0.58); }
+.progress span { min-width: 30px; }
+.progress span:last-child { text-align: right; }
+.progress .track {
+    position: relative; flex: 1; height: 7px; border-radius: 4px; cursor: pointer;
+    background: rgba(var(--fg), 0.16); box-shadow: inset 0 0.5px 0 rgba(0, 0, 0, 0.18);
+    transform: scaleY(0.62); transition: transform 180ms var(--spring);
+}
+.progress .track::before { content: ''; position: absolute; inset: -9px 0; }
+.progress:hover .track, .island.seeking .track { transform: none; }
+.progress .fill {
+    height: 100%; width: 100%; border-radius: inherit; transform: scaleX(0); transform-origin: 0 50%;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, rgb(var(--fg))), rgb(var(--fg)) 70%);
+    box-shadow: 0 0 8px -1px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.island.seeking .fill { transition: none; }
 
 /* Громкость: значок (клик выключает звук) и тонкая дорожка, которая толстеет под курсором, как в iOS */
-.volume { display: flex; align-items: center; gap: 9px; margin: 2px 2px 4px; height: 20px; }
+.volume { display: flex; align-items: center; gap: 9px; margin: 2px 2px 2px; height: 20px; }
 .vol-icon { width: 20px; height: 20px; display: grid; place-items: center; color: rgba(var(--fg), 0.6); flex: none; }
 .vol-icon:hover { color: rgb(var(--fg)); }
 .vol-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -115,14 +141,34 @@ html.playing .ctl.main .i-pause { display: block; }
 .vol-icon .x { display: none; }
 .volume[data-level='0'] .w1, .volume[data-level='0'] .w2, .volume[data-level='1'] .w2 { display: none; }
 .volume[data-level='0'] .x { display: block; }
-.vol-track { flex: 1; height: 4px; border-radius: 3px; background: rgba(var(--fg), 0.16); overflow: hidden; cursor: pointer; transition: height 160ms ease; }
-.volume:hover .vol-track, .vol-track.dragging { height: 7px; }
-.vol-fill { height: 100%; width: 100%; background: rgba(var(--fg), 0.85); transform: scaleX(var(--v, 0)); transform-origin: 0 50%; }
+.vol-track { position: relative; flex: 1; height: 7px; border-radius: 4px; background: rgba(var(--fg), 0.14); overflow: hidden; cursor: pointer; transform: scaleY(0.58); transition: transform 180ms var(--spring); }
+.volume:hover .vol-track, .vol-track.dragging { transform: none; }
+.vol-fill { height: 100%; width: 100%; background: rgba(var(--fg), 0.82); transform: scaleX(var(--v, 0)); transform-origin: 0 50%; }
 .volume[data-level='0'] .vol-fill { background: rgba(var(--fg), 0.35); }
+
+/* Управление: шесть кнопок, «играть» точно по центру. Слева лайк, в центре предыдущий/играть/следующий, справа открыть и «⋯» */
+.controls { display: grid; grid-template-columns: 34px 34px 1fr 34px 44px 34px 1fr 34px 34px; column-gap: 8px; align-items: center; height: 38px; padding: 0 2px; }
+.controls > :nth-child(1) { grid-column: 1; }
+.controls > :nth-child(2) { grid-column: 4; }
+.controls > :nth-child(3) { grid-column: 5; }
+.controls > :nth-child(4) { grid-column: 6; }
+.controls > :nth-child(5) { grid-column: 8; }
+.controls > :nth-child(6) { grid-column: 9; }
+.ctl { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; color: rgba(var(--fg), 0.82); transition: background 120ms, transform 160ms var(--spring), color 120ms; }
+.ctl:hover { background: rgba(var(--fg), 0.1); color: rgb(var(--fg)); }
+.ctl:active { transform: scale(0.88); }
+.ctl svg { width: 16px; height: 16px; fill: currentColor; }
+.ctl.main { width: 44px; height: 44px; margin: -3px 0; color: rgb(var(--fg)); }
+.ctl.main svg { width: 22px; height: 22px; }
+.ctl.main .i-pause, html.playing .ctl.main .i-play { display: none; }
+html.playing .ctl.main .i-pause { display: block; }
+.ctl.like[aria-pressed='true'] { color: var(--accent); }
+.ctl:focus-visible { outline-offset: -2px; }
 
 /* Новогодняя тема: снежинка в свёрнутой и редкий снег внутри плашки */
 .flake { display: none; width: 12px; height: 12px; flex: none; fill: none; stroke: rgba(220, 235, 255, 0.85); stroke-width: 1.3; stroke-linecap: round; }
 html.winter .flake { display: block; }
+html[data-tone='light'] .flake { stroke: rgba(60, 90, 140, 0.75); }
 .snow { position: absolute; inset: 0; pointer-events: none; display: none; }
 html.winter .snow { display: block; }
 .snow i { position: absolute; top: -6px; width: var(--s, 3px); height: var(--s, 3px); border-radius: 50%; background: rgba(var(--fg), 0.85); opacity: 0; will-change: transform, opacity; animation: fall var(--d, 6s) linear var(--delay, 0s) infinite; }
@@ -136,32 +182,64 @@ html.winter .snow { display: block; }
 .island[data-state='compact'] .snow i:nth-child(n + 6) { display: none; }
 .island[data-state='compact'] .snow { --fall: 44px; }
 
-/* Кнопка «скрыть до следующего трека»: на месте полосок, появляется при наведении на раскрытую плашку */
-.head { position: relative; }
-.hide { position: absolute; right: -4px; top: 50%; width: 30px; height: 30px; margin-top: -15px; border-radius: 999px; display: grid; place-items: center; color: rgba(var(--fg), 0.75); background: rgba(var(--fg), 0.1); opacity: 0; transform: scale(0.8); pointer-events: none; transition: opacity 160ms ease, transform 200ms var(--spring), background 120ms, color 120ms; }
-.hide svg { width: 15px; height: 15px; }
-.hide:hover { background: rgba(var(--fg), 0.2); color: rgb(var(--fg)); }
-.island[data-state='expanded']:hover .hide { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
-.island[data-state='expanded']:hover .bars.big { opacity: 0; transition-delay: 0s; }
-.bars.big { transition: opacity 160ms ease; }
-
-/* Остаток трека в свёрнутой плашке: линия внизу с свечением цвета обложки */
-.mini { position: absolute; left: 16px; right: 16px; bottom: 3px; height: 2px; border-radius: 2px; background: rgba(var(--fg), 0.1); pointer-events: none; }
-.mini-fill { height: 100%; border-radius: inherit; width: 100%; background: var(--accent); box-shadow: 0 0 6px 1px var(--accent), 0 0 14px 2px color-mix(in srgb, var(--accent) 55%, transparent); transform: scaleX(0); transform-origin: 0 50%; opacity: 0.95; }
+/* Остаток трека в свёрнутой плашке: тонкая линия под названием. Начинается правее обложки (5 + 24 + 9 = 38px),
+   свечение маленькое и гаснет, не доходя до обложки и края плашки */
+.mini { position: absolute; left: 38px; right: 18px; bottom: 3px; height: 2px; border-radius: 1px; background: rgba(var(--fg), 0.1); pointer-events: none; }
+.mini-fill {
+    height: 100%; width: 100%; border-radius: inherit; transform: scaleX(0); transform-origin: 0 50%;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), var(--accent));
+    box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 80%, transparent), 0 0 7px -1px color-mix(in srgb, var(--accent) 50%, transparent);
+    transition: opacity 200ms ease;
+}
 html:not(.playing) .mini-fill { opacity: 0.45; box-shadow: none; }
 .mini-fill, .progress .fill { will-change: transform; }
-.island.live .mini-fill, .island.live .fill { transition: transform 1s linear; }
-/* В раскрытой плашке заполненная часть тоже светится цветом обложки */
-.progress .fill { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, rgb(var(--fg))), rgb(var(--fg))); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+.island.live .mini-fill, .island.live .fill { transition: transform 1s linear, opacity 200ms ease; }
 
 /* Перетаскивание */
-.island { cursor: default; touch-action: none; }
 .island.dragging, .island.dragging * { cursor: grabbing !important; }
-.island.dragging { box-shadow: inset 0 0 0 1px rgba(var(--fg), 0.16), 0 14px 34px -12px rgba(0, 0, 0, 0.85); }
+.island.dragging { --rim: inset 0 0 0 1px rgba(var(--fg), 0.16), inset 0 1px 0 rgba(var(--fg), 0.1); }
 
-/* Режим совместимости NVIDIA: окно непрозрачное и обрезано по плашке, размер меняется сразу, без тени снаружи */
+/* Вид плашки: стекло по умолчанию, чёрная, белая, свой цвет и градиент. Цвет фона задаёт island.js через --island-bg */
+html[data-tone='light'] {
+    --fg: 20, 20, 24;
+    --drop-compact: 0 8px 14px -8px rgba(0, 0, 0, 0.32), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+    --drop-expanded: 0 18px 26px -16px rgba(0, 0, 0, 0.36), 0 6px 10px -6px rgba(0, 0, 0, 0.22);
+    --rim: inset 0 0 0 1px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+html[data-tone='light'] .art.lg { box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.1), 0 6px 14px -8px rgba(0, 0, 0, 0.5); }
+
+/* Стекло: в прозрачном окне Electron backdrop-filter не размывает рабочий стол, поэтому материал собран слоями:
+   тёмная полупрозрачная толща (текст читается на любом фоне), мягкий блик сверху, свет обложки изнутри снизу слева,
+   кромка тоньше волоса, светлая сверху и гаснущая к низу */
+html[data-look='glass'] {
+    --island-bg:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 34%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(180deg, rgba(42, 42, 50, 0.8) 0%, rgba(20, 20, 26, 0.86) 55%, rgba(12, 12, 16, 0.9) 100%);
+    --rim: inset 0 0 14px rgba(255, 255, 255, 0.035), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+html[data-look='glass'] .island::before {
+    background:
+        radial-gradient(70% 55% at 26% -8%, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(80% 130% at 0% 105%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
+        radial-gradient(60% 90% at 100% 110%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+}
+html[data-look='glass'] .island::after {
+    padding: 1px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.1) 30%, rgba(255, 255, 255, 0.05) 65%, rgba(255, 255, 255, 0.12));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+}
+html[data-look='glass'] .island.dragging::after { background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16) 40%, rgba(255, 255, 255, 0.18)); }
+html[data-look='glass'] .title-sm, html[data-look='glass'] .meta { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+html[data-look='black'] { --rim: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+
+/* Режим совместимости NVIDIA: окно непрозрачное и обрезано по плашке без сглаживания, размер меняется сразу.
+   Никаких внешних теней и полупрозрачной кромки по краю: она ложилась бы под зубцы обрезки */
 html.shaped body { background: #000; }
-html.shaped .island { transition: none; animation: none; box-shadow: inset 0 0 0 1px rgba(var(--fg), 0.075); }
+html.shaped .island { transition: none; animation: none; box-shadow: var(--rim); }
+html.shaped .island::after { display: none; }
+html.shaped[data-look='white'] body { background: #f5f5f7; }
 
 html.reduce-motion *, html.reduce-motion *::before { animation: none !important; transition-duration: 0ms !important; }
 html.reduce-motion .snow { display: none; }
@@ -169,13 +247,3 @@ html.reduce-motion .snow { display: none; }
     .island, .compact, .expanded { transition-duration: 0ms; animation: none; }
     .bars i, .snow i { animation: none !important; }
 }
-
-/* Вид плашки: стекло по умолчанию, чёрная, белая, свой цвет и градиент. Цвет фона задаёт island.js через --island-bg */
-html[data-tone='light'] { --fg: 20, 20, 24; }
-html[data-look='glass'] { --island-bg: linear-gradient(155deg, rgba(74, 74, 86, 0.82), rgba(20, 20, 26, 0.9) 60%, rgba(10, 10, 14, 0.92)); }
-html[data-look='glass'] .island { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -10px 24px -14px rgba(255, 255, 255, 0.08), 0 10px 28px -12px rgba(0, 0, 0, 0.7), 0 0 22px -8px var(--accent); }
-html[data-look='glass'] .island[data-state='expanded'] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -16px 32px -20px rgba(255, 255, 255, 0.1), 0 18px 40px -14px rgba(0, 0, 0, 0.85), 0 0 34px -10px var(--accent); }
-html[data-look='glass'] .island::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(120% 70% at 20% -20%, rgba(255, 255, 255, 0.16), transparent 60%); }
-html[data-tone='light'] .island { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), 0 10px 28px -12px rgba(0, 0, 0, 0.45); }
-html[data-tone='light'] .art.lg { box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.5); }
-html.shaped[data-look='white'] body { background: #f5f5f7; }

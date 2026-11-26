@@ -35,6 +35,7 @@
                     <button data-target="wave">Волна</button>
                     <button data-target="jam">Джем</button>
                     <button data-target="optimize">Оптимизация</button>
+                    <button data-target="proxy" id="proxyNav">Прокси<span class="nav-dot" aria-hidden="true"></span></button>
                     <button data-target="advanced" id="advancedNav">Дополнительно<span class="nav-dot" aria-hidden="true"></span></button>
                     <span class="nav-sep" aria-hidden="true">Ещё</span>
                     <button data-target="soundcloud">SoundCloud</button>
@@ -49,7 +50,7 @@
                         <h2>Основные</h2>
                         <div class="row">
                             <span class="text">Язык</span>
-                            <select id="siteLanguage" class="input" aria-label="Язык">
+                            <select id="siteLanguage" class="input" aria-label="Язык" data-segmented>
                                 <option value="ru" data-no-i18n>Русский</option>
                                 <option value="en">English</option>
                             </select>
@@ -108,7 +109,7 @@
                         <label class="row"><span class="text"><span>Анимации наведения</span><span class="hint">Карточки приподнимаются, кнопки пружинят</span></span><span class="toggle"><input type="checkbox" data-fx="hoverMotion" /><span class="slider"></span></span></label>
                         <div class="row">
                             <span class="text"><span>Качество</span><span class="hint">«Эко» бережёт батарею и видеокарту</span></span>
-                            <select class="input dropdown" data-fx="quality" aria-label="Качество">
+                            <select class="input" data-fx="quality" aria-label="Качество" data-segmented>
                                 <option value="eco">Эко</option>
                                 <option value="balanced">Баланс</option>
                                 <option value="high">Максимум</option>
@@ -171,7 +172,7 @@
                         <label class="row"><span class="text">Голосовые от артистов</span><span class="toggle"><input type="checkbox" id="homeVoiceNotes" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">Новая музыка от артистов</span><span class="toggle"><input type="checkbox" id="homeNewMusic" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">Другие полки</span><span class="toggle"><input type="checkbox" id="homeOther" /><span class="slider"></span></span></label>
-                        <div class="group">Справа</div>
+                        <div class="group">Правая колонка</div>
                         <label class="row"><span class="text">Новые треки</span><span class="toggle"><input type="checkbox" id="homeNewTracks" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">Кого послушать</span><span class="toggle"><input type="checkbox" id="homeFollow" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">Лайки</span><span class="toggle"><input type="checkbox" id="homeLikes" /><span class="slider"></span></span></label>
@@ -187,7 +188,7 @@
                             <div class="group">Вид</div>
                             <div class="row">
                                 <span class="text"><span>Оформление</span><span class="hint">Стекло — по умолчанию</span></span>
-                                <select class="input" data-island="look" aria-label="Оформление">
+                                <select class="input" data-island="look" aria-label="Оформление" data-segmented>
                                     <option value="glass">Стекло</option>
                                     <option value="black">Чёрный</option>
                                     <option value="white">Белый</option>
@@ -195,12 +196,12 @@
                                     <option value="gradient">Градиент</option>
                                 </select>
                             </div>
-                            <div class="row" id="islandColorRow" hidden><span class="text">Цвет</span><input type="color" class="input" data-island="color" aria-label="Цвет плашки" /></div>
-                            <div class="row" id="islandColor2Row" hidden><span class="text">Второй цвет градиента</span><input type="color" class="input" data-island="color2" aria-label="Второй цвет градиента" /></div>
+                            <div class="row" id="islandColorRow" hidden><span class="text">Цвет</span><input type="color" class="input swatch" data-island="color" aria-label="Цвет плашки" /></div>
+                            <div class="row" id="islandColor2Row" hidden><span class="text">Второй цвет градиента</span><input type="color" class="input swatch" data-island="color2" aria-label="Второй цвет градиента" /></div>
                             <div class="group">Где</div>
                             <div class="row">
                                 <span class="text">Положение</span>
-                                <select class="input" data-island="position" aria-label="Положение">
+                                <select class="input" data-island="position" aria-label="Положение" data-segmented>
                                     <option value="left">Слева</option>
                                     <option value="center">По центру</option>
                                     <option value="right">Справа</option>
@@ -208,14 +209,14 @@
                             </div>
                             <div class="row">
                                 <span class="text">Экран</span>
-                                <select class="input" data-island="display" aria-label="Экран">
+                                <select class="input" data-island="display" aria-label="Экран" data-segmented>
                                     <option value="primary">Основной</option>
                                     <option value="app">Где окно клиента</option>
                                 </select>
                             </div>
                             <div class="row">
                                 <span class="text">Размер</span>
-                                <select class="input" data-island="size" aria-label="Размер">
+                                <select class="input" data-island="size" aria-label="Размер" data-segmented>
                                     <option value="small">Компактный</option>
                                     <option value="normal">Обычный</option>
                                     <option value="large">Крупный</option>
@@ -244,7 +245,7 @@
                         <label class="row"><span class="text"><span>Искать актуальное в интернете</span><span class="hint">Открытые плейлисты и чарты Deezer, без аккаунта и ключа</span></span><span class="toggle"><input type="checkbox" id="vibeWeb" /><span class="slider"></span></span></label>
                         <div class="row">
                             <span class="text">Провайдер</span>
-                            <select class="input dropdown" id="aiProvider" aria-label="Провайдер">
+                            <select class="input" id="aiProvider" aria-label="Провайдер">
                                 <option value="off">Без модели</option>
                                 <option value="openai">OpenAI</option>
                                 <option value="anthropic">Anthropic</option>
@@ -320,20 +321,18 @@
 
                     <section class="section" id="jam" hidden>
                         <h2>Джем</h2>
-                        <div class="hint pad">Слушать вместе с другом: кнопка «С другом» рядом с громкостью или Ctrl+Shift+J</div>
-                        <div class="item">
-                            <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Адрес для прослушивания вместе с другом (кнопка «С другом» рядом с громкостью или Ctrl+Shift+J). Пусто — адрес, вшитый в клиент</span></span></div>
-                            <div class="field-stack"><input type="url" class="input" id="jamServer" placeholder="https://sc2-jam.имя.workers.dev" aria-label="Адрес сервера джемов" autocomplete="off" spellcheck="false" /></div>
-                        </div>
+                        <p class="hint pad">Слушать вместе с другом: кнопка «С другом» рядом с громкостью или Ctrl+Shift+J</p>
+                        <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Адрес для прослушивания вместе с другом (кнопка «С другом» рядом с громкостью или Ctrl+Shift+J). Пусто — адрес, вшитый в клиент</span></span></div>
+                        <div class="field-stack"><input type="url" class="input" id="jamServer" placeholder="https://sc2-jam.имя.workers.dev" aria-label="Адрес сервера джемов" autocomplete="off" spellcheck="false" /></div>
                     </section>
 
                     <section class="section" id="optimize" hidden>
                         <h2>Оптимизация</h2>
-                        <div class="hint pad">Если клиент тормозит или греет компьютер, начни с режима эффектов. Остальное можно оставить как есть</div>
+                        <p class="hint pad">Если клиент тормозит или греет компьютер, начни с режима эффектов. Остальное можно оставить как есть</p>
                         <div class="group">Эффекты</div>
                         <div class="row">
                             <span class="text"><span>Режим эффектов</span><span class="hint">«Облегчённо» и «Супер лайт» снимают нагрузку с видеокарты; «Без эффектов»: простой тёмный вид, без переливов, размытия и анимаций</span></span>
-                            <select class="input dropdown" id="effectsMode" aria-label="Режим эффектов">
+                            <select class="input" id="effectsMode" aria-label="Режим эффектов" data-segmented>
                                 <option value="full">Полные эффекты</option>
                                 <option value="light">Облегчённо</option>
                                 <option value="solid">Супер лайт</option>
@@ -344,8 +343,8 @@
                         <label class="row"><span class="text"><span>Не ограничивать кадры, если окно не выбрано</span><span class="hint">Больше нагрузки на видеокарту и процессор, когда окно свёрнуто или не в фокусе. Выключено: фон замирает, пока ты в другом окне</span></span><span class="toggle"><input type="checkbox" data-fx="keepFramesUnfocused" /><span class="slider"></span></span></label>
                         <div class="group">Видеокарта</div>
                         <div class="row">
-                            <span class="text"><label for="gpuCompatibilityMode">Совместимость NVIDIA</label><span class="hint">Помогает, если на видеокарте NVIDIA мигает или пропадает картинка. Применится после перезапуска</span><span class="hint" id="gpuCompatibilityStatus" data-no-i18n aria-live="polite"></span></span>
-                            <select id="gpuCompatibilityMode" class="input" aria-label="Совместимость NVIDIA">
+                            <span class="text"><span>Совместимость NVIDIA</span><span class="hint">Помогает, если на видеокарте NVIDIA мигает или пропадает картинка. Применится после перезапуска</span><span class="hint" id="gpuCompatibilityStatus" data-no-i18n aria-live="polite"></span></span>
+                            <select id="gpuCompatibilityMode" class="input" aria-label="Совместимость NVIDIA" data-segmented>
                                 <option value="auto">Автоматически</option>
                                 <option value="on">Включено</option>
                                 <option value="off">Выключено</option>
@@ -450,26 +449,26 @@
                         </div>
                     </section>
 
+                    <section class="section" id="proxy" hidden>
+                        <h2>Прокси</h2>
+                        <label class="row"><span class="text"><span>Подключаться через прокси</span><span class="hint">HTTP-прокси для всего клиента. Применится после перезагрузки страницы</span></span><span class="toggle"><input type="checkbox" id="proxyEnabled" /><span class="slider"></span></span></label>
+                        <div id="proxyFields" style="display: none">
+                            <div class="group">Сервер прокси</div>
+                            <div class="row"><span class="text">Адрес</span><input type="text" class="input wide" id="proxyHost" placeholder="Адрес" aria-label="Адрес прокси" autocomplete="off" spellcheck="false" /></div>
+                            <div class="row"><span class="text">Порт</span><input type="text" class="input port" id="proxyPort" placeholder="Порт" aria-label="Порт прокси" inputmode="numeric" autocomplete="off" /></div>
+                            <div class="group">Вход</div>
+                            <p class="hint pad">Логин и пароль нужны, только если прокси их просит. Пароль не попадает в резервную копию</p>
+                            <div class="row"><span class="text">Логин</span><input type="text" class="input wide" id="proxyUsername" placeholder="Логин" aria-label="Логин прокси" autocomplete="off" spellcheck="false" /></div>
+                            <div class="row"><span class="text">Пароль</span><input type="password" class="input wide" id="proxyPassword" placeholder="Пароль" aria-label="Пароль прокси" autocomplete="new-password" /></div>
+                        </div>
+                    </section>
+
                     <section class="section" id="advanced" hidden>
                         <h2>Дополнительно</h2>
                         <label class="row">
                             <span class="text"><span>Разбирать названия треков</span><span class="hint">Отделяет артиста от названия, когда оба в одной строке</span></span>
                             <span class="toggle"><input type="checkbox" id="trackParserEnabled" /><span class="slider"></span></span>
                         </label>
-
-                        <div class="item">
-                            <label class="row"><span class="text">Подключаться через прокси</span><span class="toggle"><input type="checkbox" id="proxyEnabled" /><span class="slider"></span></span></label>
-                            <div id="proxyFields" style="display: none">
-                                <div class="field-grid">
-                                    <input type="text" class="input" id="proxyHost" placeholder="Адрес" aria-label="Адрес прокси" />
-                                    <input type="text" class="input" id="proxyPort" placeholder="Порт" aria-label="Порт прокси" inputmode="numeric" />
-                                </div>
-                                <div class="field-grid two">
-                                    <input type="text" class="input" id="proxyUsername" placeholder="Логин" aria-label="Логин прокси" autocomplete="off" />
-                                    <input type="password" class="input" id="proxyPassword" placeholder="Пароль" aria-label="Пароль прокси" autocomplete="new-password" />
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="item">
                             <label class="row"><span class="text">Отправлять вебхук</span><span class="toggle"><input type="checkbox" id="webhookEnabled" /><span class="slider"></span></span></label>

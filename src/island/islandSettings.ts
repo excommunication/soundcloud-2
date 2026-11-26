@@ -57,7 +57,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     announceTrack: true,
     showTitle: true,
     hideFullscreen: true,
-    hideInApp: true,
+    hideInApp: false,
     hideWhenPaused: true,
     place: null,
 };

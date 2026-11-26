@@ -118,6 +118,12 @@ export function installJam(core: JamCore): JamSection {
     // Слежение за плеером
     let last: Snap | null = null;
     let grantedUntil = 0;
+    /** Свой трек в момент, когда комната сменила трек: пока он играет, это не «своё действие», а ещё не открытый трек джема */
+    let staleId = 0;
+    /** Последний трек, который мы сами отправили в комнату: не слать его повторно, пока сервер не ответил */
+    let sentId = 0;
+    /** Сколько тиков подряд пауза у себя не совпадает с комнатой: смена паузы, пропущенная в тихом окне, догоняется */
+    let pauseMismatch = 0;
     let opening = false;
     let reopen = false;
     let advanced = '';
@@ -211,6 +217,8 @@ export function installJam(core: JamCore): JamSection {
         const now = state?.now ?? null;
         if (!now) return;
         const local = core.current();
+        staleId = local && local.track.id !== now.track.id ? local.track.id : 0;
+        if (sentId === now.track.id) sentId = 0;
         const plan = planFollow(now, serverNow(), local ? { trackId: local.track.id, positionMs: local.positionMs, playing: local.playing } : null);
         if (plan.open) {
             void openJam();
@@ -276,15 +284,23 @@ export function installJam(core: JamCore): JamSection {
         if (before && before.id === snap.id) jumped = isSeekJump(before.positionMs, snap.positionMs, t - before.at, before.playing && snap.playing);
         const quiet = t >= grantedUntil;
         // Свои действия тех, кто управляет: новый трек, пауза и возобновление, перемотка
+        // Сравнение с треком комнаты, а не только с прошлым тиком: смена трека в тихом окне после синхронизации или
+        // пока открывался трек джема раньше терялась навсегда, и хозяин оставался на своём треке без управления
+        const ownTrack = !!jam && snap.id !== jam.track.id && snap.id !== staleId && snap.id !== sentId;
+        if (jam && snap.id === jam.track.id) staleId = 0;
+        pauseMismatch = jam && snap.id === jam.track.id && snap.playing === jam.paused ? pauseMismatch + 1 : 0;
         if (controls() && before && quiet) {
-            if (before.id !== snap.id && snap.id !== jam?.track.id) {
+            if (jam ? ownTrack : before.id !== snap.id) {
                 const ref = refOf(local);
-                if (ref) send({ t: 'play', track: ref, positionMs: Math.round(snap.positionMs) });
-                else toast(T.errors.noLink);
+                if (ref) {
+                    sentId = snap.id;
+                    send({ t: 'play', track: ref, positionMs: Math.round(snap.positionMs) });
+                } else if (before.id !== snap.id) toast(T.errors.noLink);
                 return;
             }
             if (jam && snap.id === jam.track.id) {
-                if (before.playing !== snap.playing && snap.playing === jam.paused) {
+                if (snap.playing === jam.paused && (before.playing !== snap.playing || pauseMismatch >= 3)) {
+                    pauseMismatch = 0;
                     send({ t: snap.playing ? 'resume' : 'pause' });
                     return;
                 }
@@ -314,6 +330,9 @@ export function installJam(core: JamCore): JamSection {
                 state = null;
                 you = '';
                 last = null;
+                staleId = 0;
+                sentId = 0;
+                pauseMismatch = 0;
                 if (event.reason) message = errorText(event.reason);
             } else if (status === 'open') message = '';
         } else if (event.type === 'state') {

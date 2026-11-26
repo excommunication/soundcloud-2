@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('islandAPI', {
     drag: (phase: 'start' | 'end') => ipcRenderer.send('island:drag', phase),
     shape: (rect: { x: number; y: number; width: number; height: number; radius: number }) => ipcRenderer.send('island:shape', rect),
     volume: (value?: number | 'mute'): Promise<number> => ipcRenderer.invoke('island:volume', value),
+    seek: (fraction: number) => ipcRenderer.send('island:seek', fraction),
     onState: (listener: (state: unknown) => void) => {
         ipcRenderer.on('island:state', (_event, state: unknown) => listener(state));
     },

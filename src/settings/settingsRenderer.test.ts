@@ -87,7 +87,7 @@ it('блоки главной переключаются сразу, язык с
     const language = document.getElementById('siteLanguage') as HTMLSelectElement;
     expect(language.value).toBe('en');
     expect(language.closest('section')?.id).toBe('general');
-    expect(document.querySelector('#siteLanguageList')).not.toBeNull();
+    expect(language.closest('.segmented')).not.toBeNull();
     expect(document.getElementById('networkNotice')?.hidden).toBe(true);
     // Имя аккаунта по умолчанию переводится, ник с сайта нет
     const accountNames = (): string[] => [...document.querySelectorAll('#accountSelector option')].map((option) => option.textContent ?? '');
@@ -140,7 +140,8 @@ it('переводит панель на английский и обратно 
     const artists = document.getElementById('waveExcludedArtists') as HTMLElement;
     await vi.waitFor(() => expect(artists.querySelector('button')?.textContent).toBe('Вернуть'));
     expect(document.documentElement.lang).toBe('ru');
-    const gpu = document.getElementById('gpuCompatibilityMode')?.parentElement?.querySelector('.dropdown-label') as HTMLElement;
+    const gpuGroup = document.getElementById('gpuCompatibilityMode')?.closest('.segmented') as HTMLElement;
+    const gpu = { get textContent() { return gpuGroup.querySelector('.segment[aria-checked="true"]')?.textContent; } };
     expect(gpu.textContent).toBe('Автоматически');
 
     const language = document.getElementById('siteLanguage') as HTMLSelectElement;
@@ -399,7 +400,7 @@ it('вкладки: у каждого раздела есть кнопка, эл
     expect(shelf('[data-fx="keepFramesUnfocused"]')).toBe('optimize');
     expect(shelf('[data-fx="beat"]')).toBe('appearance');
     expect(shelf('#jamServer')).toBe('jam');
-    expect(shelf('#proxyEnabled')).toBe('advanced');
+    expect(shelf('#proxyEnabled')).toBe('proxy');
     // Все id из разметки уникальны, ни один элемент не вне панелей и подвала
     const ids = [...document.querySelectorAll('[id]')].map((element) => element.id);
     expect(new Set(ids).size).toBe(ids.length);

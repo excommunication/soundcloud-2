@@ -197,20 +197,34 @@ h1 {
     scrollbar-color: var(--film-strong) transparent;
 }
 h2 {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-    padding: 10px 8px 12px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--text-primary);
+    padding: 8px 8px 10px;
 }
 
+/* Строка: подпись слева тянется, поле справа своей ширины. Когда места на обе части не хватает,
+   поле переходит под подпись целиком, а не сжимает её в столбик */
 .row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    min-height: 40px;
+    gap: 8px 16px;
+    min-height: 44px;
     padding: 8px;
     border-radius: 6px;
+}
+.row > .text {
+    flex: 1 1 200px;
+}
+.row > :not(.text) {
+    flex: 0 0 auto;
+    max-width: 100%;
+}
+.row > .hint.text {
+    margin-top: 0;
 }
 label.row {
     cursor: pointer;
@@ -235,7 +249,8 @@ label.row:hover {
     margin-top: 2px;
 }
 .hint.pad {
-    padding: 0 8px;
+    padding: 2px 8px 6px;
+    line-height: 1.45;
 }
 .hint:empty {
     display: none;
@@ -245,15 +260,31 @@ label.row:hover {
     padding-left: 6px;
     border-left: 1px solid var(--border);
 }
-/* Подзаголовок группы внутри раздела */
+/* Подзаголовок группы внутри раздела: мелкие заглавные над тонкой линией, не путается с подписью строки */
 .group {
-    font-size: 12px;
-    color: var(--text-secondary);
-    padding: 14px 8px 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 6px 8px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
 }
-.row .dropdown {
-    flex: none;
-    width: 140px;
+.group::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+h2 + .group,
+.hint.pad + .group {
+    margin-top: 4px;
+}
+.row > .dropdown {
+    width: 200px;
 }
 /* Радар: поле времени шириной со списком, у часового пояса длинные названия */
 .row .input.time {
@@ -261,8 +292,15 @@ label.row:hover {
     width: 140px;
     color-scheme: dark;
 }
-.row .dropdown:has(#radarZone) {
-    width: 220px;
+.row > .dropdown:has(#radarZone) {
+    width: 240px;
+}
+.row > .input.wide {
+    flex: 1 1 220px;
+    width: auto;
+}
+.row > .input.port {
+    width: 96px;
 }
 /* Резервная копия: две кнопки в строке и сводка перед восстановлением */
 .backup-actions {
@@ -487,8 +525,66 @@ label.row:hover {
     width: 64px;
     text-align: right;
 }
+/* Системное раскрытие select (если свой список не подключился) тоже тёмное и читаемое */
+select,
+.input {
+    color-scheme: dark;
+}
 select.input {
     cursor: pointer;
+}
+select option,
+select optgroup {
+    background: #14161d;
+    color: #eeeeee;
+}
+
+/* Ряд кнопок-таблеток вместо короткого select: выбранная подсвечена, остальные тише */
+.segmented {
+    position: relative;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.045);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+.segment {
+    min-height: 28px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 20px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms, color 120ms;
+}
+.segment:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.075);
+    color: var(--text-primary);
+}
+.segment[aria-checked='true'] {
+    background: #fff;
+    color: #0b0c10;
+    font-weight: 600;
+}
+.segment[aria-checked='true']:hover:not(:disabled) {
+    background: #fff;
+    color: #0b0c10;
+}
+.segment:disabled {
+    cursor: default;
+}
+.segmented.disabled {
+    opacity: 0.6;
+}
+.segment:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
 }
 .controls {
     display: flex;

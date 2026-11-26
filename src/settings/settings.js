@@ -61,10 +61,10 @@ async function initializeSettings() {
     for (const link of document.querySelectorAll('[data-goto]')) {
         link.addEventListener('click', () => navButtons.find((button) => button.dataset.target === link.dataset.goto)?.click());
     }
-    // Включённые прокси или вебхук легко забыть, поэтому у раздела точка
+    // Включённые прокси или вебхук легко забыть, поэтому у их раздела точка
     function updateAdvancedMarker() {
-        const active = document.getElementById('proxyEnabled').checked || document.getElementById('webhookEnabled').checked;
-        document.getElementById('advancedNav').classList.toggle('has-active', active);
+        document.getElementById('proxyNav').classList.toggle('has-active', document.getElementById('proxyEnabled').checked);
+        document.getElementById('advancedNav').classList.toggle('has-active', document.getElementById('webhookEnabled').checked);
     }
     updateAdvancedMarker();
 
@@ -170,6 +170,83 @@ async function initializeSettings() {
         .then(renderUpdateState)
         .catch((error) => console.error('Не удалось получить состояние обновлений:', error));
 
+    // Значение select ставит и код (renderIsland, paintAppearance, ответы main) без события change:
+    // свойства экземпляра пропускают запись к настоящему select и сразу перерисовывают его замену
+    function watchSelect(select, sync) {
+        for (const name of ['value', 'selectedIndex', 'disabled']) {
+            const base = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, name);
+            if (!base?.get || !base.set) continue;
+            Object.defineProperty(select, name, {
+                configurable: true,
+                get() {
+                    return base.get.call(this);
+                },
+                set(next) {
+                    base.set.call(this, next);
+                    sync();
+                },
+            });
+        }
+        // Варианты заполняются асинхронно и переводятся на месте: подписи повторяют их текст
+        new MutationObserver(sync).observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled'] });
+    }
+
+    // Короткий список вариантов: ряд кнопок-таблеток вместо выпадающего списка. Скрытый select хранит значение,
+    // его data-атрибуты и событие change, поэтому обработчики разделов не меняются
+    function segmentSelect(select) {
+        const group = document.createElement('div');
+        group.className = 'segmented';
+        group.setAttribute('role', 'radiogroup');
+        group.setAttribute('aria-label', select.getAttribute('aria-label') || '');
+        select.parentNode.insertBefore(group, select);
+        group.appendChild(select);
+        select.classList.add('native-select');
+        select.tabIndex = -1;
+        select.setAttribute('aria-hidden', 'true');
+
+        const choose = (index) => {
+            if (select.disabled || index < 0 || index >= select.options.length) return;
+            if (index !== select.selectedIndex) {
+                select.selectedIndex = index;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            buttons[index]?.focus();
+        };
+        const buttons = [...select.options].map((option, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'segment';
+            button.setAttribute('role', 'radio');
+            // Текст кнопки повторяет option, переводится только он
+            button.setAttribute('data-no-i18n', '');
+            button.dataset.value = option.value;
+            button.addEventListener('click', () => choose(index));
+            group.appendChild(button);
+            return button;
+        });
+        group.addEventListener('keydown', (event) => {
+            const count = buttons.length;
+            const at = select.selectedIndex < 0 ? 0 : select.selectedIndex;
+            const next = { ArrowLeft: at - 1, ArrowUp: at - 1, ArrowRight: at + 1, ArrowDown: at + 1, Home: 0, End: count - 1 }[event.key];
+            if (next === undefined) return;
+            event.preventDefault();
+            choose((next + count) % count);
+        });
+        const sync = () => {
+            buttons.forEach((button, index) => {
+                const option = select.options[index];
+                if (option && button.textContent !== option.textContent) button.textContent = option.textContent;
+                const on = index === select.selectedIndex;
+                button.setAttribute('aria-checked', String(on));
+                button.tabIndex = on || (select.selectedIndex < 0 && index === 0) ? 0 : -1;
+                button.disabled = select.disabled;
+            });
+            group.classList.toggle('disabled', select.disabled);
+        };
+        watchSelect(select, sync);
+        sync();
+    }
+
     // Свой выпадающий список поверх скрытого select: значение и событие change остаются у select
     function enhanceSelect(select) {
         const wrap = document.createElement('div');
@@ -213,7 +290,7 @@ async function initializeSettings() {
         const sync = () => {
             const selected = select.options[select.selectedIndex];
             label.textContent = selected ? selected.textContent : '';
-            button.disabled = select.options.length === 0;
+            button.disabled = select.options.length === 0 || select.disabled;
         };
         const highlight = (index) => {
             activeIndex = index;
@@ -275,8 +352,7 @@ async function initializeSettings() {
                 close();
             }
         });
-        // Списки заполняются асинхронно: подпись обновляется при смене вариантов
-        new MutationObserver(sync).observe(select, { childList: true, subtree: true, characterData: true });
+        watchSelect(select, sync);
         sync();
     }
     // Радар релизов: день и время слота в выбранной зоне. main проверяет значение и пересчитывает расписание
@@ -306,10 +382,12 @@ async function initializeSettings() {
         ipcRenderer.send('setting-changed', { key: 'radarTime', value: radarTime.value });
     });
 
-    for (const id of ['accountSelector', 'siteLanguage', 'gpuCompatibilityMode', 'radarDay', 'radarZone', 'crossfadeSeconds']) {
+    // Длинные списки раскрываются своим тёмным списком, короткие (data-segmented) становятся рядом кнопок
+    for (const id of ['accountSelector', 'radarDay', 'radarZone', 'crossfadeSeconds', 'aiProvider']) {
         const select = document.getElementById(id);
         if (select) enhanceSelect(select);
     }
+    for (const select of document.querySelectorAll('select[data-segmented]')) segmentSelect(select);
 
     // Статичные подписи меняются на месте, русский оригинал узла хранится для обратного переключения.
     // Внутри data-no-i18n пользовательские названия, а свои подписи там код рисует через tr()

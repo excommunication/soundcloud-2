@@ -28,11 +28,11 @@
                             <span id="author"></span>
                         </button>
                         <div class="bars big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-                        <button class="hide" data-act="hide" id="hide" aria-label="Скрыть до следующего трека" title="Скрыть до следующего трека"><svg viewBox="0 0 16 16"><path d="M2 8s2.3-4 6-4 6 4 6 4-2.3 4-6 4-6-4-6-4zM3 13 13 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+                        <button class="hide" data-act="hide" id="hide" aria-label="Скрыть до следующего трека" title="Скрыть до следующего трека"><svg viewBox="0 0 16 16"><path d="M2 8s2.3-4 6-4 6 4 6 4-2.3 4-6 4-6-4-6-4zM3 13 13 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg><span id="hide-label">Скрыть</span></button>
                     </div>
                     <div class="progress">
                         <span id="elapsed">0:00</span>
-                        <div class="track"><div class="fill" id="fill"></div></div>
+                        <div class="track" id="seek" role="slider" aria-label="Перемотка" tabindex="-1"><div class="fill" id="fill"></div></div>
                         <span id="duration">0:00</span>
                     </div>
                     <div class="volume" id="volume">
@@ -50,6 +50,7 @@
                         </button>
                         <button class="ctl" data-act="next" aria-label="Следующий"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM2 3v10l8.4-5z" /></svg></button>
                         <button class="ctl" data-act="open" aria-label="Открыть SoundCloud 2"><svg viewBox="0 0 16 16"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+                        <button class="ctl" data-act="menu" id="more" aria-label="Ещё"><svg viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="12.5" cy="8" r="1.3" /></svg></button>
                     </div>
                 </section>
             </main>

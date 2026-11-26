@@ -177,6 +177,8 @@ export interface WaveWindow extends Window {
     __scQueue?: () => void;
     /** Громкость для острова: число 0..1 ставит её, 'mute' выключает или возвращает звук; возвращает слышимую 0..1 */
     __scVolume?: (value?: number | 'mute') => number;
+    /** Перемотка играющего трека на долю 0..1: остров ведёт полосу мышью */
+    __scSeek?: (fraction: number) => void;
     // Горячие клавиши волны из main: лайк, «Не сейчас», «Больше такого», «Встряхнуть»
     __scWaveKey?: (action: string) => boolean;
     /** Одно меню трека (wave/menu.ts) для «⋯» нижнего бара (aurora) и режима «Для роликов» */
@@ -859,6 +861,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         if (value === 'mute') volumeSection.toggleMute();
         else if (typeof value === 'number' && Number.isFinite(value)) volumeSection.set(Math.max(0, Math.min(1, value)));
         return volumeSection.level();
+    };
+    host.__scSeek = (fraction) => {
+        const sound = player?.getCurrentSound();
+        const duration = sound ? durationOf(sound) : 0;
+        if (!sound || !(duration > 0) || !Number.isFinite(fraction)) return;
+        seekWatch.note('seek-core');
+        sound.seek(Math.max(0, Math.min(1, fraction)) * duration);
     };
     // Режим «Для роликов»: обложка играющего трека на всё окно, раздел в wave/clip.ts. Кнопка в карточке и в баре
     // Текст для режима роликов (2.10.0): строки со словами во времени считаются один раз на трек
@@ -6130,6 +6139,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         delete host.__scPeople;
         delete host.__scQueue;
         delete host.__scVolume;
+        delete host.__scSeek;
         delete host.__scWaveKey;
         delete host.__scTrackMenu;
         delete host.__scSaveSession;

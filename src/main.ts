@@ -474,12 +474,16 @@ function ensureIsland(): void {
             const level: unknown = await page.executeJavaScript('window.__scVolume ? window.__scVolume(' + argument + ') : -1').catch(() => -1);
             return typeof level === 'number' && Number.isFinite(level) ? level : -1;
         },
+        seek: (fraction) => {
+            const page = contentView?.webContents;
+            if (page && !page.isDestroyed() && Number.isFinite(fraction)) void page.executeJavaScript('window.__scSeek && window.__scSeek(' + JSON.stringify(Math.max(0, Math.min(1, fraction))) + ')').catch(() => undefined);
+        },
         open: (section) => (section === 'island' ? openIslandSettings() : showMainWindow()),
         mainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
         save: (next) => {
             store.set(ISLAND_KEY, next);
             const view = settingsManager?.getView();
-            if (view && !view.webContents.isDestroyed()) view.webContents.send('island-changed', next);
+            if (view && !webContentsGone(view)) view.webContents.send('island-changed', next);
         },
         shaped: gpuInProcess,
     }, islandSettings());

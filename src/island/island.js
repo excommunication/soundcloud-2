@@ -7,8 +7,8 @@
     const api = window.islandAPI || demoApi();
 
     const TEXT = {
-        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость' },
-        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume' },
+        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка' },
+        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek' },
     };
     let state = null;
     let text = TEXT.ru;
@@ -135,6 +135,48 @@
         if (api.volume) void api.volume('mute').then(renderVolume);
     });
 
+
+    // Перемотка: зажать полосу и вести мышью, как в нижнем баре. Доля уходит в main не чаще раза в 80 мс, последняя всегда
+    const seekTrack = $('seek');
+    let seeking = false;
+    let seekSentAt = 0;
+    let seekTimer = 0;
+    function seekAt(event) {
+        const rect = seekTrack.getBoundingClientRect();
+        return rect.width ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) : 0;
+    }
+    function seekTo(fraction, final) {
+        // Полоса и время сразу идут за мышью, не дожидаясь ответа плеера
+        position = { ...position, elapsed: position.duration * fraction, at: Date.now() };
+        renderProgress();
+        clearTimeout(seekTimer);
+        const send = () => {
+            seekSentAt = Date.now();
+            api.seek(fraction);
+        };
+        if (final || Date.now() - seekSentAt >= 80) send();
+        else seekTimer = setTimeout(send, 80);
+    }
+    seekTrack.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || !position.duration) return;
+        event.stopPropagation();
+        seeking = true;
+        island.classList.add('seeking');
+        island.classList.remove('live');
+        seekTrack.setPointerCapture(event.pointerId);
+        seekTo(seekAt(event), false);
+    });
+    seekTrack.addEventListener('pointermove', (event) => seeking && seekTo(seekAt(event), false));
+    const stopSeek = (event) => {
+        if (!seeking) return;
+        seeking = false;
+        island.classList.remove('seeking');
+        seekTo(seekAt(event), true);
+        settleProgress();
+    };
+    seekTrack.addEventListener('pointerup', stopSeek);
+    seekTrack.addEventListener('pointercancel', stopSeek);
+
     // Режим совместимости NVIDIA: окно без прозрачности обрезается по плашке, поэтому main должен знать её размер.
     // Там размер меняется сразу, без пружины: обрезка не успевала бы за анимацией
     let shapeKey = '';
@@ -224,6 +266,11 @@
         $('like').setAttribute('aria-label', text.like);
         $('play').setAttribute('aria-label', track.isPlaying ? text.pause : text.play);
         $('vol-mute').setAttribute('aria-label', text.mute);
+        $('more').setAttribute('aria-label', text.more);
+        $('hide').setAttribute('aria-label', text.hide);
+        $('hide').title = text.hide;
+        $('hide-label').textContent = text.hideShort;
+        $('seek').setAttribute('aria-label', text.seek);
         volumeTrack.setAttribute('aria-label', text.volume);
         for (const button of document.querySelectorAll('[data-act="open"]')) button.setAttribute('aria-label', text.open);
         for (const button of document.querySelectorAll('[data-act="previous"]')) button.setAttribute('aria-label', text.previous);
@@ -232,7 +279,7 @@
         const next = { elapsed: seconds(track.elapsed), duration: seconds(track.duration), at: Date.now(), playing: track.isPlaying === true };
         // Трек сменился или перемотали: без плавного хода, чтобы линия не ехала назад
         if (Math.abs(next.elapsed - position.elapsed - (position.playing ? (next.at - position.at) / 1000 : 0)) > 2.5 || next.duration !== position.duration) settleProgress();
-        position = next;
+        if (!seeking) position = next;
         renderProgress();
         syncTicker();
         snow(state.winter === true && state.reduceMotion !== true);
@@ -308,7 +355,7 @@
     let swallowClick = false;
     island.addEventListener('pointerdown', (event) => {
         // Кнопки тоже могут начать перетаскивание (в раскрытой плашке почти всё кнопки): клик без сдвига остаётся кликом
-        if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('.vol-track'))) return;
+        if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('.vol-track, .track'))) return;
         press = { x: event.screenX, y: event.screenY, id: event.pointerId };
     });
     island.addEventListener('pointermove', (event) => {
@@ -401,6 +448,7 @@
             hover: () => undefined,
             drag: () => undefined,
             shape: () => undefined,
+            seek: () => undefined,
             volume: (value) => {
                 if (value === 'mute') demo.volume = demo.volume ? 0 : 0.6;
                 else if (typeof value === 'number') demo.volume = value;

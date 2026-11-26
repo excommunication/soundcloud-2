@@ -20,6 +20,8 @@ export interface DynamicIslandDeps {
     command(name: 'toggle' | 'next' | 'previous' | 'like'): void;
     /** Громкость страницы: число 0..1 ставит, 'mute' переключает звук, без значения просто читает; -1, если не вышло */
     volume(value?: number | 'mute'): Promise<number>;
+    /** Перемотать играющий трек на долю 0..1 */
+    seek(fraction: number): void;
     /** Показать клиент; section: открыть F1 на этом разделе */
     open(section?: 'island'): void;
     /** Окно клиента: для экрана «где клиент» и для «прятать, пока клиент впереди» */
@@ -88,6 +90,10 @@ export class DynamicIsland {
         ipcMain.removeAllListeners('island:drag');
         ipcMain.removeAllListeners('island:shape');
         ipcMain.removeHandler('island:volume');
+        ipcMain.removeAllListeners('island:seek');
+        ipcMain.on('island:seek', (event, fraction: unknown) => {
+            if (this.owns(event.sender) && typeof fraction === 'number' && Number.isFinite(fraction)) this.deps.seek(Math.max(0, Math.min(1, fraction)));
+        });
         ipcMain.on('island:drag', (event, phase: unknown) => {
             if (!this.owns(event.sender)) return;
             if (phase === 'start') this.startDrag();
@@ -112,7 +118,10 @@ export class DynamicIsland {
             if (!this.owns(event.sender) || this.deps.shaped) return;
             // Над плашкой окно ловит мышь, вне её пропускает насквозь, но продолжает слышать движение
             if (inside === true) this.window!.setIgnoreMouseEvents(false);
-            else this.window!.setIgnoreMouseEvents(true, { forward: true });
+            else {
+                this.window!.setIgnoreMouseEvents(true, { forward: true });
+                this.raise();
+            }
         });
         ipcMain.on('island:act', (event, act: unknown) => {
             if (!this.owns(event.sender) || typeof act !== 'string') return;
@@ -184,7 +193,7 @@ export class DynamicIsland {
         const key = track.url || track.title + '\n' + track.author;
         const changed = key !== this.trackKey;
         this.trackKey = key;
-        if (changed && this.snoozedFor && this.snoozedFor !== key) this.snoozedFor = '';
+        if (this.snoozedFor && this.snoozedFor !== this.snoozeKey()) this.snoozedFor = '';
         if (track.isPlaying || !track.title) this.pausedSince = 0;
         else if (!this.pausedSince) this.pausedSince = Date.now();
         this.armPauseTimer();
@@ -214,7 +223,7 @@ export class DynamicIsland {
     private wanted(): boolean {
         const track = this.deps.track();
         if (!this.settings.enabled || this.disposed || !track.title) return false;
-        if (this.snoozedFor && this.snoozedFor === this.trackKey) return false;
+        if (this.snoozedFor && this.snoozedFor === this.snoozeKey()) return false;
         if (this.settings.hideInApp && this.appFocused) return false;
         if (this.settings.hideWhenPaused && this.pausedSince && Date.now() - this.pausedSince >= PAUSE_HIDE_MS) return false;
         return true;
@@ -386,9 +395,15 @@ export class DynamicIsland {
         return window;
     }
 
+    /** По названию и автору, а не по ссылке: она у трека может появиться позже и «сбросить» скрытие */
+    private snoozeKey(): string {
+        const track = this.deps.track();
+        return track.title + '\n' + track.author;
+    }
+
     /** «Скрыть до следующего трека»: из меню и из кнопки на плашке */
     private hideUntilNext(): void {
-        this.snoozedFor = this.trackKey;
+        this.snoozedFor = this.snoozeKey();
         this.refresh();
     }
 
@@ -404,7 +419,7 @@ export class DynamicIsland {
             { id: 'open', label: en ? 'Open SoundCloud 2' : 'Открыть SoundCloud 2' },
             { id: 'hide', label: en ? 'Hide until next track' : 'Скрыть до следующего трека' },
             ...(this.settings.place ? [{ id: 'reset', label: en ? 'Move back to default spot' : 'Вернуть на место' }] : []),
-            { id: 'fullscreen', label: en ? 'Show in games' : 'Показывать в играх', checked: !this.settings.hideFullscreen },
+            { id: 'fullscreen', label: en ? 'Hide in games and fullscreen' : 'Прятать в играх и во весь экран', checked: this.settings.hideFullscreen },
             { id: 'settings', label: en ? 'Island settings…' : 'Настроить остров…' },
             { separator: true },
             { id: 'off', label: en ? 'Turn off island' : 'Выключить остров', danger: true },
@@ -435,6 +450,8 @@ export class DynamicIsland {
         const menu = this.menuWindow;
         this.menuWindow = null;
         if (menu && !menu.isDestroyed()) menu.destroy();
+        // Окно меню забирало верх: после него остров вставал под окна
+        setTimeout(() => this.raise(), 50);
     }
 
     /** Своё тёмное меню вместо системного (оно стеклянное и не в тон): отдельное окно у курсора, закрывается по потере фокуса */
@@ -487,6 +504,7 @@ export class DynamicIsland {
         this.drag = null;
         ipcMain.removeAllListeners('island:drag');
         ipcMain.removeAllListeners('island:shape');
+        ipcMain.removeAllListeners('island:seek');
         this.setPolling(false);
         this.closeMenu();
         ipcMain.removeHandler('island-menu:items');
