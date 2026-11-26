@@ -168,12 +168,6 @@ const CAP = svgUrl(
         '<path d="M0 1.2H180" stroke="#fff" stroke-opacity=".9" stroke-width="1.2"/></svg>',
 );
 
-// Сугроб на верхней кромке плеера: невысокие бугорки, плитка 120×6
-const RIDGE = svgUrl(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="6" viewBox="0 0 120 6">' +
-        '<path fill="#eef5ff" fill-opacity=".85" d="M0 6V4.2C8 2.6 14 3.8 22 3C30 2.2 36 1.4 46 2.6C56 3.8 62 2 72 1.8C82 1.6 88 3.6 98 3.2C106 2.9 112 2.4 120 4.2V6Z"/></svg>',
-);
-
 // Снежинка у заголовка «Моя волна»
 const FLAKE = svgUrl(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" fill="none" stroke="#dcebff" stroke-width="1.6" stroke-linecap="round">' +
@@ -256,10 +250,7 @@ export function winterPageCss(on: boolean, options: WinterPageOptions): string {
         'html:root body #sc-wave .scw-title{text-shadow:0 0 22px rgba(170,210,255,.32)}',
         // Снежинка после «Моя волна»: в строке, место занимает сама, на текст не ложится
         `html:root body #sc-wave .scw-title::after{content:"";display:inline-block;width:.56em;height:.56em;margin-left:.32em;vertical-align:.32em;pointer-events:none;background:${FLAKE} center/contain no-repeat;filter:drop-shadow(0 0 6px rgba(170,210,255,.6))}`,
-        // Снежок на верхней кромке плеера: бугорки над краем, к бокам сходят на нет
-        'html:root .playControls__inner::after{content:"";position:absolute;left:0;right:0;top:-5px;height:6px;pointer-events:none;' +
-            `background:${RIDGE} 0 0/120px 6px repeat-x;` +
-            '-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}',
+        // Верхняя кромка плеера занята полосой перемотки (2.15.5): снежка на ней больше нет
     );
     return rows.join('\n');
 }

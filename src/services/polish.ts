@@ -93,6 +93,17 @@ function playerBar(): string[] {
         `${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBackground,${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBar{scale:1 1.5}`,
         `${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible,:active) .playbackTimeline__progressHandle,${BAR} .playbackTimeline.is-scrubbing .playbackTimeline__progressHandle{scale:1}`,
         `${BAR} .playbackTimeline__timePassed{color:rgba(255,255,255,.8)!important}`,
+        // Полоса во всю ширину по верхней кромке бара (2.15.5): место в баре освобождается, попасть мышью проще.
+        // Предки делаются static, чтобы полоса считалась от самого бара; время остаётся рядом с кнопками, мелко
+        `${BAR} :is(.playControls__wrapper,.playControls__elements,.playControls__timeline,.playbackTimeline){position:static!important}`,
+        `${BAR} .playControls__inner{position:relative!important}`,
+        `html body .playControls .playControls__elements>.playControls__timeline{flex:0 0 auto!important;min-width:0!important;width:auto!important}`,
+        `${BAR} .playbackTimeline{display:flex!important;align-items:center;gap:6px;width:auto!important}`,
+        `${BAR} .playbackTimeline__progressWrapper{position:absolute!important;left:0!important;right:0!important;top:-8px!important;width:auto!important;height:16px!important;margin:0!important;z-index:6}`,
+        `${BAR} .playbackTimeline__progressBackground,${BAR} .playbackTimeline__progressBar{height:3px!important;margin-top:-1.5px!important;border-radius:0 999px 999px 0!important;transform-origin:50% 50%}`,
+        `${BAR} .playbackTimeline__progressBackground{border-radius:0!important;background:rgba(255,255,255,.12)!important}`,
+        `${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBackground,${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBar,${BAR} .playbackTimeline.is-scrubbing :is(.playbackTimeline__progressBackground,.playbackTimeline__progressBar){scale:1 2}`,
+        `${BAR} .playbackTimeline__timePassed,${BAR} .playbackTimeline__duration{min-width:0!important;width:auto!important;padding:0!important}`,
         // Кнопки справа: без колец и подложек, на наведении мягкая заливка; включённые цветом акцента на тихом круге
         `${ghost.join(',')}{background:transparent!important;box-shadow:none!important;border:0!important;color:rgba(255,255,255,.68)!important}`,
         `${hover}{background:rgba(255,255,255,.1)!important;color:#fff!important}`,
