@@ -135,9 +135,31 @@
         if (api.volume) void api.volume('mute').then(renderVolume);
     });
 
+    // Режим совместимости NVIDIA: окно без прозрачности обрезается по плашке, поэтому main должен знать её размер.
+    // Там размер меняется сразу, без пружины: обрезка не успевала бы за анимацией
+    let shapeKey = '';
+    function reportShape() {
+        if (!state?.shaped || !api.shape) return;
+        requestAnimationFrame(() => {
+            const rect = island.getBoundingClientRect();
+            const radius = parseFloat(window.getComputedStyle(island).borderTopLeftRadius) || 0;
+            const shape = { x: rect.left, y: rect.top, width: rect.width, height: rect.height, radius };
+            const key = JSON.stringify(shape);
+            if (key === shapeKey) return;
+            shapeKey = key;
+            api.shape(shape);
+        });
+    }
+    window.addEventListener('resize', () => {
+        shapeKey = '';
+        reportShape();
+    });
+
     function setExpanded(on) {
+        if (on && dragging) return;
         if (on && !expanded()) readVolume();
         island.dataset.state = on ? 'expanded' : 'compact';
+        reportShape();
         island.querySelector('.compact').setAttribute('aria-hidden', String(on));
         island.querySelector('.expanded').setAttribute('aria-hidden', String(!on));
         renderProgress();
@@ -167,6 +189,7 @@
         root.classList.toggle('playing', track.isPlaying === true);
         root.classList.toggle('reduce-motion', state.reduceMotion === true);
         root.classList.toggle('winter', state.winter === true);
+        root.classList.toggle('shaped', state.shaped === true);
         const art = artUrl(track.artwork);
         for (const id of ['art-sm', 'art-lg']) $(id).style.backgroundImage = art ? 'url("' + art.replace(/"/g, '%22') + '")' : '';
         pickAccent(art);
@@ -186,6 +209,7 @@
         renderProgress();
         syncTicker();
         snow(state.winter === true && state.reduceMotion !== true);
+        reportShape();
     }
 
     // Прогресс тикает сам между обновлениями из main, но только пока плашка раскрыта и трек играет
@@ -238,9 +262,44 @@
             scheduleCollapse(380);
         }
     }
-    document.addEventListener('mousemove', (event) => setHovered(inside(event)));
+    // Перетаскивание: зажать плашку и повести дальше 5 px. Окно двигает main за курсором, страница говорит только
+    // «началось» и «отпустили». Кнопки, ползунок громкости и клик без сдвига работают как обычно
+    let press = null;
+    let dragging = false;
+    let swallowClick = false;
+    island.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('button, .vol-track'))) return;
+        press = { x: event.screenX, y: event.screenY, id: event.pointerId };
+    });
+    island.addEventListener('pointermove', (event) => {
+        if (!press || dragging || event.pointerId !== press.id) return;
+        if (Math.hypot(event.screenX - press.x, event.screenY - press.y) < 5) return;
+        dragging = true;
+        clearTimeout(expandTimer);
+        island.setPointerCapture(event.pointerId);
+        island.classList.add('dragging');
+        setExpanded(false);
+        api.drag('start');
+    });
+    const release = (event) => {
+        if (!press || event.pointerId !== press.id) return;
+        press = null;
+        if (!dragging) return;
+        dragging = false;
+        swallowClick = true;
+        island.classList.remove('dragging');
+        api.drag('end');
+        setTimeout(() => {
+            swallowClick = false;
+        }, 0);
+    };
+    island.addEventListener('pointerup', release);
+    island.addEventListener('pointercancel', release);
+
+    document.addEventListener('mousemove', (event) => !dragging && setHovered(inside(event)));
     document.addEventListener('mouseleave', () => setHovered(false));
     document.addEventListener('click', (event) => {
+        if (swallowClick) return;
         const target = event.target instanceof window.Element ? event.target.closest('[data-act]') : null;
         if (target && expanded()) {
             api.act(target.dataset.act);
@@ -300,6 +359,8 @@
                 listeners.forEach((listener) => listener(demo));
             },
             hover: () => undefined,
+            drag: () => undefined,
+            shape: () => undefined,
             volume: (value) => {
                 if (value === 'mute') demo.volume = demo.volume ? 0 : 0.6;
                 else if (typeof value === 'number') demo.volume = value;

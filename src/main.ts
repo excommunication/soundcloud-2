@@ -440,8 +440,9 @@ function showMainWindow(): void {
     adjustContentViews();
 }
 
-// Остров только на Windows и не в режиме совместимости NVIDIA: там отдельные прозрачные окна рядом с главным падают
-const islandAvailable = (): boolean => process.platform === 'win32' && !gpuInProcess;
+// Остров на Windows. В режиме совместимости NVIDIA нет DirectComposition и прозрачных окон: там окно острова
+// непрозрачное и обрезано по форме плашки
+const islandAvailable = (): boolean => process.platform === 'win32';
 function islandSettings() {
     return normalizeIsland(store.get(ISLAND_KEY));
 }
@@ -474,13 +475,12 @@ function ensureIsland(): void {
         },
         open: (section) => (section === 'island' ? openIslandSettings() : showMainWindow()),
         mainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
-        disable: () => {
-            const next = { ...islandSettings(), enabled: false };
+        save: (next) => {
             store.set(ISLAND_KEY, next);
-            island?.configure(next);
             const view = settingsManager?.getView();
             if (view && !view.webContents.isDestroyed()) view.webContents.send('island-changed', next);
         },
+        shaped: gpuInProcess,
     }, islandSettings());
 }
 

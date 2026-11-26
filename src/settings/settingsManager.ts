@@ -96,8 +96,8 @@ export class SettingsManager {
                 appearance: normalizeAppearance(this.store.get('appearance')),
                 winterTheme: winterEnabled(this.store.get(WINTER_KEY), new Date()),
                 island: normalizeIsland(this.store.get(ISLAND_KEY)),
-                // Остров только на Windows и без режима совместимости NVIDIA
-                islandAvailable: process.platform === 'win32' && this.gpuRuntime?.active !== true,
+                // Остров только на Windows
+                islandAvailable: process.platform === 'win32',
                 gpuRuntime: this.gpuRuntime,
                 siteState: this.siteState,
             };

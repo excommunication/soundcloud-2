@@ -101,18 +101,18 @@ export function installDownload(core: DownloadCore): DownloadSection {
         '.scw-dl-art{position:relative;width:44px;height:44px;border-radius:9px;background:linear-gradient(135deg,#3a3d4a,#20222b);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}',
         '.scw-dl-art img{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover}',
         '.scw-dl-art>svg{position:absolute;inset:12px;width:20px;height:20px;fill:rgba(255,255,255,.4)}',
-        // Логотип установщика (setup/Setup.cs) поверх обложки, пока идёт скачивание: облако из 19 рёбрышек по 1px со свечением (тоньше в 44px не различить),
-        // рёбрышки загораются слева направо по доле, без доли горят целиком и по ним бежит волна. Готово и сбой его убирают
-        '.scw-dl-logo{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:radial-gradient(80% 70% at 50% 85%,rgba(255,85,0,.3),transparent 70%),rgba(18,18,18,.76);transition:opacity .3s ease}',
-        '.scw-dl-cloud{display:flex;align-items:flex-end;gap:1px;height:22px;margin-top:2px;filter:drop-shadow(0 0 4px rgba(255,85,0,.6));animation:scw-dl-drift 6.3s ease-in-out infinite alternate}',
-        '.scw-dl-cloud i{display:block;width:1px;height:calc(var(--h) * 22px);border-radius:1px;background:#f50;transform-origin:50% 100%;opacity:var(--lit,1);transition:opacity .3s ease;' +
-            'animation:scw-dl-sprout .5s cubic-bezier(.22,1,.36,1) calc(var(--i) * 25ms) backwards,scw-dl-eq 1.3s ease-in-out calc(var(--i) * -110ms) infinite alternate}',
-        '@keyframes scw-dl-sprout{from{scale:1 0}}',
-        '@keyframes scw-dl-eq{from{transform:scaleY(1)}to{transform:scaleY(.72)}}',
-        '@keyframes scw-dl-drift{from{translate:-1.5px 0}to{translate:1.5px 0}}',
+        // Звезда установщика (setup/Setup.cs) поверх обложки, пока идёт скачивание: двенадцать лучей крутятся, по ним бежит
+        // яркая голова. Готово и сбой её убирают, под ней снова обложка и значок итога
+        '.scw-dl-logo{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;background:radial-gradient(70% 70% at 50% 50%,rgba(255,85,0,.28),transparent 70%),rgba(18,18,18,.76);transition:opacity .3s ease}',
+        '.scw-dl-star{position:relative;width:30px;height:30px;filter:drop-shadow(0 0 4px rgba(255,85,0,.65));animation:scw-dl-spin 1.2s linear infinite}',
+        '.scw-dl-star i{position:absolute;inset:0;rotate:calc(var(--i) * 30deg)}',
+        '.scw-dl-star i::before{content:"";position:absolute;left:50%;top:calc(50% - 4.3px - 9px);width:2.2px;height:9px;margin-left:-1.1px;border-radius:1.1px;background:#f50;' +
+            'transform-origin:50% 100%;animation:scw-dl-run .8s linear calc(var(--i) * 66.7ms - .8s) infinite}',
+        '@keyframes scw-dl-spin{to{rotate:360deg}}',
+        '@keyframes scw-dl-run{0%{transform:scaleY(1);opacity:1}55%,100%{transform:scaleY(.42);opacity:.35}}',
         '.scw-dl:not([data-state="working"]) .scw-dl-logo{opacity:0;pointer-events:none}',
         '.scw-dl[data-state="working"] .scw-dl-art>svg{opacity:0}',
-        '.scw-dl:not([data-state="working"]) .scw-dl-cloud,.scw-dl:not([data-state="working"]) .scw-dl-cloud i{animation:none}',
+        '.scw-dl:not([data-state="working"]) .scw-dl-star,.scw-dl:not([data-state="working"]) .scw-dl-star i::before{animation:none}',
         '.scw-dl-badge{position:absolute;right:-5px;bottom:-5px;display:none;place-items:center;width:20px;height:20px;border-radius:50%;box-shadow:0 0 0 2.5px rgba(28,29,35,1)}',
         '.scw-dl-badge svg{width:12px;height:12px;fill:#fff}',
         '.scw-dl[data-state="done"] .scw-dl-badge{display:grid;background:#2fbf71;animation:scw-dl-pop .26s cubic-bezier(.3,1.5,.5,1) both}',
@@ -142,8 +142,8 @@ export function installDownload(core: DownloadCore): DownloadSection {
         '.scw-dl-x:hover{background:rgba(255,255,255,.09);color:#fff}',
         '.scw-dl-x svg{width:14px;height:14px;fill:currentColor}',
         '.scw-dl-live{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}',
-        '@media (prefers-reduced-motion:reduce){.scw-dl,.scw-dl.out,.scw-dl-badge,.scw-dl-cloud,.scw-dl-cloud i{animation:none!important}.scw-dl-logo,.scw-dl-cloud i{transition:none}.scw-dl-bar i{transition:none}.scw-dl-bar.ind i{animation:none;transform:scaleX(.4)}}',
-        'html.scm-reduce .scw-dl,html.scm-reduce .scw-dl.out,html.scm-reduce .scw-dl-badge,html.scm-reduce .scw-dl-cloud,html.scm-reduce .scw-dl-cloud i{animation:none!important}',
+        '@media (prefers-reduced-motion:reduce){.scw-dl,.scw-dl.out,.scw-dl-badge,.scw-dl-star,.scw-dl-star i::before{animation:none!important}.scw-dl-logo{transition:none}.scw-dl-bar i{transition:none}.scw-dl-bar.ind i{animation:none;transform:scaleX(.4)}}',
+        'html.scm-reduce .scw-dl,html.scm-reduce .scw-dl.out,html.scm-reduce .scw-dl-badge,html.scm-reduce .scw-dl-star,html.scm-reduce .scw-dl-star i::before{animation:none!important}',
         'html.scm-reduce .scw-dl-bar.ind i{animation:none;transform:scaleX(.4)}',
     ].join('\n');
     const ICON = {
@@ -207,24 +207,16 @@ export function installDownload(core: DownloadCore): DownloadSection {
             img.addEventListener('error', () => img.remove());
             art.append(img);
         } else art.insertAdjacentHTML('beforeend', ICON.note);
-        // Облако из рёбрышек, как в установщике: высоты по профилю логотипа SoundCloud
-        const CLOUD = [0.3, 0.36, 0.44, 0.4, 0.52, 0.48, 0.6, 0.7, 0.84, 0.94, 0.99, 1.0, 0.98, 0.92, 0.8, 0.74, 0.7, 0.62, 0.48];
+        // Звезда установщика: двенадцать лучей; доля скачивания идёт полоской под названием
         const logo = make('div', 'scw-dl-logo');
         logo.setAttribute('aria-hidden', 'true');
-        const cloud = make('div', 'scw-dl-cloud');
-        const ribs = CLOUD.map((h, i) => {
-            const rib = make('i', '');
-            rib.style.setProperty('--h', String(h));
-            rib.style.setProperty('--i', String(i));
-            cloud.append(rib);
-            return rib;
-        });
-        logo.append(cloud);
-        // Доля известна: рёбрышки слева направо загораются по ходу, погашенное светится на 30%. Нет доли: горят все
-        const light = (share: number | null): void => {
-            const done = share === null ? CLOUD.length : share * CLOUD.length;
-            ribs.forEach((rib, i) => rib.style.setProperty('--lit', String(0.3 + 0.7 * Math.max(0, Math.min(1, done - i)))));
-        };
+        const star = make('div', 'scw-dl-star');
+        for (let i = 0; i < 12; i++) {
+            const ray = make('i', '');
+            ray.style.setProperty('--i', String(i));
+            star.append(ray);
+        }
+        logo.append(star);
         const badge = make('span', 'scw-dl-badge');
         art.append(logo, badge);
         const body = make('div', 'scw-dl-body');
@@ -285,7 +277,6 @@ export function installDownload(core: DownloadCore): DownloadSection {
                 const known = typeof value === 'number' && Number.isFinite(value);
                 progress.classList.toggle('ind', !known);
                 const share = known ? Math.max(0, Math.min(1, value)) : 0;
-                light(known ? share : null);
                 progress.querySelector('i')!.style.transform = known ? 'scaleX(' + share + ')' : '';
                 if (known) progress.setAttribute('aria-valuenow', String(Math.round(share * 100)));
                 else progress.removeAttribute('aria-valuenow');

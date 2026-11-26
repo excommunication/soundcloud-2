@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ISLAND_DEFAULTS, ISLAND_WINDOW, isIslandSettings, islandBounds, normalizeIsland } from './islandSettings';
+import { ISLAND_DEFAULTS, ISLAND_WINDOW, dropPlace, isIslandSettings, islandBounds, normalizeIsland, placedBounds, roundedShape } from './islandSettings';
 import { coversIsland, type ForegroundInfo } from './fullscreenWatch';
 import { validateSettingChange } from '../settings/validateSetting';
 
@@ -55,5 +55,49 @@ describe('полноэкранное окно впереди', () => {
     it('эксклюзивный полный экран DirectX и презентация прячут всегда', () => {
         expect(coversIsland(window({ none: true, notificationState: 3 }), 1)).toBe(true);
         expect(coversIsland(window({ rect: { left: 0, top: 0, right: 10, bottom: 10 }, notificationState: 4 }), 1)).toBe(true);
+    });
+});
+
+describe('перетаскивание и несколько мониторов', () => {
+    const primary = { id: 1, workArea: { x: 0, y: 0, width: 1920, height: 1040 } };
+    const left = { id: 2, workArea: { x: -1280, y: 0, width: 1280, height: 984 } };
+    it('место после перетаскивания хранится от угла своего экрана и переживает F1', () => {
+        const place = { display: 2, x: 300, y: 500 };
+        expect(normalizeIsland({ place }).place).toEqual(place);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, place })).toBe(true);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, place: { display: 2, x: 1e9, y: 0 } })).toBe(false);
+        expect(normalizeIsland({ place: { display: 'two', x: 1, y: 1 } }).place).toBeNull();
+    });
+    it('на своём экране окно встаёт на своё место; пропавший экран возвращает на место по умолчанию', () => {
+        const settings = { ...ISLAND_DEFAULTS, place: { display: 2, x: 300, y: 500 } };
+        expect(placedBounds([primary, left], primary, settings)).toEqual({ display: 2, bounds: { x: -980, y: 500, width: ISLAND_WINDOW.width, height: ISLAND_WINDOW.height } });
+        expect(placedBounds([primary], primary, settings)).toEqual({ display: 1, bounds: islandBounds(primary.workArea, settings) });
+        // Экран стал меньше: окно поджимается внутрь, а не уезжает за край
+        const small = { id: 2, workArea: { x: -1280, y: 0, width: 1280, height: 600 } };
+        const fitted = placedBounds([primary, small], primary, settings).bounds;
+        expect(fitted.y + fitted.height).toBeLessThanOrEqual(600);
+    });
+    it('отпущенное рядом с обычным местом прилипает к нему, на другом экране — своё место', () => {
+        const usual = islandBounds(primary.workArea, ISLAND_DEFAULTS);
+        expect(dropPlace(primary, { ...usual, x: usual.x + 10, y: usual.y + 12 }, primary, ISLAND_DEFAULTS)).toBeNull();
+        expect(dropPlace(primary, { ...usual, x: usual.x + 300 }, primary, ISLAND_DEFAULTS)).toEqual({ display: 1, x: usual.x + 300, y: usual.y });
+        expect(dropPlace(left, { ...usual, x: -900, y: 40 }, primary, ISLAND_DEFAULTS)).toEqual({ display: 2, x: 380, y: 40 });
+    });
+});
+
+describe('форма окна без прозрачности', () => {
+    it('скруглённая плашка: полосы на скруглениях уже середины, вместе покрывают ровно её высоту', () => {
+        const rects = roundedShape({ x: 80, y: 0, width: 280, height: 34 }, 17);
+        const rows = new Set<number>();
+        for (const rect of rects) for (let y = rect.y; y < rect.y + rect.height; y++) rows.add(y);
+        expect(rows.size).toBe(34);
+        const top = rects.find((rect) => rect.y === 0)!;
+        expect(top.x).toBeGreaterThan(80);
+        expect(top.x + top.width).toBeLessThan(360);
+        expect(rects.every((rect) => rect.x >= 80 && rect.x + rect.width <= 360)).toBe(true);
+    });
+    it('радиус больше половины плашки срезается, без радиуса один прямоугольник', () => {
+        expect(roundedShape({ x: 0, y: 0, width: 40, height: 20 }, 0)).toEqual([{ x: 0, y: 0, width: 40, height: 20 }]);
+        expect(roundedShape({ x: 0, y: 0, width: 40, height: 20 }, 99).length).toBe(20);
     });
 });

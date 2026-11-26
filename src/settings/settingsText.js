@@ -1,7 +1,10 @@
 // Английские подписи панели настроек. Ключ это русская строка из settings.html или settings.js
 window.SETTINGS_EN = {
+    'Остров есть только в версии для Windows': 'The island is only available on Windows',
+    'Перетащен на своё место': 'Moved to a custom spot',
+    'Плашку можно таскать мышью на любой экран. Рядом с обычным местом она прилипает обратно': 'Drag the pill to any spot on any screen. Near its usual spot it snaps back',
+    'Вернуть на место': 'Move back',
     'Остров': 'Island',
-    'Остров недоступен в режиме совместимости NVIDIA: в нём отдельные окна рядом с клиентом падают. Режим меняется во вкладке «Оптимизация»': 'The island is unavailable in NVIDIA compatibility mode: separate windows next to the client crash in it. Change the mode in the Optimization tab',
     'Показывать остров': 'Show island',
     'Чёрная плашка сверху экрана, как Dynamic Island у iPhone: что играет, наведи — раскроется управление. Правый клик — меню': 'A black pill at the top of the screen, like the iPhone Dynamic Island: shows what is playing, hover to reveal controls. Right-click for a menu',
     'Где': 'Where',

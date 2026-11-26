@@ -422,11 +422,20 @@ async function initializeSettings() {
         document.getElementById('islandUnavailable').hidden = available;
         for (const input of islandInputs) input.disabled = !available || (input.dataset.island !== 'enabled' && island.enabled !== true);
         document.getElementById('islandFields').classList.toggle('off', !available || island.enabled !== true);
+        document.getElementById('islandPlaced').hidden = !island.place;
+        document.getElementById('islandReset').disabled = !available || island.enabled !== true;
     }
+    document.getElementById('islandReset').addEventListener('click', () => {
+        island = { ...island, place: null };
+        renderIsland();
+        ipcRenderer.send('setting-changed', { key: 'island', value: island });
+    });
     for (const input of islandInputs) {
         input.addEventListener('change', () => {
             const key = input.dataset.island;
             island = { ...island, [key]: input.type === 'checkbox' ? input.checked : key === 'offset' ? Number(input.value) : input.value };
+            // Новое положение, экран или отступ из настроек сильнее перетаскивания: плашка встаёт по ним
+            if (key === 'position' || key === 'display' || key === 'offset') island.place = null;
             renderIsland();
             ipcRenderer.send('setting-changed', { key: 'island', value: island });
         });

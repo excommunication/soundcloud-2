@@ -7,17 +7,8 @@
     const logo = document.getElementById('logo');
     const later = document.getElementById('later');
     const action = document.getElementById('action');
-    // Облако из рёбрышек, как в установщике (setup/Setup.cs): высоты по профилю логотипа
-    const CLOUD = [0.3, 0.36, 0.44, 0.4, 0.52, 0.48, 0.6, 0.7, 0.84, 0.94, 0.99, 1.0, 0.98, 0.92, 0.8, 0.74, 0.7, 0.62, 0.48];
-    const barsBox = document.getElementById('bars');
-    const bars = CLOUD.map((h, i) => {
-        const bar = document.createElement('i');
-        bar.style.setProperty('--h', String(h));
-        bar.style.setProperty('--i', String(i));
-        barsBox.append(bar);
-        return bar;
-    });
-    // Звезда установки: двенадцать лучей, длины повторяются через четыре
+    // Звезда установщика (setup/Setup.cs): двенадцать лучей, длины повторяются через четыре. Крутится, по лучам бежит
+    // яркая голова; так же она выглядит в установщике, пока ставится версия
     const RAYS = [1, 0.62, 0.84, 0.48];
     const raysBox = document.getElementById('rays');
     for (let i = 0; i < 12; i++) {
@@ -26,11 +17,6 @@
         ray.style.setProperty('--l', String(RAYS[i % 4]));
         raysBox.append(ray);
     }
-    // Рёбрышки загораются слева направо по ходу скачивания: погашенное светится на 30%, как в установщике
-    const light = (share) => {
-        const done = share * bars.length;
-        bars.forEach((bar, i) => bar.style.setProperty('--lit', String(0.3 + 0.7 * Math.max(0, Math.min(1, done - i)))));
-    };
     later.addEventListener('click', () => api.later());
     action.addEventListener('click', () => api.action());
     api.onState((state) => {
@@ -51,9 +37,6 @@
         document.body.classList.toggle('done', state.done === true);
         // Сбой проверки: итог без процентов (у «последней версии» и «вышла версия» полоса полная)
         document.body.classList.toggle('failed', state.done === true && percent === 0);
-        // Облако горит целиком на проверке, установке и итоге; на скачивании — по доле
-        const downloading = state.busy !== true && state.installing !== true && state.done !== true;
-        light(downloading ? percent / 100 : 1);
         action.textContent = String(state.action || '');
         action.hidden = !state.action;
     });
