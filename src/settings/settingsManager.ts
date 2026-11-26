@@ -9,6 +9,7 @@ import type { GpuRuntimeState } from '../services/gpuProcessMode';
 import type { SiteState } from '../services/siteModules';
 import { normalizeAppearance } from '../services/aurora';
 import { WINTER_KEY, winterEnabled } from '../services/wave/winter';
+import { ISLAND_KEY, normalizeIsland } from '../island/islandSettings';
 
 const defaults: Record<string, string | number | boolean> = {
     minimizeToTray: false,
@@ -94,6 +95,9 @@ export class SettingsManager {
                 radarZone: this.store.get('radarZone', systemTimeZone()),
                 appearance: normalizeAppearance(this.store.get('appearance')),
                 winterTheme: winterEnabled(this.store.get(WINTER_KEY), new Date()),
+                island: normalizeIsland(this.store.get(ISLAND_KEY)),
+                // Остров только на Windows и без режима совместимости NVIDIA
+                islandAvailable: process.platform === 'win32' && this.gpuRuntime?.active !== true,
                 gpuRuntime: this.gpuRuntime,
                 siteState: this.siteState,
             };

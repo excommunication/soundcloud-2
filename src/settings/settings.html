@@ -31,6 +31,7 @@
                 <nav class="nav-list" aria-label="Разделы настроек">
                     <button data-target="general" aria-current="true">Основные</button>
                     <button data-target="appearance">Оформление</button>
+                    <button data-target="island">Остров</button>
                     <button data-target="wave">Волна</button>
                     <button data-target="jam">Джем</button>
                     <button data-target="optimize">Оптимизация</button>
@@ -176,6 +177,48 @@
                         <label class="row"><span class="text">Лайки</span><span class="toggle"><input type="checkbox" id="homeLikes" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">История прослушивания</span><span class="toggle"><input type="checkbox" id="homeHistory" /><span class="slider"></span></span></label>
                         <label class="row"><span class="text">SoundCloud на телефоне и подвал</span><span class="toggle"><input type="checkbox" id="homeMobile" /><span class="slider"></span></span></label>
+                    </section>
+
+                    <section class="section" id="island" hidden>
+                        <h2>Остров</h2>
+                        <p class="hint pad" id="islandUnavailable" hidden>Остров недоступен в режиме совместимости NVIDIA: в нём отдельные окна рядом с клиентом падают. Режим меняется во вкладке «Оптимизация»</p>
+                        <label class="row"><span class="text"><span>Показывать остров</span><span class="hint">Чёрная плашка сверху экрана, как Dynamic Island у iPhone: что играет, наведи — раскроется управление. Правый клик — меню</span></span><span class="toggle"><input type="checkbox" data-island="enabled" /><span class="slider"></span></span></label>
+                        <div class="island-fields" id="islandFields">
+                            <div class="group">Где</div>
+                            <div class="row">
+                                <span class="text">Положение</span>
+                                <select class="input" data-island="position" aria-label="Положение">
+                                    <option value="left">Слева</option>
+                                    <option value="center">По центру</option>
+                                    <option value="right">Справа</option>
+                                </select>
+                            </div>
+                            <div class="row">
+                                <span class="text">Экран</span>
+                                <select class="input" data-island="display" aria-label="Экран">
+                                    <option value="primary">Основной</option>
+                                    <option value="app">Где окно клиента</option>
+                                </select>
+                            </div>
+                            <div class="row">
+                                <span class="text">Размер</span>
+                                <select class="input" data-island="size" aria-label="Размер">
+                                    <option value="small">Компактный</option>
+                                    <option value="normal">Обычный</option>
+                                    <option value="large">Крупный</option>
+                                </select>
+                            </div>
+                            <div class="row range-row"><span class="text"><span>Отступ сверху</span><span class="hint">Сдвинь ниже, если плашка закрывает вкладки браузера</span></span><input type="range" min="0" max="48" step="2" data-island="offset" aria-label="Отступ сверху" /><output id="islandOffsetOut"></output></div>
+                            <div class="group">Как ведёт себя</div>
+                            <label class="row"><span class="text"><span>Раскрывать при наведении</span><span class="hint">Иначе раскрывается кликом</span></span><span class="toggle"><input type="checkbox" data-island="expandOnHover" /><span class="slider"></span></span></label>
+                            <label class="row"><span class="text"><span>Показывать новый трек</span><span class="hint">При смене трека плашка раскрывается на пару секунд</span></span><span class="toggle"><input type="checkbox" data-island="announceTrack" /><span class="slider"></span></span></label>
+                            <label class="row"><span class="text">Название в свёрнутой плашке</span><span class="toggle"><input type="checkbox" data-island="showTitle" /><span class="slider"></span></span></label>
+                            <div class="group">Когда прятать</div>
+                            <label class="row"><span class="text"><span>В играх и видео во весь экран</span><span class="hint">Плашка уходит, пока на её экране что-то развёрнуто на весь экран</span></span><span class="toggle"><input type="checkbox" data-island="hideFullscreen" /><span class="slider"></span></span></label>
+                            <label class="row"><span class="text"><span>Когда открыт клиент</span><span class="hint">В самом клиенте и так видно, что играет</span></span><span class="toggle"><input type="checkbox" data-island="hideInApp" /><span class="slider"></span></span></label>
+                            <label class="row"><span class="text"><span>На паузе</span><span class="hint">Через 20 секунд паузы</span></span><span class="toggle"><input type="checkbox" data-island="hideWhenPaused" /><span class="slider"></span></span></label>
+                            <p class="hint pad">С новогодней темой в острове идёт снег</p>
+                        </div>
                     </section>
 
                     <section class="section" id="wave" hidden>

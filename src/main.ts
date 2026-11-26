@@ -47,9 +47,11 @@ import { ClipGrant, registerClipIpc } from './ipc/clipIpc';
 import { jamServerOf, registerJamIpc } from './ipc/jamIpc';
 import { JamClient, type JamSocket } from './services/jam/client';
 import { TrayPopup } from './tray/trayPopup';
+import { DynamicIsland } from './island/islandWindow';
+import { ISLAND_KEY, normalizeIsland } from './island/islandSettings';
 import { appearanceCss, auroraScript, normalizeAppearance } from './services/aurora';
 import { effectiveAppearance, effectiveReduceMotion, effectsModeCss, normalizeEffectsMode, type EffectsMode } from './services/effectsMode';
-import { WINTER_KEY, createWinterHeader, winterAwayScript, winterChoice, winterEnabled, winterHeaderCss, winterPageCss, winterPageScript } from './services/wave/winter';
+import { WINTER_KEY, createWinterHeader, winterAwayScript, winterChoice, winterEnabled, winterHeaderCss, winterPageCss, winterPageScript, winterStill, winterStillScript } from './services/wave/winter';
 import type { FetchLike } from './services/vibeSearch';
 import { createRadarScheduler, registerRadarIpc } from './ipc/radarIpc';
 import { registerLibraryIpc } from './ipc/libraryIpc';
@@ -233,6 +235,8 @@ let shortcutService: ShortcutService;
 let tray: Tray | null = null;
 // Меню трея SoundCloud 2 на Windows: своё стеклянное окошко вместо системного меню
 let trayPopup: TrayPopup | null = null;
+// «Остров»: плашка сейчас играющего сверху экрана, как Dynamic Island
+let island: DynamicIsland | null = null;
 let trayMenu: Menu | null = null;
 let isQuitting = false;
 const devMode = process.argv.includes('--dev');
@@ -434,6 +438,50 @@ function showMainWindow(): void {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     revealWindow(mainWindow, pagePainted);
     adjustContentViews();
+}
+
+// Остров только на Windows и не в режиме совместимости NVIDIA: там отдельные прозрачные окна рядом с главным падают
+const islandAvailable = (): boolean => process.platform === 'win32' && !gpuInProcess;
+function islandSettings() {
+    return normalizeIsland(store.get(ISLAND_KEY));
+}
+/** F1 открыт на разделе острова, или открыть его там */
+function openIslandSettings(): void {
+    showMainWindow();
+    if (!settingsManager) return;
+    const view = settingsManager.getView();
+    if (view && !view.webContents.isDestroyed()) view.webContents.send('settings-section', 'island');
+    else settingsManager.toggle('island');
+}
+function ensureIsland(): void {
+    if (!islandAvailable()) return;
+    if (island) {
+        island.watchMain();
+        return;
+    }
+    island = new DynamicIsland({
+        track: () => playback.info,
+        language: () => appLanguage(),
+        winter: () => winterOn(),
+        reduceMotion: () => reduceMotionNow(),
+        command: (name) => void playbackController?.execute(name).catch(console.error),
+        volume: async (value) => {
+            const page = contentView?.webContents;
+            if (!page || page.isDestroyed()) return -1;
+            const argument = value === undefined ? '' : JSON.stringify(value);
+            const level: unknown = await page.executeJavaScript('window.__scVolume ? window.__scVolume(' + argument + ') : -1').catch(() => -1);
+            return typeof level === 'number' && Number.isFinite(level) ? level : -1;
+        },
+        open: (section) => (section === 'island' ? openIslandSettings() : showMainWindow()),
+        mainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+        disable: () => {
+            const next = { ...islandSettings(), enabled: false };
+            store.set(ISLAND_KEY, next);
+            island?.configure(next);
+            const view = settingsManager?.getView();
+            if (view && !view.webContents.isDestroyed()) view.webContents.send('island-changed', next);
+        },
+    }, islandSettings());
 }
 
 // Вход через обычный браузер (services/browserLogin.ts): диалог живёт, пока человек не вошёл или не отменил
@@ -928,10 +976,10 @@ async function init() {
         if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript('window.__scResume?.()').catch(console.error);
         radarScheduler?.wake();
     });
-    powerMonitor.on('lock-screen', () => awayTracker.lock());
-    powerMonitor.on('unlock-screen', () => awayTracker.unlock());
+    powerMonitor.on('lock-screen', () => { awayTracker.lock(); screenLocked = true; applyWinterStill(); });
+    powerMonitor.on('unlock-screen', () => { awayTracker.unlock(); screenLocked = false; applyWinterStill(); });
     clearInterval(awayTimer);
-    awayTimer = setInterval(() => awayTracker.poll(), 60000);
+    awayTimer = setInterval(() => { awayTracker.poll(); applyWinterStill(); }, 60000);
     awayTimer.unref();
 
     // Wait for Widevine CDM to be ready
@@ -952,6 +1000,7 @@ async function init() {
     const work = screen.getPrimaryDisplay().workAreaSize;
     const windowState = windowStateManager({ defaultWidth: Math.min(1440, work.width), defaultHeight: Math.min(1240, work.height) });
     mainWindow = createBrowserWindow(windowState);
+    ensureIsland();
 
     windowState.manage(mainWindow);
     // Смена масштаба Windows, разрешения или отключение монитора: окно, вылезшее за рабочую область, возвращается на экран
@@ -971,6 +1020,7 @@ async function init() {
     const setAppIdle = (idle: boolean): void => {
         if (contentView && !contentView.webContents.isDestroyed()) void contentView.webContents.executeJavaScript(`window.__scAppIdle=${idle};${winterAwayScript(idle)}`).catch(() => undefined);
         if (headerView && !headerView.webContents.isDestroyed()) void headerView.webContents.executeJavaScript(winterAwayScript(idle)).catch(() => undefined);
+        applyWinterStill();
     };
     mainWindow.on('blur', () => setAppIdle(true));
     mainWindow.on('focus', () => setAppIdle(false));
@@ -1223,6 +1273,7 @@ async function init() {
         },
         updateThumbar: (track) => {
             trayPopup?.push();
+            island?.update();
             if (!thumbarService) return;
             thumbarService.updateThumbarButtons(mainWindow, track.isPlaying, track.isLiked);
             thumbarService.updateTrack(mainWindow, track, store.get('trackParserEnabled', true) === true, appTitle);
@@ -1705,6 +1756,11 @@ async function init() {
         }
         store.set(key, data.value);
         if (key === WINTER_KEY) { store.set(WINTER_KEY, winterChoice(data.value === true, new Date())); applyThemeToContent(); } else if (key === 'reduceMotion') applyWinterHeader();
+        if (key === ISLAND_KEY) {
+            ensureIsland();
+            island?.configure(islandSettings());
+        }
+        if (key === WINTER_KEY || key === 'reduceMotion' || key === 'effectsMode' || key === 'siteLanguage') island?.push();
         if (key.startsWith('proxy') || key === 'adBlocker') pending.network = true;
         // Новое расписание может сделать выпуск уже наступившим; повтор недели отсекает хранилище
         if (key === 'radarDay' || key === 'radarTime' || key === 'radarZone') radarScheduler?.wake(5000);
@@ -1824,6 +1880,19 @@ function currentEffectsMode() {
 }
 // Новогодняя тема: сама с 15 декабря по 14 января, выбор из F1 запоминается
 const winterHeader = createWinterHeader();
+// Снег без фокуса идёт редкими кадрами, а на заблокированном экране и в долгом простое системы стоит совсем
+let screenLocked = false;
+function applyWinterStill(): void {
+    if (!contentView || contentView.webContents.isDestroyed()) return;
+    let idle: number;
+    try {
+        idle = powerMonitor.getSystemIdleTime();
+    } catch {
+        idle = 0;
+    }
+    const focused = !!mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused();
+    void contentView.webContents.executeJavaScript(winterStillScript(winterStill(screenLocked, idle, focused))).catch(() => undefined);
+}
 function winterOn(): boolean {
     return winterEnabled(store.get(WINTER_KEY), new Date());
 }
@@ -2022,6 +2091,8 @@ app.on('before-quit', (event) => {
     waveSignals?.flush();
     updateService?.dispose();
     settingsManager?.dispose();
+    island?.dispose();
+    island = null;
     historyManager?.dispose();
     notificationManager?.dispose();
     if (shortcutService) {

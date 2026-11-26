@@ -2,9 +2,11 @@
 // «Моей волны», снежинка у её заголовка, снежок на кромке плеера и лёгкий иней на акцентах. Сама по себе включается
 // с 15 декабря по 14 января (местная дата), выбор человека в F1 запоминается.
 // Производительность: ни одного кадра JS. Снег это три слоя параллакса с точками из radial-gradient, растрируются один
-// раз и едут только transform на компоситоре; гирлянда и сияние меняют только opacity с длинным периодом. Без фокуса
-// окна, на скрытой странице, при «Меньше анимаций», в режимах «Облегчённо»/«Супер лайт» (класс scm-reduce) и при
-// системном reduced motion всё стоит. В режиме «Без эффектов» нет ни снега, ни неба
+// раз и едут только transform на компоситоре; гирлянда и сияние меняют только opacity с длинным периодом. Окно без
+// фокуса, но на виду: снег идёт дальше редкими кадрами (ступенями по WINTER_AWAY_FPS в секунду, без покачивания),
+// сияние и гирлянда стоят. Свёрнутое или скрытое окно, заблокированный экран и долгий простой системы без фокуса: стоит
+// всё. При «Меньше анимаций», в режимах «Облегчённо»/«Супер лайт» (класс scm-reduce) и при системном reduced motion
+// снег лежит неподвижно. В режиме «Без эффектов» нет ни снега, ни неба
 
 export type WinterPreference = 'auto' | 'on' | 'off';
 
@@ -178,10 +180,20 @@ const FLAKE = svgUrl(
         '<g id="a"><path d="M0-10V10M0-6.5l-3-3M0-6.5l3-3M0 6.5l-3 3M0 6.5l3 3"/></g><use href="#a" transform="rotate(60)"/><use href="#a" transform="rotate(120)"/></svg>',
 );
 
+/** Кадров в секунду у снега, пока окно без фокуса: глазу видно, что идёт, а компоситор почти не работает */
+export const WINTER_AWAY_FPS = 12;
+/** Простой системы без фокуса окна, после которого снег встаёт совсем, с */
+export const WINTER_IDLE_SECONDS = 300;
+
+/** Шаги падения слоя без фокуса: одна ступень на кадр при WINTER_AWAY_FPS */
+export function awaySteps(layer: Pick<SnowLayer, 'screen'>): number {
+    return Math.max(1, Math.round((layer.screen / 2) * WINTER_AWAY_FPS));
+}
+
 export type WinterPageOptions = {
     /** Режим эффектов: в «Без эффектов» снега и ночного неба нет */
     mode: string;
-    /** «Не ограничивать кадры, если окно не выбрано»: тогда снег идёт и без фокуса */
+    /** «Не ограничивать кадры, если окно не выбрано»: тогда снег и без фокуса идёт полными кадрами и качается */
     keepFramesUnfocused: boolean;
 };
 
@@ -219,12 +231,18 @@ export function winterPageCss(on: boolean, options: WinterPageOptions): string {
             // Движение только при «Полных эффектах» (scm-reduce ставят и флажок «Меньше анимаций», и лёгкие режимы)
             // и без системного reduced motion; иначе снег лежит неподвижной россыпью, сияние ровное
             '@media (prefers-reduced-motion:no-preference){' + motion + 'html:not(.scm-reduce) #scx-snow::after{animation:scx-aurora 14s ease-in-out infinite alternate}}',
-            // Скрытая страница и окно без фокуса: всё на паузе
-            'html.scx-hidden #scx-snow,html.scx-hidden #scx-snow *' +
-                (options.keepFramesUnfocused ? '' : ',html.scx-away #scx-snow,html.scx-away #scx-snow *') +
-                '{animation-play-state:paused!important}',
-            'html.scx-hidden #scx-snow::after' + (options.keepFramesUnfocused ? '' : ',html.scx-away #scx-snow::after') + '{animation-play-state:paused!important}',
+            // Скрытая или свёрнутая страница, заблокированный экран, долгий простой: всё на паузе
+            'html.scx-hidden #scx-snow,html.scx-hidden #scx-snow *,html.scx-still #scx-snow,html.scx-still #scx-snow *{animation-play-state:paused!important}',
+            'html.scx-hidden #scx-snow::after,html.scx-still #scx-snow::after{animation-play-state:paused!important}',
         );
+        if (!options.keepFramesUnfocused) {
+            rows.push(
+                // Окно без фокуса, но на виду: падение не замирает, а идёт ступенями (steps не сбивает позицию, отстаёт
+                // максимум на одну ступень), компоситор меняет картинку ~12 раз в секунду. Покачивание и сияние стоят
+                SNOW_LAYERS.map((l) => `html.scx-away #scx-snow .${l.cls}{animation-timing-function:steps(${awaySteps(l)})!important}`).join(''),
+                'html.scx-away #scx-snow b,html.scx-away #scx-snow::after{animation-play-state:paused!important}',
+            );
+        }
     }
     const cap = 'html body #sc-wave .scw-body>.scw-info::before';
     rows.push(
@@ -285,9 +303,20 @@ export function winterPageScript(on: boolean): string {
 })()`;
 }
 
-/** Класс «окно без фокуса» для страницы и шапки: снег и мерцание гирлянды на паузе */
+/** Класс «окно без фокуса» для страницы и шапки: снег идёт редкими кадрами, мерцание гирлянды на паузе */
 export function winterAwayScript(away: boolean): string {
     return `document.documentElement.classList.toggle('scx-away', ${away === true})`;
+}
+
+/** Снегу стоять совсем: экран заблокирован или система долго простаивает, пока окно без фокуса */
+export function winterStill(locked: boolean, idleSeconds: number, focused: boolean): boolean {
+    if (locked === true) return true;
+    return focused !== true && Number.isFinite(idleSeconds) && idleSeconds >= WINTER_IDLE_SECONDS;
+}
+
+/** Класс «снег стоит» для страницы */
+export function winterStillScript(still: boolean): string {
+    return `document.documentElement.classList.toggle('scx-still', ${still === true})`;
 }
 
 /** То, что нужно от webContents шапки; без импорта electron, чтобы проверялось в тестах */

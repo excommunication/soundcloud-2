@@ -164,29 +164,21 @@ export function installLikes(core: LikesCore): LikesSection {
             '@media (hover:none){.scl-unlike{opacity:1;transform:none}}' +
             '@media (prefers-reduced-motion:reduce){' + TILE + ',.scl-unlike{transition:none!important;transform:none!important}}' +
             'html.scm-reduce .scl-unlike,html.scm-reduce.' + PAGE + ' .badgeList__item .playableTile{transition:none!important;transform:none!important}' +
-            // Серия: стеклянная таблетка с живым огоньком; погасшая (сегодня ещё без лайка) тусклее и без движения
-            '.scl-streak{display:inline-flex;align-items:center;gap:7px;height:32px;margin-left:14px;padding:0 13px 0 8px;border-radius:999px;cursor:default;white-space:nowrap;' +
-            'font-family:inherit;font-size:13px;font-weight:700;line-height:32px;color:#fff;' +
-            'background:radial-gradient(120% 140% at 15% 50%,rgba(255,110,20,.28),rgba(255,110,20,.06) 60%,rgba(255,255,255,.04));' +
-            'box-shadow:inset 0 0 0 1px rgba(255,150,60,.28),0 6px 24px -10px rgba(255,90,0,.7);vertical-align:middle;transition:box-shadow .3s ease,transform .3s cubic-bezier(.2,.8,.2,1)}' +
-            '.scl-streak:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px rgba(255,170,80,.45),0 10px 30px -10px rgba(255,100,0,.9)}' +
-            '.scl-streak b{font-weight:800;font-size:15px;background:linear-gradient(180deg,#ffe082,#ff9100 70%,#ff5a00);-webkit-background-clip:text;background-clip:text;color:transparent}' +
-            '.scl-streak small{font-size:12px;font-weight:600;color:rgba(255,255,255,.62)}' +
-            '.scl-flame{width:22px;height:22px;overflow:visible;filter:drop-shadow(0 0 6px rgba(255,120,0,.75)) drop-shadow(0 0 2px rgba(255,200,80,.6))}' +
-            '.scl-flame .scl-f1{transform-origin:12px 22px;animation:scl-flicker 1.7s ease-in-out infinite}' +
-            '.scl-flame .scl-f2{transform-origin:12px 22px;animation:scl-core 1.1s ease-in-out infinite alternate}' +
-            '.scl-flame .scl-spark{transform-origin:center;opacity:0;animation:scl-spark 2.4s ease-out infinite}' +
-            '.scl-flame .scl-spark+.scl-spark{animation-delay:1.2s}' +
-            '@keyframes scl-flicker{0%,100%{transform:scale(1,1) skewX(0)}25%{transform:scale(1.04,.96) skewX(-3deg)}50%{transform:scale(.97,1.06) skewX(2deg)}75%{transform:scale(1.02,.98) skewX(-1deg)}}' +
-            '@keyframes scl-core{from{transform:scale(.9,.86);opacity:.85}to{transform:scale(1.05,1.08);opacity:1}}' +
-            '@keyframes scl-spark{0%{opacity:0;transform:translate(0,0) scale(1)}20%{opacity:1}100%{opacity:0;transform:translate(1px,-9px) scale(.3)}}' +
-            // Неделя и больше: огонёк ярче и крупнее
-            '.scl-streak.scl-hot .scl-flame{width:24px;height:24px;filter:drop-shadow(0 0 9px rgba(255,110,0,.95)) drop-shadow(0 0 3px rgba(255,220,120,.8))}' +
-            '.scl-streak.scl-cold{background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}' +
-            '.scl-streak.scl-cold b{background:none;color:rgba(255,255,255,.75)}' +
-            '.scl-streak.scl-cold .scl-flame{filter:grayscale(.85) brightness(.85);opacity:.7}' +
-            '.scl-streak.scl-cold .scl-flame *{animation:none}' +
-            '.scl-streak.scl-wait .scl-spark{display:none}.scl-streak.scl-wait .scl-flame{opacity:.8}' +
+            // Серия: спокойная таблетка в тон интерфейсу. Тонкая кромка, приглушённый фон, однотонный огонёк без свечения.
+            // Огонёк контуром, пока сегодня лайка нет (серый у погасшей серии, оранжевый у ждущей), залитый, когда сегодня
+            // лайк есть; неделя и больше отличается только лёгким оранжевым оттенком кромки и фона
+            '.scl-streak{display:inline-flex;align-items:center;gap:6px;height:28px;margin-left:14px;padding:0 11px 0 9px;border-radius:999px;cursor:default;white-space:nowrap;' +
+            'font-family:inherit;font-size:13px;font-weight:600;line-height:28px;color:#fff;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);' +
+            'vertical-align:middle;transition:background-color .2s ease,box-shadow .2s ease}' +
+            '.scl-streak:hover{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}' +
+            '.scl-streak b{font-size:13px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}' +
+            '.scl-streak small{font-size:12px;font-weight:500;color:rgba(255,255,255,.55)}' +
+            '.scl-flame{flex:none;width:14px;height:14px;color:#ff5500}' +
+            '.scl-flame path{fill:currentColor;stroke:currentColor;stroke-width:2;stroke-linejoin:round}' +
+            '.scl-streak.scl-wait .scl-flame path,.scl-streak.scl-cold .scl-flame path{fill:none}' +
+            '.scl-streak.scl-hot{background:rgba(255,85,0,.07);box-shadow:inset 0 0 0 1px rgba(255,85,0,.24)}' +
+            '.scl-streak.scl-hot:hover{background:rgba(255,85,0,.1);box-shadow:inset 0 0 0 1px rgba(255,85,0,.32)}' +
+            '.scl-streak.scl-cold .scl-flame{color:rgba(255,255,255,.4)}.scl-streak.scl-cold b{color:rgba(255,255,255,.72)}' +
             // История прослушивания в обзоре: свой список вместо плиток сайта, плотная сетка на всю ширину
             '.scl-recent-on>:not(.scl-recent):not(.scl-rc-all):has(.playableTile,.badgeList__item,.sc-artwork){display:none!important}' +
             '.scl-recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin:4px 16px 6px}' +
@@ -208,12 +200,13 @@ export function installLikes(core: LikesCore): LikesSection {
             '@media (hover:none){.scl-rc-play{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.scl-rc,.scl-rc-play{transition:none!important;transform:none!important}}' +
             // В заголовке «Моей волны»: в строку с названием, по его высоте
             '.scw-title:has(.scl-streak){display:flex;align-items:center;gap:12px;flex-wrap:wrap}' +
-            '.scw-title .scl-streak{height:30px;line-height:30px;margin:0;padding:0 12px 0 8px;vertical-align:middle;letter-spacing:0;' +
-            'font:600 12px/30px system-ui,-apple-system,"Segoe UI",sans-serif}' +
-            '.scw-title .scl-streak b{font-size:14px;font-weight:800;line-height:30px}.scw-title .scl-streak small{font-size:12px;font-weight:600;line-height:30px}' +
-            '.scw-title .scl-streak .scl-flame{width:18px;height:18px}.scw-title .scl-streak.scl-hot .scl-flame{width:20px;height:20px}' +
-            '@media (prefers-reduced-motion:reduce){.scl-flame *{animation:none!important}.scl-streak{transition:none}}' +
-            'html.scm-reduce .scl-flame *{animation:none!important}';
+            '.scw-title .scl-streak{height:28px;line-height:28px;margin:0;padding:0 11px 0 9px;vertical-align:middle;letter-spacing:0;text-shadow:none;' +
+            'font:600 12px/28px system-ui,-apple-system,"Segoe UI",sans-serif}' +
+            '.scw-title .scl-streak b{font-size:13px;font-weight:600;line-height:28px}.scw-title .scl-streak small{font-size:12px;font-weight:500;line-height:28px}' +
+            '.scw-title .scl-streak .scl-flame{width:14px;height:14px}' +
+            // Единственное движение: плавная смена фона и кромки на наведении; без неё при reduced motion и в лёгких режимах
+            '@media (prefers-reduced-motion:reduce){.scl-streak{transition:none}}' +
+            'html.scm-reduce .scl-streak{transition:none}';
         document.head.append(style);
     }
     const HEART = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14S2 10.5 2 6.2C2 4.2 3.4 3 5.1 3c1.2 0 2.2.7 2.9 1.7C8.7 3.7 9.7 3 10.9 3 12.6 3 14 4.2 14 6.2 14 10.5 8 14 8 14z"/></svg>';
@@ -223,14 +216,10 @@ export function installLikes(core: LikesCore): LikesSection {
     const OUTLINE =
         '<svg class="scl-back" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14S2 10.5 2 6.2C2 4.2 3.4 3 5.1 3c1.2 0 2.2.7 2.9 1.7C8.7 3.7 9.7 3 10.9 3 12.6 3 14 4.2 14 6.2 14 10.5 8 14 8 14zm0-1.8c2.6-1.8 4.6-4 4.6-6 0-1.3-.8-1.9-1.7-1.9-.8 0-1.5.5-2 1.3L8 6.9 7.1 5.6c-.5-.8-1.2-1.3-2-1.3-.9 0-1.7.6-1.7 1.9 0 2 2 4.2 4.6 6z"/></svg>';
     const label = (gone: boolean): string => (gone ? (ru ? 'Вернуть в лайки' : 'Like again') : ru ? 'Убрать из лайков' : 'Remove from likes');
-    // Огонёк: внешнее пламя колышется от основания, сердцевина дышит, две искры улетают вверх
+    // Огонёк: один однотонный контур, цвет и заливку задаёт CSS по состоянию серии
     const FLAME =
-        '<svg class="scl-flame" viewBox="0 0 24 24" aria-hidden="true"><defs>' +
-        '<linearGradient id="scl-fg1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff3d00"/><stop offset=".55" stop-color="#ff8a00"/><stop offset="1" stop-color="#ffd54f"/></linearGradient>' +
-        '<linearGradient id="scl-fg2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffb300"/><stop offset="1" stop-color="#fff8d6"/></linearGradient></defs>' +
-        '<path class="scl-f1" fill="url(#scl-fg1)" d="M12 2c.6 3.2 2.6 4.9 4.3 6.9C18 10.9 19 13 19 15.3 19 19.2 15.9 22 12 22s-7-2.8-7-6.7c0-2.4 1.2-4.4 2.7-5.8.2 1.6.9 2.8 2.1 3.5C9.6 9.6 10.2 5.3 12 2z"/>' +
-        '<path class="scl-f2" fill="url(#scl-fg2)" d="M12 11.5c.4 1.9 1.7 2.9 2.6 4 .6.8 1 1.6 1 2.5 0 2.1-1.6 3.6-3.6 3.6s-3.6-1.5-3.6-3.6c0-1.3.6-2.4 1.5-3.2.1.9.5 1.5 1.2 1.9-.2-1.8.1-3.6.9-5.2z"/>' +
-        '<circle class="scl-spark" cx="15.5" cy="6" r="1" fill="#ffd54f"/><circle class="scl-spark" cx="8.5" cy="8" r=".8" fill="#ffab40"/></svg>';
+        '<svg class="scl-flame" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M12 2c.6 3.2 2.6 4.9 4.3 6.9C18 10.9 19 13 19 15.3 19 19.2 15.9 22 12 22s-7-2.8-7-6.7c0-2.4 1.2-4.4 2.7-5.8.2 1.6.9 2.8 2.1 3.5C9.6 9.6 10.2 5.3 12 2z"/></svg>';
     const dayWord = (n: number): string => (ru ? plural(n, 'день', 'дня', 'дней') : n + (n === 1 ? ' day' : ' days'));
     // Таблетка серии у заголовка «Слушай лайкнутые треки»: число дней, огонёк, рекорд и подсказка во всплывающем
     function streakPill(): void {

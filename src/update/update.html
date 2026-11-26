@@ -7,12 +7,12 @@
     </head>
     <body>
         <main class="card" aria-live="polite">
-            <div class="ring" id="ring" role="progressbar" aria-labelledby="title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
-                    <circle class="track" cx="60" cy="60" r="54" />
-                    <circle class="arc" id="arc" cx="60" cy="60" r="54" />
-                </svg>
-                <div class="logo" aria-hidden="true"><div class="bars" id="bars"></div></div>
+            <div class="logo" id="logo" role="progressbar" aria-labelledby="title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="scene" aria-hidden="true">
+                    <div class="cloud" id="bars"></div>
+                    <div class="star"><div class="spin" id="rays"></div></div>
+                </div>
+                <div class="mark" aria-hidden="true">SoundCloud<b>2</b></div>
             </div>
             <div class="body">
                 <h1 id="title"></h1>

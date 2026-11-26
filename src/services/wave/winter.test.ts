@@ -1,6 +1,22 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { SNOW_LAYERS, createWinterHeader, inWinterSeason, normalizeWinterPreference, winterChoice, winterEnabled, winterHeaderCss, winterPageCss, winterPageScript } from './winter';
+import {
+    SNOW_LAYERS,
+    WINTER_AWAY_FPS,
+    WINTER_IDLE_SECONDS,
+    awaySteps,
+    createWinterHeader,
+    inWinterSeason,
+    normalizeWinterPreference,
+    winterAwayScript,
+    winterChoice,
+    winterEnabled,
+    winterHeaderCss,
+    winterPageCss,
+    winterPageScript,
+    winterStill,
+    winterStillScript,
+} from './winter';
 import { validateSettingChange } from '../../settings/validateSetting';
 
 const day = (month: number, date: number, hour = 12) => new Date(2026, month - 1, date, hour);
@@ -76,13 +92,57 @@ describe('оформление', () => {
         expect(winterPageScript(false)).toContain('remove()');
     });
 
-    it('снег двигается только transform, только при полных эффектах и без reduced motion, на паузе без фокуса', () => {
+    it('снег двигается только transform, только при полных эффектах и без reduced motion', () => {
         const css = winterPageCss(true, opts);
         expect(css).toContain('pointer-events:none');
         expect(css).toMatch(/@media \(prefers-reduced-motion:no-preference\)\{html:not\(\.scm-reduce\) #scx-snow/);
-        expect(css).toContain('html.scx-away #scx-snow *');
         for (const frames of css.match(/@keyframes[^{]+\{[^}]*\{[^}]*\}\}/g) ?? []) expect(frames).toMatch(/\{transform:[^}]+\}\}$/);
+    });
+
+    it('без фокуса снег не замирает, а падает ступенями ~12 к/с; покачивание и сияние стоят', () => {
+        const css = winterPageCss(true, opts);
+        expect(WINTER_AWAY_FPS).toBeGreaterThanOrEqual(10);
+        expect(WINTER_AWAY_FPS).toBeLessThanOrEqual(15);
+        for (const l of SNOW_LAYERS) {
+            const steps = awaySteps(l);
+            // Одна ступень на кадр: длительность падения слоя × кадры в секунду
+            expect(steps).toBe(Math.round((l.screen / 2) * WINTER_AWAY_FPS));
+            expect(css).toContain(`html.scx-away #scx-snow .${l.cls}{animation-timing-function:steps(${steps})!important}`);
+        }
+        // Падение (слои .l1–.l3) без фокуса на паузу не ставится
+        const paused = css.match(/[^{}]*\{animation-play-state:paused!important\}/g) ?? [];
+        const awayPaused = paused.flatMap((rule) => rule.replace(/\{.*$/, '').split(',')).map((sel) => sel.trim()).filter((sel) => sel.includes('scx-away'));
+        expect(awayPaused.sort()).toEqual(['html.scx-away #scx-snow b', 'html.scx-away #scx-snow::after'].sort());
+        // «Не ограничивать кадры»: без фокуса всё идёт как с фокусом
         expect(winterPageCss(true, { ...opts, keepFramesUnfocused: true })).not.toContain('scx-away');
+    });
+
+    it('свёрнутое или скрытое окно, заблокированный экран и долгий простой: стоит всё, при любом флажке', () => {
+        for (const keepFramesUnfocused of [false, true]) {
+            const css = winterPageCss(true, { ...opts, keepFramesUnfocused });
+            for (const cls of ['scx-hidden', 'scx-still']) {
+                expect(css).toMatch(new RegExp(`html\\.${cls} #scx-snow \\*[^{]*\\{animation-play-state:paused!important\\}`));
+                expect(css).toMatch(new RegExp(`html\\.${cls} #scx-snow::after[^{]*\\{animation-play-state:paused!important\\}`));
+            }
+        }
+    });
+
+    it('снег стоит совсем только при блокировке или долгом простое без фокуса', () => {
+        expect(winterStill(true, 0, true)).toBe(true);
+        expect(winterStill(false, WINTER_IDLE_SECONDS, false)).toBe(true);
+        expect(winterStill(false, WINTER_IDLE_SECONDS - 1, false)).toBe(false);
+        // Человек смотрит на снег, ничего не трогая: окно в фокусе, снег идёт
+        expect(winterStill(false, WINTER_IDLE_SECONDS * 10, true)).toBe(false);
+        expect(winterStill(false, Number.NaN, false)).toBe(false);
+        document.documentElement.className = '';
+        new Function(winterStillScript(true))();
+        expect(document.documentElement.classList.contains('scx-still')).toBe(true);
+        new Function(winterStillScript(false))();
+        expect(document.documentElement.classList.contains('scx-still')).toBe(false);
+        new Function(winterAwayScript(true))();
+        expect(document.documentElement.classList.contains('scx-away')).toBe(true);
+        new Function(winterAwayScript(false))();
+        expect(document.documentElement.classList.contains('scx-away')).toBe(false);
     });
 
     it('«Без эффектов»: ни снега, ни неба, шапка карточки и иней остаются', () => {

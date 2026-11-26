@@ -912,3 +912,7 @@ input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 input[type='range']:active::-webkit-slider-thumb { transform: scale(1.15); }
 .reduce-motion .fx-prev { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fx-prev, body.visible .dialog, .section.active { animation: none; } }
+
+/* Остров выключен: его настройки видны, но притушены */
+.island-fields { transition: opacity 160ms ease; }
+.island-fields.off { opacity: 0.45; }

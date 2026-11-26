@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:" />
+        <link rel="stylesheet" href="island.css" />
+        <script src="island.js" defer></script>
+    </head>
+    <body>
+        <div class="stage" id="stage">
+            <main class="island" id="island" data-state="compact" aria-live="polite">
+                <div class="snow" id="snow" aria-hidden="true"></div>
+                <!-- Свёрнутая: обложка, название, полоски звука -->
+                <section class="compact" aria-hidden="false">
+                    <div class="art sm" id="art-sm"></div>
+                    <span class="title-sm" id="title-sm"></span>
+                    <svg class="flake" id="flake" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v14M2 4.5l12 7M2 11.5l12-7M8 1 6.6 2.6M8 1l1.4 1.6M8 15l-1.4-1.6M8 15l1.4-1.6" /></svg>
+                    <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                </section>
+                <!-- Раскрытая: обложка и трек, прогресс, управление -->
+                <section class="expanded" aria-hidden="true">
+                    <div class="head">
+                        <button class="art lg" id="art-lg" data-act="open" aria-label="Открыть SoundCloud 2"></button>
+                        <button class="meta" data-act="open">
+                            <b id="title"></b>
+                            <span id="author"></span>
+                        </button>
+                        <div class="bars big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                    </div>
+                    <div class="progress">
+                        <span id="elapsed">0:00</span>
+                        <div class="track"><div class="fill" id="fill"></div></div>
+                        <span id="duration">0:00</span>
+                    </div>
+                    <div class="volume" id="volume">
+                        <button class="vol-icon" id="vol-mute" aria-label="Звук">
+                            <svg viewBox="0 0 16 16"><path class="spk" d="M2 6h2.5L8 3v10L4.5 10H2z" /><path class="w1" d="M10.5 5.8a3 3 0 0 1 0 4.4" /><path class="w2" d="M12.4 3.9a5.6 5.6 0 0 1 0 8.2" /><path class="x" d="M10.5 6l4 4M14.5 6l-4 4" /></svg>
+                        </button>
+                        <div class="vol-track" id="vol-track" role="slider" aria-label="Громкость" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><div class="vol-fill" id="vol-fill"></div></div>
+                    </div>
+                    <div class="controls">
+                        <button class="ctl like" data-act="like" id="like" aria-label="Лайк" aria-pressed="false"><svg viewBox="0 0 16 16"><path d="M8 14s-5.5-3.3-5.5-7.3A3 3 0 0 1 8 4.6a3 3 0 0 1 5.5 2.1C13.5 10.7 8 14 8 14z" /></svg></button>
+                        <button class="ctl" data-act="previous" aria-label="Предыдущий"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM14 3v10L5.6 8z" /></svg></button>
+                        <button class="ctl main" data-act="toggle" id="play" aria-label="Играть">
+                            <svg viewBox="0 0 16 16" class="i-play"><path d="M4.5 2.5v11L13.5 8z" /></svg>
+                            <svg viewBox="0 0 16 16" class="i-pause"><path d="M4 2.5h2.8v11H4zM9.2 2.5H12v11H9.2z" /></svg>
+                        </button>
+                        <button class="ctl" data-act="next" aria-label="Следующий"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM2 3v10l8.4-5z" /></svg></button>
+                        <button class="ctl" data-act="open" aria-label="Открыть SoundCloud 2"><svg viewBox="0 0 16 16"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </body>
+</html>

@@ -197,13 +197,14 @@ export function installMenu(core: MenuCore): MenuSection {
         '.scw-menu.scw-m .scw-mk{margin-left:12px;color:rgba(255,255,255,.34);font-size:11.5px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums}',
         '.scw-menu.scw-m .scw-mch{flex:none;margin-right:-4px;color:rgba(255,255,255,.34)}',
         '.scw-menu.scw-m .scw-mch svg{width:14px;height:14px}',
-        '.scw-menu.scw-m .scw-mi:focus,.scw-menu.scw-m .scw-mi[aria-expanded="true"]{background:rgba(255,255,255,.085)!important;color:#fff!important}',
-        '.scw-menu.scw-m .scw-mi:focus .scw-mic,.scw-menu.scw-m .scw-mi:focus .scw-mch,.scw-menu.scw-m .scw-mi[aria-expanded="true"] .scw-mch{color:rgba(255,255,255,.9)}',
-        '.scw-menu.scw-m .scw-mi:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)!important}',
-        '.scw-menu.scw-m .scw-mi:hover:not(:focus):not([aria-expanded="true"]){background:transparent!important;color:rgba(255,255,255,.84)!important}',
+        // Подсветка под мышью идёт за курсором (:hover), под клавиатурой за фокусом. Раньше и мышь вела фокус, и подсветка
+        // залипала: над пустым местом и по пути к подменю фокус не уходил с прошлого пункта
+        '.scw-menu.scw-m[data-input="mouse"] .scw-mi:hover,.scw-menu.scw-m[data-input="keys"] .scw-mi:focus,.scw-menu.scw-m .scw-mi[aria-expanded="true"]{background:rgba(255,255,255,.085)!important;color:#fff!important}',
+        '.scw-menu.scw-m[data-input="mouse"] .scw-mi:hover .scw-mic,.scw-menu.scw-m[data-input="mouse"] .scw-mi:hover .scw-mch,.scw-menu.scw-m[data-input="keys"] .scw-mi:focus .scw-mic,.scw-menu.scw-m[data-input="keys"] .scw-mi:focus .scw-mch,.scw-menu.scw-m .scw-mi[aria-expanded="true"] .scw-mch{color:rgba(255,255,255,.9)}',
+        '.scw-menu.scw-m[data-input="keys"] .scw-mi:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)!important}',
         '.scw-menu.scw-m .scw-mi:active{background:rgba(255,255,255,.13)!important}',
-        '.scw-menu.scw-m .scw-mi[data-tone="danger"]:focus{color:#ffb4b4!important}',
-        '.scw-menu.scw-m .scw-mi[data-tone="danger"]:focus .scw-mic{color:#ff8f8f}',
+        '.scw-menu.scw-m[data-input="mouse"] .scw-mi[data-tone="danger"]:hover,.scw-menu.scw-m[data-input="keys"] .scw-mi[data-tone="danger"]:focus{color:#ffb4b4!important}',
+        '.scw-menu.scw-m[data-input="mouse"] .scw-mi[data-tone="danger"]:hover .scw-mic,.scw-menu.scw-m[data-input="keys"] .scw-mi[data-tone="danger"]:focus .scw-mic{color:#ff8f8f}',
         '.scw-menu.scw-m .scw-msep{display:block;height:1px;margin:5px 9px;padding:0;border:0;background:rgba(255,255,255,.07)}',
         '.scw-menu.scw-m[hidden]{display:none!important}',
         '@media (prefers-reduced-motion:reduce){.scw-menu.scw-m{animation:none!important}}',
@@ -683,7 +684,12 @@ export function installMenu(core: MenuCore): MenuSection {
             }
             choose(item);
         };
+        // Чем сейчас ведут меню: от этого зависит, подсвечивается пункт под курсором или пункт в фокусе
+        const setInput = (mode: 'mouse' | 'keys'): void => {
+            for (const panel of all) if (panel.dataset.input !== mode) panel.dataset.input = mode;
+        };
         const onKey = (event: KeyboardEvent): void => {
+            if (event.key !== 'Shift' && event.key !== 'Control' && event.key !== 'Alt') setInput('keys');
             const panel = event.currentTarget as HTMLElement;
             const buttons = itemsOf(panel);
             const active = document.activeElement as HTMLElement | null;
@@ -722,6 +728,8 @@ export function installMenu(core: MenuCore): MenuSection {
         const onMove = (event: PointerEvent): void => {
             const panel = event.currentTarget as HTMLElement;
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.scw-mi') : null;
+            // Движение без сдвига (Chrome шлёт его при прокрутке и смене подсветки) не отнимает меню у клавиатуры
+            if (event.movementX || event.movementY) setInput('mouse');
             if (!item || document.activeElement === item) return;
             clearTimeout(hoverTimer);
             if (panel !== root) {
@@ -788,6 +796,7 @@ export function installMenu(core: MenuCore): MenuSection {
         // От кнопки фокус всегда возвращается к ней. После ПКМ — только открытое с клавиатуры: возвращённый фокус сайт обводит рамкой
         menuReturn = anchor ?? (byKeyboard && from instanceof HTMLElement && from !== document.body ? from : null);
         // Фокус на пункте после ПКМ Chrome считает видимым, и сайт рисует ему синюю рамку
+        setInput(byKeyboard ? 'keys' : 'mouse');
         if (byKeyboard) itemsOf(root)[0]?.focus({ preventScroll: true });
         else root.focus({ preventScroll: true });
     }

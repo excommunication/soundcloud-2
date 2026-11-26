@@ -408,6 +408,36 @@ async function initializeSettings() {
         winterToggle.checked = initial.winterTheme === true;
         winterToggle.addEventListener('change', () => ipcRenderer.send('setting-changed', { key: 'winterTheme', value: winterToggle.checked }));
     }
+    // Остров: все поля одним объектом; main проверяет его целиком и сразу переставляет плашку
+    const islandInputs = [...document.querySelectorAll('[data-island]')];
+    let island = { ...(initial.island || {}) };
+    function renderIsland() {
+        for (const input of islandInputs) {
+            const value = island[input.dataset.island];
+            if (input.type === 'checkbox') input.checked = value === true;
+            else input.value = String(value ?? '');
+        }
+        document.getElementById('islandOffsetOut').textContent = (island.offset ?? 0) + ' px';
+        const available = initial.islandAvailable !== false;
+        document.getElementById('islandUnavailable').hidden = available;
+        for (const input of islandInputs) input.disabled = !available || (input.dataset.island !== 'enabled' && island.enabled !== true);
+        document.getElementById('islandFields').classList.toggle('off', !available || island.enabled !== true);
+    }
+    for (const input of islandInputs) {
+        input.addEventListener('change', () => {
+            const key = input.dataset.island;
+            island = { ...island, [key]: input.type === 'checkbox' ? input.checked : key === 'offset' ? Number(input.value) : input.value };
+            renderIsland();
+            ipcRenderer.send('setting-changed', { key: 'island', value: island });
+        });
+        if (input.type === 'range') input.addEventListener('input', () => { document.getElementById('islandOffsetOut').textContent = input.value + ' px'; });
+    }
+    // Остров выключен из его собственного меню, пока панель открыта
+    ipcRenderer.on('island-changed', (_event, next) => {
+        island = { ...next };
+        renderIsland();
+    });
+    renderIsland();
     const effectsSelect = document.getElementById('effectsMode');
     if (effectsSelect) {
         effectsSelect.value = ['full', 'light', 'solid', 'off'].includes(initial.effectsMode) ? initial.effectsMode : 'full';
