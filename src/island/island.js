@@ -345,6 +345,7 @@
         $('like').setAttribute('aria-pressed', String(track.isLiked === true));
         $('like').setAttribute('aria-label', text.like);
         $('lyr').setAttribute('aria-pressed', String(settings.showLyrics !== false));
+        root.dataset.lyrics = settings.lyricsStyle === 'line' ? 'line' : 'over';
         $('lyr').setAttribute('aria-label', text.lyrics);
         $('lyr').title = text.lyrics;
         $('play').setAttribute('aria-label', track.isPlaying ? text.pause : text.play);
@@ -401,6 +402,7 @@
         if (!clean.length) {
             clearTimeout(lyricTimer);
             $('lyric-now').textContent = $('lyric-next').textContent = '';
+            root.classList.remove('lyric-live');
         }
     }
     function syncLyric(elapsed) {
@@ -423,6 +425,8 @@
             lyricShown = index;
             const now = $('lyric-now');
             now.textContent = index >= 0 ? lyrics[index].text : '';
+            // Поверх обложки строка закрывает название: пока строки нет (вступление, проигрыш), видно обычную шапку
+            root.classList.toggle('lyric-live', !!now.textContent.trim());
             $('lyric-next').textContent = lyrics[index + 1] ? lyrics[index + 1].text : '';
             if (changed && state?.reduceMotion !== true && !state?.shaped && now.animate) now.animate([{ opacity: 0.2, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
         }

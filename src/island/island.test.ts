@@ -28,6 +28,9 @@ describe('настройки острова', () => {
         // Текст песни: по умолчанию включён, выключение сохраняется, не булево не принимается
         expect(normalizeIsland({}).showLyrics).toBe(true);
         expect(normalizeIsland({ showLyrics: false }).showLyrics).toBe(false);
+        expect(normalizeIsland({}).lyricsStyle).toBe('over');
+        expect(normalizeIsland({ lyricsStyle: 'line' }).lyricsStyle).toBe('line');
+        expect(normalizeIsland({ lyricsStyle: 'big' }).lyricsStyle).toBe('over');
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, showLyrics: 1 })).toBe(false);
         expect(normalizeIsland({ opacity: 5 }).opacity).toBe(1);
         expect(normalizeIsland({}).opacity).toBe(1);

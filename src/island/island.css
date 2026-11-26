@@ -342,12 +342,13 @@ html[data-layout='cover'] .backdrop { display: block; }
 html[data-layout='cover'] .island[data-state='expanded'] .backdrop { opacity: 1; transform: translateZ(0) scale(1); }
 html[data-layout='cover'] .island[data-state='expanded']::before { background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.45)); }
 html[data-layout='cover'] .expanded { --fg: 255, 255, 255; color: #fff; padding: 16px 18px 12px; }
-html[data-layout='cover'] .head { align-items: flex-end; gap: 16px; }
+/* Название по центру обложки по высоте: прижатое к её низу, оно «проваливалось» и плашка выглядела кривой */
+html[data-layout='cover'] .head { align-items: center; gap: 16px; }
 html[data-layout='cover'] .art.lg { width: 116px; height: 116px; border-radius: 24px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.18), 0 14px 30px -10px rgba(0, 0, 0, 0.85); }
-html[data-layout='cover'] .meta { padding-bottom: 4px; }
+html[data-layout='cover'] .meta { padding: 0; }
 html[data-layout='cover'] .meta b { font-size: 19px; line-height: 23px; font-weight: 700; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 html[data-layout='cover'] .meta span { margin-top: 2px; font-size: 13.5px; color: rgba(255, 255, 255, 0.72); }
-html[data-layout='cover'] .bars.big { align-self: flex-end; margin-bottom: 8px; }
+html[data-layout='cover'] .bars.big { align-self: center; margin-bottom: 0; }
 html[data-layout='cover'] .hide { top: 0; margin-top: 0; right: 0; }
 html[data-layout='cover'] .progress { margin-top: 12px; }
 html.shaped .backdrop { filter: none; opacity: 0.35; }
@@ -355,10 +356,30 @@ html.shaped .backdrop { filter: none; opacity: 0.35; }
 /* Текст песни в большой обложке: текущая строка и бледная следующая; плашка выше на их место только когда текст есть
    (--eh 250 -> 290, окно в islandSettings.ts выше на столько же) */
 .lyric { display: none; }
-html[data-layout='cover'].lyric-on { --eh: 290px; }
-html[data-layout='cover'].lyric-on .lyric { display: block; height: 36px; margin-top: 8px; text-align: center; pointer-events: none; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+html[data-layout='cover'][data-lyrics='line'].lyric-on { --eh: 290px; }
+html[data-layout='cover'].lyric-on .lyric { display: block; height: 36px; margin-top: 8px; padding: 0 2px; text-align: left; pointer-events: none; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
 .lyric span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #lyric-now { font-size: 14px; line-height: 20px; font-weight: 600; color: #fff; }
 #lyric-next { font-size: 12px; line-height: 16px; color: rgba(255, 255, 255, 0.5); }
 html[data-layout='cover'] .progress { margin-top: 6px; }
-html[data-layout='cover']:not(.lyric-on) .progress { margin-top: 12px; }
+html[data-layout='cover']:not(.lyric-on) .progress, html[data-layout='cover'][data-lyrics='over'] .progress { margin-top: 12px; }
+/* Поверх обложки, как в режиме роликов: крупная строка по центру шапки, обложка темнеет, название уходит.
+   Плашка не растёт: строка занимает место шапки */
+html[data-layout='cover'][data-lyrics='over'].lyric-on .lyric {
+    position: absolute; left: 18px; right: 18px; top: 16px; height: 116px; margin: 0; padding: 0 8px; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+    opacity: 0; transition: opacity 260ms ease;
+}
+html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .lyric { opacity: 1; }
+html[data-layout='cover'][data-lyrics='over'] .lyric span { max-width: 100%; }
+html[data-layout='cover'][data-lyrics='over'] #lyric-now {
+    font-size: 21px; line-height: 26px; font-weight: 800; letter-spacing: -0.01em; white-space: normal;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7), 0 0 2px rgba(0, 0, 0, 0.5);
+}
+html[data-layout='cover'][data-lyrics='over'] #lyric-next { font-size: 13px; line-height: 17px; color: rgba(255, 255, 255, 0.62); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+html[data-layout='cover'] .head .art.lg, html[data-layout='cover'] .head .meta, html[data-layout='cover'] .head .bars.big { transition: filter 300ms ease, opacity 300ms ease, transform 300ms ease; }
+html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .art.lg { filter: brightness(0.4) blur(1.5px); transform: scale(0.96); }
+html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .meta, html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .bars.big { opacity: 0; }
+/* Кнопка текста: поверх обложки — с подложкой цвета обложки, строкой — просто цветом обложки */
+html[data-lyrics='over'] .ctl.lyr[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 22%, transparent); }

@@ -168,7 +168,7 @@ export class DynamicIsland {
                 case 'open': this.deps.open(); return;
                 case 'menu': this.menu(); return;
                 case 'hide': this.hideUntilNext(); return;
-                case 'lyrics': this.toggleLyrics(); return;
+                case 'lyrics': this.cycleLyrics(); return;
                 case 'ready':
                     this.ready = true;
                     this.push();
@@ -190,7 +190,7 @@ export class DynamicIsland {
         const track = this.deps.track();
         return {
             track: { title: track.title, author: track.author, artwork: track.artwork, artworkLarge: track.artwork ? largeArtwork(track.artwork) : '', isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
-            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, showLyrics: this.settings.showLyrics, layout: this.settings.layout },
+            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, showLyrics: this.settings.showLyrics, lyricsStyle: this.settings.lyricsStyle, layout: this.settings.layout },
             lyrics: this.settings.layout === 'cover' && this.settings.showLyrics ? this.lyricLines : [],
             shaped: this.deps.shaped,
             winter: this.deps.winter(),
@@ -249,9 +249,21 @@ export class DynamicIsland {
         if (this.ready) this.send('island:state', this.state());
     }
 
-    /** Текст песни вкл/выкл: кнопка на плашке, меню и F1 */
+    /** Кнопка на плашке перебирает по кругу: поверх обложки → строкой под названием → выключен → поверх обложки */
+    private cycleLyrics(): void {
+        const { showLyrics, lyricsStyle } = this.settings;
+        if (!showLyrics) this.setLyrics({ showLyrics: true, lyricsStyle: 'over' });
+        else if (lyricsStyle === 'over') this.setLyrics({ lyricsStyle: 'line' });
+        else this.setLyrics({ showLyrics: false });
+    }
+
+    /** Текст песни вкл/выкл: меню и F1 */
     private toggleLyrics(): void {
-        this.settings = { ...this.settings, showLyrics: !this.settings.showLyrics };
+        this.setLyrics({ showLyrics: !this.settings.showLyrics });
+    }
+
+    private setLyrics(change: Partial<Pick<IslandSettings, 'showLyrics' | 'lyricsStyle'>>): void {
+        this.settings = { ...this.settings, ...change };
         this.deps.save(this.settings);
         // Строки уже найденного трека остаются в памяти: при включении текст появляется сразу, без нового запроса
         this.ensureLyrics();
@@ -610,7 +622,10 @@ export class DynamicIsland {
             { separator: true },
             { id: 'cover', label: en ? 'Big cover' : 'Большая обложка', checked: this.settings.layout === 'cover' },
             // Текст виден только с большой обложкой: в обычном виде пункт ничего бы не менял
-            ...(this.settings.layout === 'cover' ? [{ id: 'lyrics', label: en ? 'Lyrics' : 'Текст песни', checked: this.settings.showLyrics }] : []),
+            ...(this.settings.layout === 'cover' ? [
+                { id: 'lyrics', label: en ? 'Lyrics' : 'Текст песни', checked: this.settings.showLyrics },
+                ...(this.settings.showLyrics ? [{ id: 'lyrics-over', label: en ? 'Lyrics over the cover' : 'Текст поверх обложки', checked: this.settings.lyricsStyle === 'over' }] : []),
+            ] : []),
             { id: 'fullscreen', label: en ? 'Hide in games' : 'Прятать в играх', checked: this.settings.hideFullscreen },
             { id: 'settings', label: en ? 'Island settings…' : 'Настроить остров…' },
             { separator: true },
@@ -624,6 +639,7 @@ export class DynamicIsland {
             case 'open': this.deps.open(); return;
             case 'hide': this.hideUntilNext(); return;
             case 'lyrics': this.toggleLyrics(); return;
+            case 'lyrics-over': this.setLyrics({ lyricsStyle: this.settings.lyricsStyle === 'over' ? 'line' : 'over' }); return;
             case 'reset': this.resetPlace(); return;
             case 'copy': {
                 const url = this.deps.track().url;

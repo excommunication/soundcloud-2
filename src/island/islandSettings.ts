@@ -11,6 +11,8 @@ export type IslandSize = 'small' | 'normal' | 'large';
 export type IslandLook = 'glass' | 'black' | 'white' | 'color' | 'gradient';
 /** Раскрытая плашка: обычная или с большой обложкой и её размытым светом на фоне, как в режиме роликов */
 export type IslandLayout = 'classic' | 'cover';
+/** Текст песни в «Большой обложке»: крупно поверх обложки, как в режиме роликов, или строкой под названием */
+export type IslandLyricsStyle = 'over' | 'line';
 /** Место после перетаскивания: экран (id дисплея Electron) и левый верхний угол окна от угла его рабочей области, DIP */
 export interface IslandPlace {
     display: number;
@@ -41,6 +43,7 @@ export interface IslandSettings {
     showTitle: boolean;
     /** Текст песни в виде «Большая обложка» */
     showLyrics: boolean;
+    lyricsStyle: IslandLyricsStyle;
     /** Прятаться, пока на этом экране игра или видео во весь экран */
     hideFullscreen: boolean;
     /** Прятаться, пока окно клиента впереди: там и так видно, что играет */
@@ -66,6 +69,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     announceTrack: true,
     showTitle: true,
     showLyrics: true,
+    lyricsStyle: 'over',
     hideFullscreen: true,
     hideInApp: false,
     hideWhenPaused: true,
@@ -83,6 +87,7 @@ const DISPLAYS: readonly string[] = ['primary', 'app'];
 const SIZES: readonly string[] = ['small', 'normal', 'large'];
 const LOOKS: readonly string[] = ['glass', 'black', 'white', 'color', 'gradient'];
 const LAYOUTS: readonly string[] = ['classic', 'cover'];
+const LYRICS_STYLES: readonly string[] = ['over', 'line'];
 const isHex = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
 /** Смещение места: в пределах самого большого разумного экрана, чтобы битое значение не унесло окно в бесконечность */
@@ -110,7 +115,7 @@ export function isIslandSettings(value: unknown): value is IslandSettings {
     if (keys.length !== Object.keys(ISLAND_DEFAULTS).length || keys.some((key) => !Object.prototype.hasOwnProperty.call(ISLAND_DEFAULTS, key))) return false;
     return BOOLEAN_FIELDS.every((key) => typeof record[key] === 'boolean') &&
         POSITIONS.includes(record.position as string) && DISPLAYS.includes(record.display as string) && SIZES.includes(record.size as string) &&
-        LOOKS.includes(record.look as string) && LAYOUTS.includes(record.layout as string) && isHex(record.color) && isHex(record.color2) &&
+        LOOKS.includes(record.look as string) && LAYOUTS.includes(record.layout as string) && LYRICS_STYLES.includes(record.lyricsStyle as string) && isHex(record.color) && isHex(record.color2) &&
         isOpacity(record.opacity) && isOffset(record.offset) && (record.place === null || isIslandPlace(record.place));
 }
 
@@ -124,6 +129,7 @@ export function normalizeIsland(value: unknown): IslandSettings {
     if (SIZES.includes(record.size as string)) result.size = record.size as IslandSize;
     if (LOOKS.includes(record.look as string)) result.look = record.look as IslandLook;
     if (LAYOUTS.includes(record.layout as string)) result.layout = record.layout as IslandLayout;
+    if (LYRICS_STYLES.includes(record.lyricsStyle as string)) result.lyricsStyle = record.lyricsStyle as IslandLyricsStyle;
     if (isHex(record.color)) result.color = record.color.toLowerCase();
     if (isHex(record.color2)) result.color2 = record.color2.toLowerCase();
     if (isOpacity(record.opacity)) result.opacity = Math.round(record.opacity * 100) / 100;
