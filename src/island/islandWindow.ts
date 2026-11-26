@@ -9,7 +9,8 @@ import { join } from 'path';
 import { trustLocalFile } from '../trustedViews';
 import type { TrackInfo } from '../types';
 import { coversIsland, loadFullscreenBridge, type FullscreenBridge } from './fullscreenWatch';
-import { ISLAND_SCALE, PAUSE_HIDE_MS, dropPlace, placedBounds, roundedShape, type IslandScreen, type IslandSettings } from './islandSettings';
+import { trackSeconds } from '../utils/trackParser';
+import { ISLAND_SCALE, PAUSE_HIDE_MS, dropPlace, largeArtwork, placedBounds, roundedShape, type IslandScreen, type IslandSettings } from './islandSettings';
 
 export interface DynamicIslandDeps {
     track(): TrackInfo;
@@ -28,6 +29,10 @@ export interface DynamicIslandDeps {
     mainWindow(): BrowserWindow | null;
     /** Записать настройки, поменянные самим островом (выключение, новое место), и показать их в F1 */
     save(settings: IslandSettings): void;
+    /** Строки текста играющего трека с таймкодами (мс) для большой обложки; null, если синхронного текста нет */
+    lyrics(track: TrackInfo): Promise<Array<{ at: number; text: string }> | null>;
+    /** Остров просит (true) или больше не просит (false) удары играющего трека для эквалайзера */
+    beats(on: boolean): void;
     /** Окно без прозрачности, обрезанное по плашке: режим совместимости NVIDIA */
     shaped: boolean;
 }
@@ -70,6 +75,10 @@ export class DynamicIsland {
     private appFocused = false;
     private ready = false;
     private disposed = false;
+    /** Текст для большой обложки: трек, для которого он найден, и строки; шлётся странице один раз на трек */
+    private lyricsKey = '';
+    private lyricLines: Array<{ at: number; text: string }> = [];
+    private beatsOn = false;
     private readonly onDisplays = (): void => this.place();
     private readonly onMainMoved = (): void => {
         if (this.settings.display === 'app') this.place();
@@ -88,6 +97,8 @@ export class DynamicIsland {
     private shapeRect: { x: number; y: number; width: number; height: number } | null = null;
     /** Нажатие на плашке: main сам следит за кнопкой мыши и начинает или кончает перетаскивание */
     private pressPoll: ReturnType<typeof setInterval> | null = null;
+    /** Номер нажатия: ответ loadBridge от старого нажатия не должен запускать наблюдение */
+    private pressToken = 0;
     /** Курсор над свёрнутой плашкой, но ещё не остановился: окно полупрозрачное и пропускает клики насквозь */
     private ghost: ReturnType<typeof setInterval> | null = null;
     private watched: BrowserWindow | null = null;
@@ -135,8 +146,15 @@ export class DynamicIsland {
                 return;
             }
             // Над плашкой окно ловит мышь, вне её пропускает насквозь, но продолжает слышать движение
-            if (inside === true) this.window!.setIgnoreMouseEvents(false);
-            else {
+            if (inside === true) {
+                // Страница сама сказала «курсор над плашкой» (нажали, раскрыта): «призрак» кончился, окно полностью живое
+                if (this.ghost) {
+                    clearInterval(this.ghost);
+                    this.ghost = null;
+                    this.window!.setOpacity(1);
+                }
+                this.window!.setIgnoreMouseEvents(false);
+            } else {
                 this.window!.setIgnoreMouseEvents(true, { forward: true });
                 this.raise();
             }
@@ -170,8 +188,9 @@ export class DynamicIsland {
     private state(): object {
         const track = this.deps.track();
         return {
-            track: { title: track.title, author: track.author, artwork: track.artwork, isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
-            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, layout: this.settings.layout },
+            track: { title: track.title, author: track.author, artwork: track.artwork, artworkLarge: track.artwork ? largeArtwork(track.artwork) : '', isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
+            settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, layout: this.settings.layout },
+            lyrics: this.settings.layout === 'cover' ? this.lyricLines : [],
             shaped: this.deps.shaped,
             winter: this.deps.winter(),
             reduceMotion: this.deps.reduceMotion(),
@@ -203,6 +222,7 @@ export class DynamicIsland {
         if (resized && this.window && !this.window.isDestroyed()) this.window.webContents.setZoomFactor(ISLAND_SCALE[settings.size]);
         this.place();
         this.refresh();
+        this.ensureLyrics();
         this.push();
     }
 
@@ -217,13 +237,53 @@ export class DynamicIsland {
         else if (!this.pausedSince) this.pausedSince = Date.now();
         this.armPauseTimer();
         this.refresh();
+        this.ensureLyrics();
         this.push();
         if (changed && track.title && this.settings.announceTrack && this.window?.isVisible()) this.send('island:announce');
     }
 
     /** Тема, язык или меньше анимаций поменялись */
     public push(): void {
+        this.syncBeats();
         if (this.ready) this.send('island:state', this.state());
+    }
+
+    /** Текст ищется один раз на трек и только в виде «Большая обложка»; уже найденное для волны берётся из общего кэша main */
+    private ensureLyrics(): void {
+        const track = this.deps.track();
+        if (this.settings.layout !== 'cover' || !track.title) return;
+        const key = track.title + '\n' + track.author;
+        // Длительность появляется на миг позже названия: без неё LRCLIB подберёт не ту запись
+        if (key === this.lyricsKey || !trackSeconds(track.elapsed, track.duration).duration) return;
+        this.lyricsKey = key;
+        this.lyricLines = [];
+        void this.deps.lyrics(track).then((lines) => {
+            if (this.lyricsKey !== key || this.disposed) return;
+            this.lyricLines = lines ?? [];
+            this.push();
+        }).catch(() => undefined);
+    }
+
+    /** Нужны ли странице удары: плашка видна, трек играет и движение не отключено (в режиме shaped анимации нет) */
+    private wantsBeats(): boolean {
+        return !this.disposed && !!this.window && !this.window.isDestroyed() && this.window.isVisible() && this.deps.track().isPlaying === true && !this.deps.reduceMotion() && !this.deps.shaped;
+    }
+
+    private syncBeats(): void {
+        const on = this.wantsBeats();
+        if (on === this.beatsOn) return;
+        this.beatsOn = on;
+        this.deps.beats(on);
+    }
+
+    /** Страница сайта перезагрузилась и забыла флаг */
+    public resyncBeats(): void {
+        this.deps.beats(this.beatsOn);
+    }
+
+    /** Удар из страницы (сила 0..1): дальше только в окно острова, пока оно просит */
+    public beat(strength: number): void {
+        if (this.beatsOn && this.ready) this.send('island:beat', strength);
     }
 
     private send(channel: string, ...args: unknown[]): void {
@@ -254,6 +314,7 @@ export class DynamicIsland {
         const show = wanted && !(this.settings.hideFullscreen && this.fullscreen);
         if (!show) {
             if (this.window && !this.window.isDestroyed() && this.window.isVisible()) this.window.hide();
+            this.syncBeats();
             return;
         }
         if (!this.window || this.window.isDestroyed()) {
@@ -269,6 +330,7 @@ export class DynamicIsland {
             this.window.showInactive();
             this.raise();
         }
+        this.syncBeats();
     }
 
     /** Выше панели задач и обычных окон «поверх всех»: Windows иногда сбрасывает это, поэтому и на каждой проверке */
@@ -396,10 +458,13 @@ export class DynamicIsland {
     // Нажатие: кнопку мыши main проверяет сам (GetAsyncKeyState). Сдвиг на 5 px начинает перетаскивание, отпускание
     // заканчивает его, даже если страница не получила ни движения, ни отпускания (курсор ушёл за обрезанное окно)
     private press(): void {
-        if (this.pressPoll || this.drag) return;
+        if (this.drag) return;
+        // Новое нажатие всегда заменяет старое наблюдение: зависшее не должно глушить все следующие перетаскивания
+        this.stopPress();
         const from = screen.getCursorScreenPoint();
+        const token = ++this.pressToken;
         void this.loadBridge().then((bridge) => {
-            if (!bridge || this.pressPoll || this.disposed) return;
+            if (!bridge || token !== this.pressToken || this.pressPoll || this.disposed) return;
             this.pressPoll = setInterval(() => {
                 let down: boolean;
                 try {
@@ -426,6 +491,7 @@ export class DynamicIsland {
     }
 
     private stopPress(): void {
+        this.pressToken++;
         if (this.pressPoll) clearInterval(this.pressPoll);
         this.pressPoll = null;
     }
@@ -555,6 +621,7 @@ export class DynamicIsland {
                 this.settings = { ...this.settings, layout: this.settings.layout === 'cover' ? 'classic' : 'cover' };
                 this.deps.save(this.settings);
                 this.place();
+                this.ensureLyrics();
                 this.push();
                 return;
             case 'fullscreen':
@@ -655,6 +722,8 @@ export class DynamicIsland {
         ipcMain.removeHandler('island-menu:items');
         ipcMain.removeAllListeners('island-menu:pick');
         if (this.pauseTimer) clearTimeout(this.pauseTimer);
+        if (this.beatsOn) this.deps.beats(false);
+        this.beatsOn = false;
         screen.off('display-metrics-changed', this.onDisplays);
         screen.off('display-added', this.onDisplays);
         screen.off('display-removed', this.onDisplays);

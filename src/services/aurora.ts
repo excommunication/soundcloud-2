@@ -1701,6 +1701,7 @@ export function auroraPage(config: AuroraConfig): void {
     }
     const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
     const motionCalm = (): boolean => reduceQuery.matches || document.documentElement.classList.contains('scm-reduce');
+    const islandBeat = beatInit();
     let lastAudio = 0;
     let idleShown = false;
     let idleAt = 0;
@@ -1718,10 +1719,18 @@ export function auroraPage(config: AuroraConfig): void {
             document.documentElement.classList.toggle('sca-idle', idle);
             last = 0;
         }
+        // Эквалайзер острова (window.__scIslandBeat ставит main, пока остров виден и трек играет): удары нужны и без фокуса,
+        // когда остров как раз и работает, поэтому звук читается каждый кадр, а до рисования дело не доходит
+        const wantIsland = (host as { __scIslandBeat?: boolean }).__scIslandBeat === true;
+        let skipDraw = false;
         if (idle) {
-            if (now - idleAt < 120) return;
-            idleAt = now;
-            perfAt = 0;
+            if (now - idleAt < 120) {
+                if (!wantIsland) return;
+                skipDraw = true;
+            } else {
+                idleAt = now;
+                perfAt = 0;
+            }
         }
         // Звук и детектор бита идут каждый кадр, а не с частотой фона (2.8.0): на «Балансе» фон рисуется 30 раз в секунду,
         // и удар опаздывал до 33 мс и дрожал. Вспышки интерфейса тоже пишутся сразу
@@ -1729,9 +1738,17 @@ export function auroraPage(config: AuroraConfig): void {
         const amount = beatAmount(a.beat);
         const audioDt = lastAudio ? Math.min(100, now - lastAudio) : 16;
         lastAudio = now;
-        const sound = amount > 0 ? readAudio(now) : { bass: 0, kick: 0, level: 0, playing: musicPlaying() };
-        if (amount > 0) beatStep(beat, sound.kick, sound.level, now, audioDt);
-        else beat.pulse = beat.level = 0;
+        const sound = amount > 0 || wantIsland ? readAudio(now) : { bass: 0, kick: 0, level: 0, playing: musicPlaying() };
+        let hit = false;
+        if (amount > 0) hit = beatStep(beat, sound.kick, sound.level, now, audioDt);
+        else {
+            beat.pulse = beat.level = 0;
+            // Фон на биты не отзывается (сила 0), а острову они нужны: свой детектор
+            if (wantIsland) hit = beatStep(islandBeat, sound.kick, sound.level, now, audioDt);
+        }
+        // В main уходит только момент удара и его сила (2-3 раза в секунду), не кадры
+        if (hit && wantIsland && sound.playing) (window as unknown as { soundcloudAPI?: { islandBeat?: (strength: number) => void } }).soundcloudAPI?.islandBeat?.(Math.min(1, (amount > 0 ? beat : islandBeat).pulse));
+        if (skipDraw) return;
         // Просьба системы или клиента о меньшем движении: фон течёт спокойно, как на паузе, без разгона под бит
         const paused = a.calmOnPause && !sound.playing;
         const calm = paused || motionCalm();

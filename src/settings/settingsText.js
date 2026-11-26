@@ -18,6 +18,8 @@ window.SETTINGS_EN = {
     'Цвет': 'Color',
     'Цвет плашки': 'Island color',
     'Второй цвет градиента': 'Second gradient color',
+    'Непрозрачность плашки': 'Island opacity',
+    'Сквозь плашку виден экран. У стекла своя прозрачность': 'The screen shows through the island. Glass has its own translucency',
     'Положение': 'Position',
     'Слева': 'Left',
     'По центру': 'Center',

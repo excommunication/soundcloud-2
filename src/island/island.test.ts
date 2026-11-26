@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ISLAND_DEFAULTS, ISLAND_WINDOW, dropPlace, isIslandSettings, islandBounds, normalizeIsland, placedBounds, roundedShape } from './islandSettings';
+import { ISLAND_DEFAULTS, ISLAND_WINDOW, dropPlace, isIslandSettings, islandBounds, normalizeIsland, largeArtwork, placedBounds, roundedShape } from './islandSettings';
 import { coversIsland, type ForegroundInfo } from './fullscreenWatch';
 import { validateSettingChange } from '../settings/validateSetting';
 
@@ -20,6 +20,13 @@ describe('настройки острова', () => {
         delete missing.offset;
         expect(isIslandSettings(missing)).toBe(false);
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, offset: 2.5 })).toBe(false);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: 0.5 })).toBe(true);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: 0.1 })).toBe(false);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: 1.2 })).toBe(false);
+        expect(isIslandSettings({ ...ISLAND_DEFAULTS, opacity: '1' })).toBe(false);
+        expect(normalizeIsland({ opacity: 0.456 }).opacity).toBe(0.46);
+        expect(normalizeIsland({ opacity: 5 }).opacity).toBe(1);
+        expect(normalizeIsland({}).opacity).toBe(1);
         expect(isIslandSettings({ ...ISLAND_DEFAULTS, display: 'all' })).toBe(false);
         expect(validateSettingChange({ key: 'island', value: { ...ISLAND_DEFAULTS, size: 'large' } })).toBe(true);
         expect(validateSettingChange({ key: 'island', value: true })).toBe(false);
@@ -110,5 +117,13 @@ describe('форма окна без прозрачности', () => {
     it('радиус больше половины плашки срезается, без радиуса один прямоугольник', () => {
         expect(roundedShape({ x: 0, y: 0, width: 40, height: 20 }, 0)).toEqual([{ x: 0, y: 0, width: 40, height: 20 }]);
         expect(roundedShape({ x: 0, y: 0, width: 40, height: 20 }, 99).length).toBe(20);
+    });
+});
+
+describe('крупная обложка острова', () => {
+    it('меняет размер из суффикса на 500x500 и не трогает прочее', () => {
+        expect(largeArtwork('https://i1.sndcdn.com/artworks-abc-t50x50.jpg')).toBe('https://i1.sndcdn.com/artworks-abc-t500x500.jpg');
+        expect(largeArtwork('https://i1.sndcdn.com/artworks-abc-large.png?x=1')).toBe('https://i1.sndcdn.com/artworks-abc-t500x500.png?x=1');
+        expect(largeArtwork('https://i1.sndcdn.com/artworks-abc-original.jpg')).toBe('https://i1.sndcdn.com/artworks-abc-original.jpg');
     });
 });

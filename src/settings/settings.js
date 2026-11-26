@@ -509,6 +509,8 @@ async function initializeSettings() {
         document.getElementById('islandOffsetOut').textContent = (island.offset ?? 0) + ' px';
         document.getElementById('islandColorRow').hidden = island.look !== 'color' && island.look !== 'gradient';
         document.getElementById('islandColor2Row').hidden = island.look !== 'gradient';
+        document.getElementById('islandOpacityRow').hidden = island.look === 'glass' || island.look === undefined;
+        document.getElementById('islandOpacityOut').textContent = Math.round((island.opacity ?? 1) * 100) + ' %';
         const available = initial.islandAvailable !== false;
         document.getElementById('islandUnavailable').hidden = available;
         for (const input of islandInputs) input.disabled = !available || (input.dataset.island !== 'enabled' && island.enabled !== true);
@@ -524,13 +526,16 @@ async function initializeSettings() {
     for (const input of islandInputs) {
         input.addEventListener('change', () => {
             const key = input.dataset.island;
-            island = { ...island, [key]: input.type === 'checkbox' ? input.checked : key === 'offset' ? Number(input.value) : input.value };
+            island = { ...island, [key]: input.type === 'checkbox' ? input.checked : key === 'offset' || key === 'opacity' ? Number(input.value) : input.value };
             // Новое положение, экран или отступ из настроек сильнее перетаскивания: плашка встаёт по ним
             if (key === 'position' || key === 'display' || key === 'offset') island.place = null;
             renderIsland();
             ipcRenderer.send('setting-changed', { key: 'island', value: island });
         });
-        if (input.type === 'range') input.addEventListener('input', () => { document.getElementById('islandOffsetOut').textContent = input.value + ' px'; });
+        if (input.type === 'range') input.addEventListener('input', () => {
+            if (input.dataset.island === 'opacity') document.getElementById('islandOpacityOut').textContent = Math.round(Number(input.value) * 100) + ' %';
+            else document.getElementById('islandOffsetOut').textContent = input.value + ' px';
+        });
     }
     // Остров выключен из его собственного меню, пока панель открыта
     ipcRenderer.on('island-changed', (_event, next) => {

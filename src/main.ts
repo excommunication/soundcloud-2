@@ -455,6 +455,23 @@ function openIslandSettings(): void {
     if (view && !webContentsGone(view)) view.webContents.send('settings-section', 'island');
     else settingsManager.toggle('island');
 }
+// Текст играющего трека для карточки волны (2.7.1) и острова: LRCLIB, запасной Genius. Наружу уходят название, артист и
+// длительность; ответы помнятся до перезапуска (общий кэш: остров не ходит в сеть за тем, что уже нашла волна)
+const lyricsCache = new Map<string, Lyrics | null>();
+const lyricsAgent = 'SoundCloud2 (https://github.com/excommunication/soundcloud-2)';
+async function lookupLyrics(title: string, uploader: string, durationMs: number): Promise<Lyrics | null> {
+    const key = title + '|' + uploader + '|' + Math.round(durationMs / 1000);
+    if (lyricsCache.has(key)) return lyricsCache.get(key) ?? null;
+    const request = async (url: string): Promise<Response> => {
+        const response = await net.fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': lyricsAgent } });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response;
+    };
+    const found = await findLyrics({ getJson: async (url) => (await request(url)).json(), getText: async (url) => (await request(url)).text() }, { title, uploader, durationMs }).catch(() => null);
+    lyricsCache.set(key, found);
+    if (lyricsCache.size > 300) lyricsCache.delete(lyricsCache.keys().next().value as string);
+    return found;
+}
 function ensureIsland(): void {
     if (!islandAvailable()) return;
     if (island) {
@@ -477,6 +494,15 @@ function ensureIsland(): void {
         seek: (fraction) => {
             const page = contentView?.webContents;
             if (page && !page.isDestroyed() && Number.isFinite(fraction)) void page.executeJavaScript('window.__scSeek && window.__scSeek(' + JSON.stringify(Math.max(0, Math.min(1, fraction))) + ')').catch(() => undefined);
+        },
+        lyrics: async (track) => {
+            const { duration } = trackSeconds(track.elapsed, track.duration);
+            const found = await lookupLyrics(track.title, track.author, duration * 1000);
+            return found?.synced?.map((line) => ({ at: line.at, text: line.text })) ?? null;
+        },
+        beats: (on) => {
+            const page = contentView?.webContents;
+            if (page && !page.isDestroyed()) void page.executeJavaScript('window.__scIslandBeat=' + (on ? 'true' : 'false')).catch(() => undefined);
         },
         open: (section) => (section === 'island' ? openIslandSettings() : showMainWindow()),
         mainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
@@ -1276,6 +1302,7 @@ async function init() {
             const settings = settingsManager?.getView()?.webContents;
             if (settings && !settings.isDestroyed()) settings.send('appearance-beat-changed', value);
         },
+        islandBeat: (strength) => island?.beat(strength),
         updateThumbar: (track) => {
             trayPopup?.push();
             island?.update();
@@ -1371,10 +1398,6 @@ async function init() {
     registerJamIpc(ipcMain, { trustedSite: isTrustedSoundCloudSender, client: jamClient, setting: () => store.get('jamServer', ''), clipboard });
     const jamBase = jamServerOf(store.get('jamServer', ''));
     if (jamBase) jamClient.restore(jamBase);
-    // Текст играющего трека для карточки волны (2.7.1): LRCLIB, запасной Genius. Наружу уходят название, артист и
-    // длительность; ответы помнятся до перезапуска
-    const lyricsCache = new Map<string, Lyrics | null>();
-    const lyricsAgent = 'SoundCloud2 (https://github.com/excommunication/soundcloud-2)';
     // Полный трек вместо отрывка Go+: ищет YouTube через yt-dlp, работает только с yt-cookies.txt в папке данных
     const fullTracks = new FullTrackService({
         dataDir: app.getPath('userData'),
@@ -1459,17 +1482,7 @@ async function init() {
         const uploader = typeof value.uploader === 'string' ? value.uploader.slice(0, 120) : '';
         const durationMs = typeof value.durationMs === 'number' && Number.isFinite(value.durationMs) ? Math.max(0, Math.min(value.durationMs, 3600000)) : 0;
         if (!title) return null;
-        const key = title + '|' + uploader + '|' + Math.round(durationMs / 1000);
-        if (lyricsCache.has(key)) return lyricsCache.get(key) ?? null;
-        const request = async (url: string): Promise<Response> => {
-            const response = await net.fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': lyricsAgent } });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            return response;
-        };
-        const found = await findLyrics({ getJson: async (url) => (await request(url)).json(), getText: async (url) => (await request(url)).text() }, { title, uploader, durationMs }).catch(() => null);
-        lyricsCache.set(key, found);
-        if (lyricsCache.size > 300) lyricsCache.delete(lyricsCache.keys().next().value as string);
-        return found;
+        return lookupLyrics(title, uploader, durationMs);
     });
     // «Волна по описанию»: план запроса, настройки модели в F1 и «Без русского» из блока. Запрос к модели идёт через
     // сеть Electron: прокси клиента действует и на него
@@ -1743,6 +1756,8 @@ async function init() {
             // История поиска раньше ссылок в поиске: стрелки и Enter по пункту списка забирает она
             await contentView.webContents.executeJavaScript(searchHistoryScript(translationService.getLanguage()));
             await contentView.webContents.executeJavaScript(searchLinkScript());
+            // Страница перезагрузилась и забыла, просит ли остров удары
+            island?.resyncBeats();
 
             if (presenceService) {
                 await presenceService.updatePresence(playback.info);

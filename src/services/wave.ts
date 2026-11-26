@@ -5165,7 +5165,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, dislike, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, trackMenuButton(), el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, dislike, trackMenuButton(), el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
             // Трек не из волны (2.8.5): «Моя волна» и «Волна по треку» компактными капсулами в том же ряду, что

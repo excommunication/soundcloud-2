@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('islandAPI', {
         ipcRenderer.on('island:wake', () => listener(true));
         ipcRenderer.on('island:sleep', () => listener(false));
     },
+    /** Удар в играющем треке, сила 0..1: приходит, только пока остров виден и трек играет */
+    onBeat: (listener: (strength: number) => void) => {
+        ipcRenderer.on('island:beat', (_event, strength: unknown) => listener(typeof strength === 'number' && Number.isFinite(strength) ? Math.max(0, Math.min(1, strength)) : 0.6));
+    },
     onAnnounce: (listener: () => void) => {
         ipcRenderer.on('island:announce', () => listener());
     },

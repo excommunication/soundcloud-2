@@ -41,6 +41,8 @@ export interface PageIpcDeps {
     webhooks(): Pick<WebhookService, 'updateTrackInfo'>;
     /** Сохранить силу бита 0..100 в оформлении и применить */
     setBeat(value: number): void;
+    /** Удар в играющем треке (сила 0..1) для эквалайзера острова; приходит только пока остров просит биты */
+    islandBeat(strength: number): void;
     /** Режим эффектов (полные, облегчённо, супер лайт, без эффектов) из меню кнопки эффектов в плеере */
     setEffectsMode(mode: EffectsMode): void;
     /** Предпросмотр карточки Discord в F1 */
@@ -92,6 +94,11 @@ export function registerPageIpc(ipc: IpcRegistry, deps: PageIpcDeps): void {
     ipc.removeAllListeners('soundcloud:beat-amount');
     ipc.on('soundcloud:beat-amount', (event, value: unknown) => {
         if (isTrustedSoundCloudSender(event) && typeof value === 'number' && Number.isFinite(value)) deps.setBeat(Math.max(0, Math.min(100, Math.round(value))));
+    });
+    // Удары для эквалайзера острова: страница шлёт их только пока main включил флаг, сила 0..1
+    ipc.removeAllListeners('soundcloud:island-beat');
+    ipc.on('soundcloud:island-beat', (event, strength: unknown) => {
+        if (isTrustedSoundCloudSender(event) && typeof strength === 'number' && Number.isFinite(strength)) deps.islandBeat(Math.max(0, Math.min(1, strength)));
     });
     // Режим эффектов из меню той же кнопки: тот же путь, что у меню палитры в шапке; принимается только известное значение
     ipc.removeAllListeners('soundcloud:effects-mode');

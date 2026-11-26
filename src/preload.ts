@@ -331,6 +331,10 @@ contextBridge.exposeInMainWorld('soundcloudAPI', {
     setBeat: (value: unknown) => {
         ipcRenderer.send('soundcloud:beat-amount', value);
     },
+    // Удар в треке для эквалайзера острова (сила 0..1): шлёт аврора, только пока остров просит
+    islandBeat: (strength: unknown) => {
+        ipcRenderer.send('soundcloud:island-beat', strength);
+    },
     // Меню кнопки эффектов в плеере: режим full, light, solid или off, значение проверяет main
     setEffectsMode: (mode: unknown) => {
         ipcRenderer.send('soundcloud:effects-mode', mode);

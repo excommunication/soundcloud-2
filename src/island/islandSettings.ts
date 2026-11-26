@@ -29,6 +29,8 @@ export interface IslandSettings {
     /** Свой цвет и второй цвет градиента, #rrggbb */
     color: string;
     color2: string;
+    /** Непрозрачность плашки не-стеклянных видов, ISLAND_OPACITY_MIN..1 */
+    opacity: number;
     /** Отступ от верха рабочей области, DIP */
     offset: number;
     /** Раскрываться при наведении */
@@ -56,6 +58,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
     layout: 'classic',
     color: '#2b1055',
     color2: '#ff5500',
+    opacity: 1,
     offset: 8,
     expandOnHover: true,
     announceTrack: true,
@@ -67,6 +70,7 @@ export const ISLAND_DEFAULTS: Readonly<IslandSettings> = {
 };
 
 export const ISLAND_OFFSET_MAX = 48;
+export const ISLAND_OPACITY_MIN = 0.3;
 /** Пауза, после которой плашка уходит, если включено hideWhenPaused */
 export const PAUSE_HIDE_MS = 20_000;
 
@@ -91,6 +95,10 @@ function isOffset(value: unknown): value is number {
     return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= ISLAND_OFFSET_MAX;
 }
 
+function isOpacity(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= ISLAND_OPACITY_MIN && value <= 1;
+}
+
 /** Строгая проверка того, что прислал F1: все поля на месте и в своих пределах, лишних нет */
 export function isIslandSettings(value: unknown): value is IslandSettings {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -100,7 +108,7 @@ export function isIslandSettings(value: unknown): value is IslandSettings {
     return BOOLEAN_FIELDS.every((key) => typeof record[key] === 'boolean') &&
         POSITIONS.includes(record.position as string) && DISPLAYS.includes(record.display as string) && SIZES.includes(record.size as string) &&
         LOOKS.includes(record.look as string) && LAYOUTS.includes(record.layout as string) && isHex(record.color) && isHex(record.color2) &&
-        isOffset(record.offset) && (record.place === null || isIslandPlace(record.place));
+        isOpacity(record.opacity) && isOffset(record.offset) && (record.place === null || isIslandPlace(record.place));
 }
 
 /** Сохранённое значение любой давности: битое и недостающее берётся по умолчанию */
@@ -115,6 +123,7 @@ export function normalizeIsland(value: unknown): IslandSettings {
     if (LAYOUTS.includes(record.layout as string)) result.layout = record.layout as IslandLayout;
     if (isHex(record.color)) result.color = record.color.toLowerCase();
     if (isHex(record.color2)) result.color2 = record.color2.toLowerCase();
+    if (isOpacity(record.opacity)) result.opacity = Math.round(record.opacity * 100) / 100;
     if (isOffset(record.offset)) result.offset = record.offset;
     if (isIslandPlace(record.place)) result.place = { display: record.place.display, x: Math.round(record.place.x), y: Math.round(record.place.y) };
     return result;
@@ -123,8 +132,8 @@ export function normalizeIsland(value: unknown): IslandSettings {
 export const ISLAND_SCALE: Record<IslandSize, number> = { small: 0.86, normal: 1, large: 1.18 };
 /** Окно острова: под раскрытую плашку с тенью, DIP при масштабе 1. Пустое место окна пропускает мышь насквозь */
 export const ISLAND_WINDOW = { width: 440, height: 220 } as const;
-/** Окно под раскрытую плашку с большой обложкой */
-export const ISLAND_WINDOW_COVER = { width: 460, height: 296 } as const;
+/** Окно под раскрытую плашку с большой обложкой: 290 px с двумя строками песни (--eh в island.css) и 46 px под тень */
+export const ISLAND_WINDOW_COVER = { width: 460, height: 336 } as const;
 /** Поле от края экрана для положения слева и справа */
 const EDGE = 12;
 
@@ -198,4 +207,10 @@ export function roundedShape(rect: Rectangle, radius: number): Rectangle[] {
     }
     if (height - r * 2 > 0) rects.push({ x, y: y + r, width, height: height - r * 2 });
     return rects;
+}
+
+/** Обложка 500x500 для «Большой обложки»: в плеере сайта стоит 50x50, а плашке нужно 116 точек (до 275 на экране с масштабом).
+ *  Ссылки без суффикса размера и «original» остаются как есть */
+export function largeArtwork(url: string): string {
+    return url.replace(/-(?:t\d+x\d+|large|small|badge|tiny|mini|crop)(\.(?:jpg|jpeg|png|webp))(\?.*)?$/i, '-t500x500$1$2');
 }

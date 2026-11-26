@@ -34,6 +34,8 @@
                         <div class="bars big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
                         <button class="hide" data-act="hide" id="hide" aria-label="Скрыть до следующего трека" title="Скрыть до следующего трека"><svg viewBox="0 0 16 16"><path d="M2 8s2.3-4 6-4 6 4 6 4-2.3 4-6 4-6-4-6-4zM3 13 13 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg><span id="hide-label">Скрыть</span></button>
                     </div>
+                    <!-- Текущая строка песни: только в виде «Большая обложка» и когда у трека есть синхронный текст -->
+                    <p class="lyric" id="lyric" aria-hidden="true"><span id="lyric-now"></span><span id="lyric-next"></span></p>
                     <div class="progress">
                         <span id="elapsed">0:00</span>
                         <div class="track" id="seek" role="slider" aria-label="Перемотка" tabindex="-1"><div class="fill" id="fill"></div></div>

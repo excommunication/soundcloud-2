@@ -98,6 +98,9 @@ function playerBar(): string[] {
         // Предки делаются static, чтобы полоса считалась от самого бара; время остаётся рядом с кнопками, мелко
         `${BAR} :is(.playControls__wrapper,.playControls__elements,.playControls__timeline,.playbackTimeline){position:static!important}`,
         `${BAR} .playControls__inner{position:relative!important}`,
+        // Любой предок полосы между баром и ней (в вёрстке сайта бывают промежуточные relative-обёртки) тоже static: иначе top:-8px
+        // считается от середины бара, и линия проходит сквозь кнопку паузы. Якорь один — верхняя кромка .playControls__inner
+        `${BAR} .playControls__inner :has(.playbackTimeline__progressWrapper){position:static!important}`,
         `html body .playControls .playControls__elements>.playControls__timeline{flex:0 0 auto!important;min-width:0!important;width:auto!important}`,
         `${BAR} .playbackTimeline{display:flex!important;align-items:center;gap:6px;width:auto!important}`,
         `${BAR} .playbackTimeline__progressWrapper{position:absolute!important;left:0!important;right:0!important;top:-8px!important;width:auto!important;height:16px!important;margin:0!important;z-index:6}`,

@@ -21,6 +21,8 @@
     let ticker = 0;
     let shownKey = '';
     let shownArt = '';
+    let shownArtLg = '';
+    let artLgFor = '';
     let backAt = 0;
 
     function seconds(value) {
@@ -37,6 +39,22 @@
     function artUrl(url) {
         // У SoundCloud обложка 500x500 через суффикс; маленькая плашка берёт поменьше
         return typeof url === 'string' && /^https:/.test(url) ? url : '';
+    }
+
+    // Крупную обложку ставим, только когда она загрузилась: пока грузится (или нет такого размера), остаётся маленькая
+    function showLarge(large, small, css) {
+        if (large === artLgFor) return;
+        artLgFor = large;
+        shownArtLg = small;
+        for (const id of ['art-lg', 'backdrop']) $(id).style.backgroundImage = small;
+        if (!large || css(large) === small) return;
+        const probe = new window.Image();
+        probe.onload = () => {
+            if (artLgFor !== large) return;
+            shownArtLg = css(large);
+            for (const id of ['art-lg', 'backdrop']) $(id).style.backgroundImage = shownArtLg;
+        };
+        probe.src = large;
     }
 
     // Цвет полосок из обложки: средний насыщенный цвет, слишком тёмный подсвечивается. Без CORS остаётся оранжевый
@@ -120,16 +138,25 @@
         if (event.button !== 0) return;
         volumeDrag = true;
         volumeTrack.classList.add('dragging');
-        volumeTrack.setPointerCapture(event.pointerId);
+        // Захват может не удаться (нажатие уже закончилось): ползунок всё равно должен сработать по клику
+        try {
+            volumeTrack.setPointerCapture(event.pointerId);
+        } catch { /* без захвата тянется, пока мышь над полосой */ }
         sendVolume(volumeAt(event));
     });
-    volumeTrack.addEventListener('pointermove', (event) => volumeDrag && sendVolume(volumeAt(event)));
     const stopDrag = () => {
         volumeDrag = false;
         volumeTrack.classList.remove('dragging');
     };
+    volumeTrack.addEventListener('pointermove', (event) => {
+        if (!volumeDrag) return;
+        // Кнопку отпустили мимо страницы: тянуть дальше нельзя
+        if (!(event.buttons & 1)) return stopDrag();
+        sendVolume(volumeAt(event));
+    });
     volumeTrack.addEventListener('pointerup', stopDrag);
     volumeTrack.addEventListener('pointercancel', stopDrag);
+    volumeTrack.addEventListener('lostpointercapture', stopDrag);
     volumeBox.addEventListener('wheel', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -177,10 +204,17 @@
         seeking = true;
         island.classList.add('seeking');
         island.classList.remove('live');
-        seekTrack.setPointerCapture(event.pointerId);
+        try {
+            seekTrack.setPointerCapture(event.pointerId);
+        } catch { /* без захвата тянется, пока мышь над полосой */ }
         seekTo(seekAt(event), false);
     });
-    seekTrack.addEventListener('pointermove', (event) => seeking && seekTo(seekAt(event), false));
+    seekTrack.addEventListener('pointermove', (event) => {
+        if (!seeking) return;
+        // Кнопку отпустили мимо страницы: перемотать туда, где отпустили, и закончить
+        if (!(event.buttons & 1)) return stopSeek(event);
+        seekTo(seekAt(event), false);
+    });
     const stopSeek = (event) => {
         if (!seeking) return;
         seeking = false;
@@ -190,6 +224,7 @@
     };
     seekTrack.addEventListener('pointerup', stopSeek);
     seekTrack.addEventListener('pointercancel', stopSeek);
+    seekTrack.addEventListener('lostpointercapture', stopSeek);
 
     // Режим совместимости NVIDIA: окно без прозрачности обрезается по плашке, поэтому main должен знать её размер.
     // Там размер меняется сразу, без пружины: обрезка не успевала бы за анимацией
@@ -255,7 +290,13 @@
         const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
         return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
-    function applyLook(settings) {
+    // Цвет #rrggbb с прозрачностью; при alpha 1 остаётся как есть
+    function withAlpha(hex, alpha) {
+        if (alpha >= 1) return hex;
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+    function applyLook(settings, shaped) {
         const look = ['glass', 'black', 'white', 'color', 'gradient'].includes(settings.look) ? settings.look : 'glass';
         const first = HEX.test(settings.color) ? settings.color : '#2b1055';
         const second = HEX.test(settings.color2) ? settings.color2 : '#ff5500';
@@ -264,9 +305,12 @@
         if (look === 'color') light = luminance(first) > 0.6;
         if (look === 'gradient') light = (luminance(first) + luminance(second)) / 2 > 0.6;
         root.dataset.tone = light ? 'light' : 'dark';
-        if (look === 'white') root.style.setProperty('--island-bg', '#f5f5f7');
-        else if (look === 'color') root.style.setProperty('--island-bg', first);
-        else if (look === 'gradient') root.style.setProperty('--island-bg', 'linear-gradient(135deg,' + first + ',' + second + ')');
+        // Непрозрачность только в прозрачном окне: в режиме совместимости (shaped) фон за плашкой чёрный и сквозь неё не виден
+        const alpha = shaped || !(settings.opacity >= 0.3 && settings.opacity <= 1) ? 1 : settings.opacity;
+        if (look === 'white') root.style.setProperty('--island-bg', withAlpha('#f5f5f7', alpha));
+        else if (look === 'black') root.style.setProperty('--island-bg', withAlpha('#000000', alpha));
+        else if (look === 'color') root.style.setProperty('--island-bg', withAlpha(first, alpha));
+        else if (look === 'gradient') root.style.setProperty('--island-bg', 'linear-gradient(135deg,' + withAlpha(first, alpha) + ',' + withAlpha(second, alpha) + ')');
         else root.style.removeProperty('--island-bg');
     }
 
@@ -278,7 +322,7 @@
         root.lang = state.language === 'en' ? 'en' : 'ru';
         root.dataset.position = settings.position || 'center';
         root.dataset.layout = settings.layout === 'cover' ? 'cover' : 'classic';
-        applyLook(settings);
+        applyLook(settings, state.shaped === true);
         root.classList.toggle('titled', settings.showTitle !== false);
         root.classList.toggle('playing', track.isPlaying === true);
         root.classList.toggle('reduce-motion', state.reduceMotion === true);
@@ -286,11 +330,14 @@
         root.classList.toggle('shaped', state.shaped === true);
         const art = artUrl(track.artwork);
         const key = (track.title || '') + '\n' + (track.author || '');
-        if (shownKey && track.title && key !== shownKey) switchTrack(shownArt, Date.now() - backAt < 4000 ? -1 : 1);
+        if (shownKey && track.title && key !== shownKey) switchTrack(shownArt, shownArtLg, Date.now() - backAt < 4000 ? -1 : 1);
         if (track.title) shownKey = key;
-        const image = art ? 'url("' + art.replace(/"/g, '%22') + '")' : '';
+        const css = (url) => (url ? 'url("' + url.replace(/"/g, '%22') + '")' : '');
+        const image = css(art);
         shownArt = image;
-        for (const id of ['art-sm', 'art-lg', 'backdrop']) $(id).style.backgroundImage = image;
+        $('art-sm').style.backgroundImage = image;
+        // Большая обложка и фон берут 500x500: у плеера сайта обложка 50x50 и в 116 px была мыльной
+        showLarge(artUrl(track.artworkLarge) || art, image, css);
         pickAccent(art);
         $('title-sm').textContent = track.title || '';
         $('title').textContent = track.title || '';
@@ -313,6 +360,7 @@
         // Трек сменился или перемотали: без плавного хода, чтобы линия не ехала назад
         if (Math.abs(next.elapsed - position.elapsed - (position.playing ? (next.at - position.at) / 1000 : 0)) > 2.5 || next.duration !== position.duration) settleProgress();
         if (!seeking && !(Date.now() < seekHoldUntil && Math.abs(next.elapsed - position.elapsed) > 2.5)) position = next;
+        setLyrics(root.dataset.layout === 'cover' && Array.isArray(state.lyrics) ? state.lyrics : []);
         renderProgress();
         syncTicker();
         snow(state.winter === true && state.reduceMotion !== true);
@@ -330,9 +378,68 @@
         $('mini-fill').style.transform = share;
         $('fill').style.transform = share;
         if (!expanded()) return;
+        syncLyric(elapsed);
         $('elapsed').textContent = clock(elapsed);
         $('duration').textContent = position.duration ? clock(position.duration) : '—';
     }
+    // Текст песни (только «Большая обложка»): main присылает строки один раз на трек, текущую выбирает остров по своим часам.
+    // Следующая смена строки ставится таймером на её время, чтобы строка не опаздывала до секунды тиков
+    let lyrics = [];
+    let lyricShown = -2;
+    let lyricTimer = 0;
+    function setLyrics(lines) {
+        const clean = lines.filter((line) => line && typeof line.at === 'number' && typeof line.text === 'string');
+        // Те же строки приходят с каждым обновлением состояния: сравниваем по длине и краям, а не по ссылке
+        const same = clean.length === lyrics.length && (!clean.length || (clean[0].at === lyrics[0].at && clean[clean.length - 1].at === lyrics[lyrics.length - 1].at && clean[0].text === lyrics[0].text));
+        if (same) return;
+        lyrics = clean;
+        lyricShown = -2;
+        root.classList.toggle('lyric-on', clean.length > 0);
+        if (!clean.length) {
+            clearTimeout(lyricTimer);
+            $('lyric-now').textContent = $('lyric-next').textContent = '';
+        }
+    }
+    function syncLyric(elapsed) {
+        clearTimeout(lyricTimer);
+        if (!lyrics.length) return;
+        const ms = elapsed * 1000 + 120;
+        // Последняя строка, начавшаяся до сейчас (бинарный поиск: строк сотни, а вызов идёт на каждый кадр перемотки)
+        let low = 0;
+        let high = lyrics.length - 1;
+        let index = -1;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (lyrics[mid].at <= ms) {
+                index = mid;
+                low = mid + 1;
+            } else high = mid - 1;
+        }
+        if (index !== lyricShown) {
+            const changed = lyricShown !== -2;
+            lyricShown = index;
+            const now = $('lyric-now');
+            now.textContent = index >= 0 ? lyrics[index].text : '';
+            $('lyric-next').textContent = lyrics[index + 1] ? lyrics[index + 1].text : '';
+            if (changed && state?.reduceMotion !== true && !state?.shaped && now.animate) now.animate([{ opacity: 0.2, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
+        }
+        const next = lyrics[index + 1];
+        if (next && position.playing && expanded()) lyricTimer = setTimeout(renderProgress, Math.max(30, next.at - ms + 10));
+    }
+
+    // Удар в треке: короткий толчок полосок поверх их обычной анимации. Анимируется обёртка .bars (WAAPI), а не сами
+    // полоски: их keyframes `bar` остаются нетронутыми и ползут дальше. Нет ударов, ничего не приходит, и полоски просто ползут
+    let kickAt = 0;
+    api.onBeat?.((strength) => {
+        if (state?.reduceMotion === true || state?.shaped === true || state?.track?.isPlaying !== true || document.hidden) return;
+        const now = window.performance.now();
+        if (now - kickAt < 110) return;
+        kickAt = now;
+        const box = island.querySelector(expanded() ? '.bars.big' : '.compact .bars');
+        if (!box || !box.animate) return;
+        box.animate([{ transform: 'scaleY(' + (1 + 0.35 + 0.35 * strength).toFixed(2) + ')', filter: 'brightness(1.5)' }, { transform: 'scaleY(1)', filter: 'brightness(1)' }], { duration: 280, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' });
+    });
+
     // Плавный ход полосы включается только после того, как она встала на место: иначе при раскрытии она ползла бы с нуля
     let liveFrame = 0;
     function settleProgress() {
@@ -354,7 +461,7 @@
     // Смена трека: старая обложка улетает карточкой в сторону, новая влетает с пружиной, текст выезжает снизу,
     // плашка подпрыгивает и по ней проходит блик цвета обложки. Всё на transform/opacity, без пересчёта вёрстки
     let switchTimer = 0;
-    function switchTrack(oldImage, direction) {
+    function switchTrack(oldImage, oldLarge, direction) {
         if (state?.reduceMotion === true || state?.shaped === true) return;
         const name = direction < 0 ? 'switch-prev' : 'switch-next';
         island.classList.remove('switch-next', 'switch-prev');
@@ -365,11 +472,12 @@
         if (!oldImage) return;
         for (const id of ['art-sm', 'art-lg']) {
             const art = $(id);
+            const old = id === 'art-lg' ? oldLarge || oldImage : oldImage;
             if (!art.offsetWidth) continue;
             const ghost = document.createElement('div');
             ghost.className = 'art-ghost ' + (direction < 0 ? 'prev' : 'next');
             ghost.style.cssText = 'left:' + art.offsetLeft + 'px;top:' + art.offsetTop + 'px;width:' + art.offsetWidth + 'px;height:' + art.offsetHeight + 'px;border-radius:' + window.getComputedStyle(art).borderTopLeftRadius;
-            ghost.style.backgroundImage = oldImage;
+            ghost.style.backgroundImage = old;
             art.parentElement.append(ghost);
             setTimeout(() => ghost.remove(), 600);
         }
@@ -398,11 +506,18 @@
     // Сквозной режим: на свёрнутую плашку курсор сначала заходит «призраком» — main делает её бледной и пропускает клики
     // насквозь, пока курсор движется. Остановился — main присылает wake, плашка оживает и раскрывается
     let ghosting = false;
+    // main мог не начать «призрак» (идёт перетаскивание) и тогда не пришлёт ни wake, ни sleep: без сторожа ghosting
+    // остался бы true навсегда, и страница перестала бы сообщать main, что курсор над плашкой
+    let ghostGuard = 0;
     function setHovered(on) {
         if (ghosting) return;
         if (on === hovered) return;
         if (on && !expanded() && !pinned) {
             ghosting = true;
+            clearTimeout(ghostGuard);
+            ghostGuard = setTimeout(() => {
+                ghosting = false;
+            }, 1500);
             api.hover('ghost');
             return;
         }
@@ -417,14 +532,37 @@
         }
     }
     // Перетаскивание: зажать плашку и повести дальше 5 px. Окно двигает main за курсором, страница говорит только
-    // «началось» и «отпустили». Кнопки, ползунок громкости и клик без сдвига работают как обычно
+    // «началось» и «отпустили». Кнопки, ползунки и клик без сдвига работают как обычно
     let press = null;
     let dragging = false;
+    // После настоящего перетаскивания клик в конце не считается. Флаг сбрасывается на следующем нажатии, а не по таймеру:
+    // нажатие всегда раньше клика, поэтому устаревшим флаг остаться не может
     let swallowClick = false;
-    // main сам ведёт перетаскивание по кнопке мыши; если он начал его в этом нажатии, клик в конце не считается
-    let draggedPress = false;
+    let hoverSyncAt = 0;
+    function endDragState() {
+        dragging = false;
+        press = null;
+        island.classList.remove('dragging');
+    }
+    // Любое новое нажатие левой кнопкой начинается с чистого листа, в том числе на ползунках (они гасят всплытие)
+    document.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        swallowClick = false;
+        // Новое нажатие не бывает посреди перетаскивания: значит, его конец потерялся
+        if (dragging) {
+            endDragState();
+            api.drag('end');
+        }
+        // Нажатие дошло до страницы: окно точно ловит мышь, «призрак» не нужен. Напомнить об этом main
+        if (ghosting || !hovered) {
+            ghosting = false;
+            clearTimeout(ghostGuard);
+            hovered = true;
+            clearTimeout(collapseTimer);
+            api.hover(true);
+        }
+    }, true);
     island.addEventListener('pointerdown', (event) => {
-        draggedPress = false;
         // Кнопки тоже могут начать перетаскивание (в раскрытой плашке почти всё кнопки): клик без сдвига остаётся кликом
         if (event.button !== 0 || (event.target instanceof window.Element && event.target.closest('.vol-track, .track'))) return;
         press = { x: event.screenX, y: event.screenY, id: event.pointerId };
@@ -432,20 +570,19 @@
     });
     api.onDragState?.((on) => {
         if (on) {
-            draggedPress = true;
+            swallowClick = true;
             if (dragging) return;
             dragging = true;
             clearTimeout(expandTimer);
             island.classList.add('dragging');
             setExpanded(false);
         } else {
-            dragging = false;
-            press = null;
-            island.classList.remove('dragging');
+            endDragState();
         }
     });
     api.onWake?.((wake) => {
         ghosting = false;
+        clearTimeout(ghostGuard);
         if (wake) {
             hovered = true;
             clearTimeout(collapseTimer);
@@ -458,34 +595,46 @@
     });
     island.addEventListener('pointermove', (event) => {
         if (!press || dragging || event.pointerId !== press.id) return;
+        // Кнопка уже отпущена, а отпускание страница не услышала: это не перетаскивание
+        if (!(event.buttons & 1)) {
+            press = null;
+            return;
+        }
         if (Math.hypot(event.screenX - press.x, event.screenY - press.y) < 5) return;
         dragging = true;
+        swallowClick = true;
         clearTimeout(expandTimer);
-        island.setPointerCapture(event.pointerId);
+        try {
+            island.setPointerCapture(event.pointerId);
+        } catch { /* main и так ведёт окно */ }
         island.classList.add('dragging');
         setExpanded(false);
         api.drag('start');
     });
     const release = (event) => {
         if (!press || event.pointerId !== press.id) return;
-        press = null;
-        if (!dragging) return;
-        dragging = false;
-        swallowClick = true;
-        island.classList.remove('dragging');
-        api.drag('end');
-        setTimeout(() => {
-            swallowClick = false;
-        }, 0);
+        const was = dragging;
+        endDragState();
+        if (was) api.drag('end');
     };
     island.addEventListener('pointerup', release);
     island.addEventListener('pointercancel', release);
 
-    document.addEventListener('mousemove', (event) => !dragging && setHovered(inside(event)));
-    document.addEventListener('mouseleave', () => setHovered(false));
+    document.addEventListener('mousemove', (event) => {
+        if (dragging) return;
+        const on = inside(event);
+        setHovered(on);
+        // Окно могло остаться сквозным, пока страница считает курсор над плашкой (main потерял сигнал): напомнить, не чаще раза в 300 мс
+        if (on && hovered && !ghosting && Date.now() - hoverSyncAt > 300) {
+            hoverSyncAt = Date.now();
+            api.hover(true);
+        }
+    });
+    // Во время перетаскивания окно едет за курсором с запозданием, курсор может на миг выйти за плашку: это не уход
+    document.addEventListener('mouseleave', () => !dragging && setHovered(false));
     document.addEventListener('click', (event) => {
-        if (swallowClick || draggedPress) {
-            draggedPress = false;
+        if (swallowClick) {
+            swallowClick = false;
             return;
         }
         const target = event.target instanceof window.Element ? event.target.closest('[data-act]') : null;
@@ -568,6 +717,7 @@
             },
             onState: (listener) => listeners.push(listener),
             onAnnounce: () => undefined,
+            onBeat: () => undefined,
         };
     }
 })();

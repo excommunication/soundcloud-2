@@ -34,6 +34,7 @@ function setup(settings: Record<string, unknown> = {}) {
         webhooks: () => webhooks,
         previewPresence: vi.fn(),
         setBeat: vi.fn(),
+        islandBeat: vi.fn(),
         setEffectsMode: vi.fn(),
         updateThumbar: vi.fn(),
     };
