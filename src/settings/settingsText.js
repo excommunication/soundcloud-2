@@ -390,7 +390,7 @@ window.SETTINGS_EN = {
     'Процент проигрывания': 'Played percentage',
     'Пример данных': 'Sample data',
     'Сервер джемов': 'Jam server',
-    'Адрес для прослушивания вместе с другом (кнопка «С другом» рядом с громкостью или Ctrl+Shift+J). Пусто — адрес, вшитый в клиент': 'Address for listening together with a friend (the “Together” button next to the volume, or Ctrl+Shift+J). Empty: the address built into the client',
+    'Пусто — адрес, вшитый в клиент': 'Empty: the address built into the client',
     'https://sc2-jam.имя.workers.dev': 'https://sc2-jam.name.workers.dev',
     'Адрес сервера джемов': 'Jam server address',
     'Журнал диагностики': 'Diagnostic log',

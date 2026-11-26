@@ -283,25 +283,6 @@ h2 + .group,
 .hint.pad + .group {
     margin-top: 4px;
 }
-.row > .dropdown {
-    width: 200px;
-}
-/* Радар: поле времени шириной со списком, у часового пояса длинные названия */
-.row .input.time {
-    flex: none;
-    width: 140px;
-    color-scheme: dark;
-}
-.row > .dropdown:has(#radarZone) {
-    width: 240px;
-}
-.row > .input.wide {
-    flex: 1 1 220px;
-    width: auto;
-}
-.row > .input.port {
-    width: 96px;
-}
 /* Резервная копия: две кнопки в строке и сводка перед восстановлением */
 .backup-actions {
     display: flex;
@@ -946,9 +927,6 @@ textarea.input {
 }
 body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
 @keyframes settings-pop { from { opacity: 0; transform: translateY(6px); } }
-.nav-list button { border-radius: 999px; padding: 9px 14px; transition: background-color 120ms, color 120ms; }
-.nav-list button[aria-current='true'] { background: rgba(255, 255, 255, 0.09); box-shadow: none; }
-.row { border-radius: 12px; }
 .section.active { animation: section-in 160ms var(--sc2-ease); }
 @keyframes section-in { from { opacity: 0; } }
 .btn { border-radius: 999px; padding: 8px 14px; transition: background-color 120ms, border-color 120ms, transform 120ms var(--sc2-ease); }
@@ -959,7 +937,6 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
 .slider::before { transition: transform .2s var(--sc2-ease), background .2s; }
 .toggle input:checked + .slider { background: var(--sc2-accent); border-color: transparent; }
 .toggle input:checked + .slider::before { background: #fff; }
-.input.wide { flex: 1; max-width: 360px; min-width: 0; }
 .ai-fields { margin-top: 2px; }
 
 .fx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; padding: 4px 8px 6px; }
@@ -1013,5 +990,462 @@ input[type='range']:active::-webkit-slider-thumb { transform: scale(1.15); }
 .island-fields { transition: opacity 160ms ease; }
 .island-fields.off { opacity: 0.45; }
 
-/* Цвет плашки острова */
-input[type='color'].input { width: 44px; height: 30px; padding: 2px; cursor: pointer; }
+/* ===== Порядок в панели: навигация с иконками, строки «подпись слева, элемент справа», единые поля и кнопки ===== */
+:root {
+    --row-x: 12px; /* внутренний отступ строки: по нему выровнены заголовки, группы, подсказки и сетки */
+    --ctl-w: 240px; /* ширина полей, списков и времени справа в строке */
+    --ctl-h: 34px;
+    --ctl-radius: 10px;
+    --accent-soft: rgba(154, 168, 255, 0.16);
+    --divider: rgba(255, 255, 255, 0.05);
+}
+.dialog {
+    height: min(640px, calc(100vh - 48px));
+}
+
+/* Навигация: иконка, подпись, точка-напоминание справа */
+.nav-list {
+    gap: 2px;
+    width: 204px;
+    padding: 2px 12px 20px 12px;
+}
+.nav-list button {
+    position: relative;
+    justify-content: flex-start;
+    gap: 10px;
+    flex: none;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: var(--ctl-radius);
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--text-secondary);
+    transition: background-color 120ms, color 120ms, box-shadow 120ms;
+}
+.nav-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nav-ico {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.75;
+    transition: opacity 120ms, color 120ms;
+}
+.nav-list button:hover {
+    background: var(--sc2-surface-1);
+    color: var(--text-primary);
+}
+.nav-list button:hover .nav-ico {
+    opacity: 1;
+}
+.nav-list button:active {
+    background: var(--sc2-surface-2);
+}
+.nav-list button[aria-current='true'] {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.nav-list button[aria-current='true'] .nav-ico {
+    color: var(--sc2-accent);
+    opacity: 1;
+}
+/* Кольцо фокуса внутри кнопки: прокручиваемый список не обрезает его */
+.nav-list button:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--focus);
+}
+.nav-dot {
+    flex: none;
+    background: var(--sc2-accent);
+}
+.nav-sep {
+    margin: 14px 12px 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    opacity: 0.75;
+}
+@container (max-width: 760px) {
+    .nav-list {
+        width: 192px;
+        padding-right: 6px;
+    }
+}
+@container (max-width: 560px) {
+    .nav-list {
+        width: auto;
+        padding: 0 16px 10px;
+    }
+    .nav-label {
+        flex: none;
+    }
+}
+
+/* Правая часть и заголовок раздела с иконкой: заголовок остаётся сверху при прокрутке */
+.dialog-body {
+    padding: 0 20px 24px 8px;
+}
+h2 {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+    padding: 2px var(--row-x) 12px;
+    font-size: 18px;
+    line-height: 24px;
+    background: var(--bg-primary);
+}
+/* Под закреплённым заголовком строки уходят в мягкую тень, а не обрезаются линией */
+h2::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background: linear-gradient(var(--bg-primary), transparent);
+    pointer-events: none;
+}
+.h-ico {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--ctl-radius);
+    background: var(--sc2-surface-2);
+    box-shadow: inset 0 0 0 1px var(--border);
+    color: var(--sc2-accent);
+}
+.h-ico .nav-ico {
+    opacity: 1;
+}
+
+/* Строка: подпись и подсказка слева, элемент справа. Не хватает места: элемент уходит под подпись */
+.row {
+    position: relative;
+    gap: 6px 20px;
+    min-height: 52px;
+    padding: 9px var(--row-x);
+    border-radius: var(--ctl-radius);
+}
+.row > .text {
+    flex: 1 1 180px;
+}
+.row .text {
+    gap: 3px;
+    font-size: 13.5px;
+    line-height: 19px;
+    color: var(--text-primary);
+}
+.row .hint {
+    margin-top: 0;
+    max-width: 60ch;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    text-wrap: pretty;
+}
+/* Пустой статус слева: кнопки всё равно прижаты вправо */
+.row > .text:empty + *,
+.row > .hint:empty + * {
+    margin-left: auto;
+}
+/* Тонкая линия между соседними строками, у строки под курсором её нет */
+.row + .row::before,
+.row + .hint:empty + .row::before,
+.row + .fold > summary::before,
+.fold + .fold > summary::before,
+.fold + .row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--row-x);
+    right: var(--row-x);
+    height: 1px;
+    background: var(--divider);
+    pointer-events: none;
+}
+label.row:hover::before,
+label.row:hover + .row::before,
+.fold > summary:hover::before,
+.fold:hover + .fold > summary::before,
+.fold:hover + .row::before {
+    opacity: 0;
+}
+label.row:hover,
+.fold > summary:hover {
+    background: var(--sc2-surface-1);
+}
+
+/* Группа внутри раздела: метка-акцент, заглавные и линия до края */
+.group {
+    margin-top: 22px;
+    margin-bottom: 2px;
+    padding: 0 var(--row-x) 6px;
+    gap: 10px;
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    color: rgba(255, 255, 255, 0.68);
+}
+.group::before {
+    content: '';
+    flex: none;
+    width: 3px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--sc2-accent);
+    opacity: 0.7;
+}
+h2 + .group,
+.hint.pad + .group {
+    margin-top: 8px;
+}
+.hint.pad {
+    max-width: 68ch;
+    padding: 0 var(--row-x) 10px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.row + .hint.pad,
+.item > .hint.pad {
+    padding-top: 2px;
+}
+.item {
+    position: relative;
+    margin-top: 14px;
+    padding-top: 8px;
+    border-top: 0;
+}
+.item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--row-x);
+    right: var(--row-x);
+    height: 1px;
+    background: var(--border);
+}
+.sub {
+    margin: 2px 0 6px var(--row-x);
+    padding-left: 8px;
+}
+
+/* Поля ввода: одна высота, скругление, фон и кольцо фокуса */
+.input {
+    height: var(--ctl-h);
+    padding: 0 12px;
+    font-size: 13px;
+    line-height: 20px;
+    border-radius: var(--ctl-radius);
+    background: var(--sc2-surface-1);
+    border: 1px solid var(--border);
+    transition: border-color 120ms, box-shadow 120ms, background-color 120ms;
+}
+.input::placeholder {
+    color: rgba(255, 255, 255, 0.32);
+}
+.input:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+.input:focus,
+.input:focus-visible {
+    outline: none;
+    border-color: rgba(154, 168, 255, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea.input {
+    height: auto;
+    min-height: 56px;
+    padding: 8px 12px;
+}
+.row > .input.wide,
+.row > .input.time,
+.row > .dropdown {
+    flex: 0 1 var(--ctl-w);
+    width: var(--ctl-w);
+    min-width: 160px;
+}
+.row .input.time {
+    color-scheme: dark;
+}
+.row > .input.port {
+    width: 96px;
+}
+.input.num {
+    width: 72px;
+    padding-right: 8px;
+}
+.dropdown-button:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+.dropdown-list {
+    top: calc(100% + 6px);
+    padding: 4px;
+    border-radius: var(--ctl-radius);
+    background: rgba(18, 20, 28, 0.98);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.dropdown-option {
+    border-radius: 7px;
+}
+.segmented {
+    padding: 3px;
+}
+/* Цвет: круглые образцы одного размера и в острове, и в своих цветах фона */
+input[type='color'].input,
+.color-set input[type='color'] {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+}
+input[type='color'].input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+input[type='color'].input::-webkit-color-swatch {
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+}
+input[type='color']:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* Ползунок со значением: обе части справа, подпись сжимается раньше них */
+.range-row {
+    column-gap: 14px;
+}
+.range-row .text {
+    flex: 1 1 160px;
+}
+.range-row input[type='range'] {
+    width: 200px;
+}
+.range-row output {
+    width: 44px;
+}
+input[type='range']:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 6px;
+}
+
+/* Кнопки: одна высота, тихая обводка; главная белая */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    font-size: 13px;
+    line-height: 1;
+    background: var(--sc2-surface-1);
+    border: 1px solid var(--border);
+}
+.btn:hover:not(:disabled) {
+    background: var(--sc2-surface-2);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+.btn.solid,
+.btn.solid:hover:not(:disabled) {
+    background: #fff;
+    border-color: transparent;
+    color: #0b0c10;
+}
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.text-btn:focus-visible,
+.token:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+.icon-btn {
+    border-radius: var(--ctl-radius);
+}
+.controls .icon-btn {
+    width: var(--ctl-h);
+    height: var(--ctl-h);
+    border: 1px solid var(--border);
+    background: var(--sc2-surface-1);
+}
+.backup-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Блоки без строк выровнены по тому же отступу */
+.controls {
+    gap: 8px;
+    padding: 4px var(--row-x) 8px;
+}
+.field-stack {
+    padding: 4px var(--row-x) 8px;
+}
+.template-grid {
+    gap: 8px 16px;
+    padding: 4px var(--row-x) 8px;
+}
+.tokens {
+    gap: 6px;
+    padding: 0 var(--row-x) 8px;
+}
+.token {
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: var(--sc2-surface-1);
+}
+.fx-grid,
+.pal-row {
+    padding-left: var(--row-x);
+    padding-right: var(--row-x);
+}
+.disclosure {
+    padding: 4px var(--row-x);
+    border-radius: var(--ctl-radius);
+}
+.example-json {
+    margin: 2px var(--row-x) 8px;
+    border-radius: var(--ctl-radius);
+}
+.preview,
+.backup-preview {
+    margin: 8px var(--row-x);
+    border-radius: 14px;
+}
+.backup-preview {
+    padding: 12px 14px 4px;
+}
+.row.compact {
+    flex-wrap: nowrap;
+    gap: 12px;
+    min-height: 40px;
+    padding: 6px 12px 6px 8px;
+}
+.row.compact > .text {
+    flex: none;
+}

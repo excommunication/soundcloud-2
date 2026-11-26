@@ -29,20 +29,21 @@
 
             <div class="dialog-main">
                 <nav class="nav-list" aria-label="Разделы настроек">
-                    <button data-target="general" aria-current="true">Основные</button>
-                    <button data-target="appearance">Оформление</button>
-                    <button data-target="island">Остров</button>
-                    <button data-target="wave">Волна</button>
-                    <button data-target="jam">Джем</button>
-                    <button data-target="optimize">Оптимизация</button>
-                    <button data-target="proxy" id="proxyNav">Прокси<span class="nav-dot" aria-hidden="true"></span></button>
-                    <button data-target="advanced" id="advancedNav">Дополнительно<span class="nav-dot" aria-hidden="true"></span></button>
+                    <!-- Иконки: контур 24×24, линия 1.75, цвет текста кнопки. Заголовок раздела берёт копию иконки своей кнопки -->
+                    <button data-target="general" aria-current="true"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg><span class="nav-label">Основные</span></button>
+                    <button data-target="appearance"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2a1.7 1.7 0 0 1 1.3-2.9H17a4 4 0 0 0 4-4c0-4.5-4-8.2-9-8.2z" /><circle cx="7.5" cy="11.5" r="1" /><circle cx="10.5" cy="7.5" r="1" /><circle cx="15" cy="8" r="1" /></svg><span class="nav-label">Оформление</span></button>
+                    <button data-target="island"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><rect x="8.5" y="7" width="7" height="3" rx="1.5" /></svg><span class="nav-label">Остров</span></button>
+                    <button data-target="wave"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></svg><span class="nav-label">Волна</span></button>
+                    <button data-target="jam"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3a6.5 6.5 0 0 1 3.5 5.7" /></svg><span class="nav-label">Джем</span></button>
+                    <button data-target="optimize"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.9 18a9 9 0 1 1 14.2 0M12 12.5l3.5-4" /><circle cx="12" cy="13" r="1.3" /></svg><span class="nav-label">Оптимизация</span></button>
+                    <button data-target="proxy" id="proxyNav"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" /></svg><span class="nav-label">Прокси</span><span class="nav-dot" aria-hidden="true"></span></button>
+                    <button data-target="advanced" id="advancedNav"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5.5l-3 13" /></svg><span class="nav-label">Дополнительно</span><span class="nav-dot" aria-hidden="true"></span></button>
                     <span class="nav-sep" aria-hidden="true">Ещё</span>
-                    <button data-target="soundcloud">SoundCloud</button>
-                    <button data-target="home">Главная</button>
-                    <button data-target="discord">Discord</button>
-                    <button data-target="account">Аккаунт</button>
-                    <button data-target="backup">Резервная копия</button>
+                    <button data-target="soundcloud"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.5 9.6 4.5 4.5 0 0 0 7 18.5z" /></svg><span class="nav-label">SoundCloud</span></button>
+                    <button data-target="home"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></svg><span class="nav-label">Главная</span></button>
+                    <button data-target="discord"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="11" rx="5.5" /><path d="M7.5 10v4M5.5 12h4M15.5 11.2h.01M18 13h.01" /></svg><span class="nav-label">Discord</span></button>
+                    <button data-target="account"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg><span class="nav-label">Аккаунт</span></button>
+                    <button data-target="backup"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></svg><span class="nav-label">Резервная копия</span></button>
                 </nav>
 
                 <div class="dialog-body">
@@ -322,8 +323,7 @@
                     <section class="section" id="jam" hidden>
                         <h2>Джем</h2>
                         <p class="hint pad">Слушать вместе с другом: кнопка «С другом» рядом с громкостью или Ctrl+Shift+J</p>
-                        <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Адрес для прослушивания вместе с другом (кнопка «С другом» рядом с громкостью или Ctrl+Shift+J). Пусто — адрес, вшитый в клиент</span></span></div>
-                        <div class="field-stack"><input type="url" class="input" id="jamServer" placeholder="https://sc2-jam.имя.workers.dev" aria-label="Адрес сервера джемов" autocomplete="off" spellcheck="false" /></div>
+                        <div class="row"><span class="text"><span>Сервер джемов</span><span class="hint">Пусто — адрес, вшитый в клиент</span></span><input type="url" class="input wide" id="jamServer" placeholder="https://sc2-jam.имя.workers.dev" aria-label="Адрес сервера джемов" autocomplete="off" spellcheck="false" /></div>
                     </section>
 
                     <section class="section" id="optimize" hidden>
@@ -473,7 +473,7 @@
                         <div class="item">
                             <label class="row"><span class="text">Отправлять вебхук</span><span class="toggle"><input type="checkbox" id="webhookEnabled" /><span class="slider"></span></span></label>
                             <div id="webhookFields" style="display: none">
-                                <div class="field-stack"><input type="url" class="input" id="webhookUrl" placeholder="https://адрес-вебхука" aria-label="Адрес вебхука" /></div>
+                                <div class="row"><span class="text">Адрес вебхука</span><input type="url" class="input wide" id="webhookUrl" placeholder="https://адрес-вебхука" aria-label="Адрес вебхука" autocomplete="off" spellcheck="false" /></div>
                                 <div class="row">
                                     <span class="text">Когда трек проигран на</span>
                                     <span class="inline"><input type="number" id="webhookTriggerPercentage" class="input num" min="0" max="100" step="1" value="50" aria-label="Процент проигрывания" />%</span>

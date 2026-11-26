@@ -47,6 +47,17 @@ async function initializeSettings() {
 
     // Разделы: слева список, справа виден один раздел
     const navButtons = [...document.querySelectorAll('.nav-list button')];
+    // Заголовок раздела повторяет иконку своей кнопки, чтобы не держать два одинаковых SVG в разметке
+    for (const button of navButtons) {
+        const icon = button.querySelector('.nav-ico');
+        const heading = document.getElementById(button.dataset.target)?.querySelector('h2');
+        if (!icon || !heading || heading.querySelector('.h-ico')) continue;
+        const badge = document.createElement('span');
+        badge.className = 'h-ico';
+        badge.setAttribute('aria-hidden', 'true');
+        badge.appendChild(icon.cloneNode(true));
+        heading.prepend(badge);
+    }
     for (const button of navButtons) {
         button.addEventListener('click', () => {
             for (const other of navButtons) {
