@@ -100,7 +100,7 @@ export const NARROW_CSS = [
     '.l-fluid-fixed,.l-fixed-fluid,.l-container,.l-main,.l-content,.l-front-content,.l-listen-wrapper{min-width:0!important;padding-right:0!important;margin-right:0!important;max-width:100%!important}',
     '.playControls__inner{min-width:0;max-width:100%}',
     '.playbackSoundBadge{min-width:0}',
-    '.playControls__volume,.playControls__repeat{display:none!important}',
+    '.playControls__volume{display:none!important}',
     '.header__navMenu{flex-wrap:nowrap;min-width:0}',
     '.header__search,.header__searchWrapper{min-width:0;flex:1 1 120px}',
     '}',

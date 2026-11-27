@@ -19,7 +19,8 @@ describe('NARROW_CSS', () => {
         const b = block(NARROW_CSS, '@media (max-width:900px)');
         expect(b).toContain('.l-sidebar-right{display:none!important}');
         expect(b).toContain('html,body{overflow-x:clip}');
-        expect(b).toContain('.playControls__volume,.playControls__repeat{display:none!important}');
+        expect(b).toContain('.playControls__volume{display:none!important}');
+        expect(b).not.toContain('.playControls__repeat');
     });
     it('901..1100px: колонка 240px целиком в окне, резерв справа под неё сброшен', () => {
         const b = block(NARROW_CSS, '@media (max-width:1100px) and (min-width:901px)');
