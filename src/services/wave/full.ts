@@ -3,6 +3,7 @@
 // ссылку с того же места, поэтому полоса, пауза и перемотка сайта работают как обычно, а конец трека сайт считает сам.
 // Раздел страницы волны: installFull уходит на страницу текстом и зовёт помощников разбора по голому имени
 import * as identity from '../trackIdentity';
+import type { WaveTrack } from '../waveTypes';
 import type { SitePlayer, SiteQueueItem } from '../wave';
 
 const { trackDuration } = identity;
@@ -13,7 +14,7 @@ export interface FullCore {
     /** Ссылка на полный поток или null, если main ничего подходящего не нашёл (или функция выключена) */
     resolve(query: { title: string; uploader: string; durationMs: number }): Promise<{ url: string } | null>;
     /** Трек по пути страницы (/artist/track); null, если сайт его не отдал. Нужен, чтобы понять, закрыт ли трек под кнопкой */
-    lookup?(path: string): Promise<{ id: number; title?: string; policy?: string; streamable?: boolean; duration?: number; full_duration?: number; user?: { username?: string } } | null>;
+    lookup?(path: string): Promise<WaveTrack | null>;
     showToast?(text: string): void;
 }
 export interface FullSection {
