@@ -418,7 +418,7 @@ export function installMenu(core: MenuCore): MenuSection {
         return out;
     }
     // Единственный источник пунктов меню трека: правый клик, «⋯» в баре и на карточке, режим роликов зовут его.
-    // Общий набор одинаков везде; от места зависят только «К дропу» (у играющего трека) и пункты места (extras).
+    // Общий набор одинаков везде; от места зависят только «К дропу» (у играющего трека) и пункты места (extras, своей группой).
     // У трека верхний уровень короткий (главные действия), остальное в подменю: «Ещё волны», «Ещё», «Скрыть».
     // У артиста, плейлиста и жанра пунктов мало: список плоский
     function menuItems(target: MenuTarget, extras: TrackMenuExtra[] = []): MenuEntry[] {
@@ -433,7 +433,6 @@ export function installMenu(core: MenuCore): MenuSection {
             waves.push(trackMarked(moreTracks, target) ? ['unmore', T.menuUnmore, 'undo'] : ['more', T.more, 'more']);
             const lyricsLabel = core.lyricsLabel(target);
             const more = joinGroups<MenuLeaf>([
-                extraItems,
                 [core.pickedIndex(target) >= 0 ? ['unpick', T.menuUnpick, 'undo'] : ['pick', T.menuPick, 'pick']],
                 [...(lyricsLabel ? [['lyrics', lyricsLabel, 'lyrics'] as MenuLeaf] : []), ['versions', T.menuVersions, 'versions']],
             ], sep);
@@ -451,6 +450,9 @@ export function installMenu(core: MenuCore): MenuSection {
                 playing ? [['drop', T.menuDrop, 'drop']] : [],
                 [['queue-next', T.menuQueueNext, 'next'], ['queue-last', T.menuQueueLast, 'last']],
                 [['wave-track', T.menuWaveTrack, 'wave'], { sub: 'waves', label: SUB_LABEL.waves, icon: 'waves', items: waves }],
+                // Пункты места (2.15.12): ушедшие из бара кнопки («С другом», эффекты, подписка) на верхнем уровне, а не в «Ещё»:
+                // их искали там, где раньше была кнопка, и в подменю не находили
+                extraItems,
                 about,
                 [trackExcluded(target) ? ['undislike', T.menuUndislike, 'undo'] : ['dislike', T.menuDislike, 'block'], { sub: 'hide', label: SUB_LABEL.hide, icon: 'eyeOff', items: hide }],
             ], sep);
