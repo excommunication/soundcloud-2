@@ -5,7 +5,7 @@
 html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
 body {
     padding: 14px;
-    font: 13.5px/20px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    font: 13.5px/20px var(--sc2-font);
     color: #f5f5f7;
     -webkit-font-smoothing: antialiased;
     user-select: none;
@@ -18,7 +18,7 @@ html.shaped body { padding: 0; background: #16161a; }
     width: 100%;
     height: 100%;
     padding: 6px;
-    border-radius: 16px;
+    border-radius: var(--sc2-radius-md);
     /* Толща стекла: тёмная и почти непрозрачная, чтобы пункты читались на любом фоне; сверху мягкий блик */
     background:
         radial-gradient(70% 40% at 30% 0%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 70%),
@@ -52,7 +52,7 @@ html.shaped .menu::after { display: none; }
     height: 36px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--sc2-radius-sm);
     background: none;
     color: rgba(245, 245, 247, 0.92);
     font: inherit;
@@ -71,7 +71,7 @@ html.shaped .menu::after { display: none; }
 .row.danger:hover { background: rgba(255, 107, 107, 0.12); box-shadow: inset 0 0 0 0.5px rgba(255, 107, 107, 0.14); }
 .row .switch { margin-left: auto; width: 30px; height: 18px; border-radius: 9px; background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); position: relative; flex: none; transition: background 150ms; }
 .row .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); transition: transform 180ms cubic-bezier(0.3, 1.3, 0.5, 1); }
-.row .switch.on { background: #ff5500; }
+.row .switch.on { background: var(--sc2-accent); }
 .row .switch.on::after { transform: translateX(12px); }
 .sep { height: 13px; display: flex; align-items: center; padding: 0 10px; }
 .sep::before { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.1) 15%, rgba(255, 255, 255, 0.1) 85%, rgba(255, 255, 255, 0)); }

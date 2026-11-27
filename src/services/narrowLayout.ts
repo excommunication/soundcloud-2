@@ -2,16 +2,30 @@
 // скрыта, на 901..1100 px сужена до 220 px; нижний плеер сжимается, а не обрезается. Правила только в медиа-запросах, на широком окне ничего не меняется
 // 2.12.3: кнопки справа в плеере больше не прячутся по порогам ширины (так кнопка пропадала насовсем). Их ведёт auroraPage (fitBar):
 // если ряд не помещается, лишние кнопки получают класс sca-ovf и появляются в меню «…» (.sca-more). Здесь только стили этого механизма:
-// скрытие, кнопка «…», меню и сжатие бейджа трека. Лайк и правая группа (.sca-fx, режим роликов, «С другом») не скрываются ни при какой ширине.
+// скрытие, кнопка «…», меню и сжатие бейджа трека. Лайк, «Не нравится», режим роликов и громкость не скрываются ни при какой ширине.
+// 2.15.12: второстепенные кнопки бара («Слушать следующим», «Волна по треку», «Больше такого», «К дропу», подписка, «С другом», эффекты)
+// всегда в «…» при любой ширине: их прячет класс sca-tidy, который ставит auroraPage вместе с кнопкой «…» (список OVF_ORDER в aurora.ts)
 // Панель лайков на 901..1100 px переносит строку счётчиков, а не обрезает её
 const BAR = 'html body .playControls';
 const ACTIONS = `${BAR} .playbackSoundBadge__actions`;
+/** Кнопки бара, которые всегда в «…» (те же селекторы, что OVF_SELECTOR в aurora.ts без очереди; сверяет narrowLayout.test.ts) */
+export const OVF_ALWAYS = [
+    '.scd-dock>[data-act="next"]',
+    '.scd-dock>[data-act="wave"]',
+    '.scd-dock>[data-act="more"]',
+    '.scd-dock>[data-act="drop"]',
+    '.playbackSoundBadge__actions .sc-button-follow',
+    '.scj-chip.bar',
+    'button.sca-fx',
+];
 export const NARROW_CSS = [
     // Бейдж трека сжимается до нуля, а название обрезается многоточием: ряд кнопок больше не выталкивается за край окна
     `${BAR} .playControls__soundBadge{min-width:0!important}`,
     `${BAR} .playControls__elements{min-width:0;max-width:100%}`,
     // Ушедшая в «…» кнопка скрыта, но остаётся в странице: пункт меню нажимает именно её
     `${ACTIONS} .sca-ovf.sca-ovf{display:none!important}`,
+    // Всегда в «…»: тоже живые, но не на виду. Без sca-tidy (скрипт бара не встал, «…» нет) все кнопки остаются в ряду
+    `html.sca-tidy body .playControls .playControls__elements :is(${OVF_ALWAYS.join(',')}){display:none!important}`,
     `${ACTIONS}>button.sca-more{all:unset;box-sizing:border-box;flex:none;order:99;width:32px;height:32px;border-radius:999px;display:none;place-items:center;cursor:pointer;color:rgba(255,255,255,.75);` +
         'background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);transition:transform .16s ease,background-color .16s ease,color .16s ease}',
     `${ACTIONS}>button.sca-more.on{display:inline-grid}`,
@@ -19,19 +33,21 @@ export const NARROW_CSS = [
     `${ACTIONS}>button.sca-more:hover,${ACTIONS}>button.sca-more[aria-expanded="true"]{background:rgba(255,255,255,.14);color:#fff}`,
     `${ACTIONS}>button.sca-more:active{transform:scale(.9)}`,
     `${ACTIONS}>button.sca-more:focus-visible{outline:2px solid var(--sc2-accent,#fff);outline-offset:2px}`,
-    // Кнопка эффектов всегда на месте
+    `html.scm-reduce body .playControls .playbackSoundBadge__actions>button.sca-more{transition:none;transform:none}`,
+    `@media (prefers-reduced-motion:reduce){${ACTIONS}>button.sca-more{transition:none;transform:none}}`,
+    // Кнопка эффектов на месте, пока скрипт бара не убрал её в «…» (sca-tidy выше её перебивает)
     `${BAR} button.sca-fx{display:inline-grid!important;flex:none!important}`,
-    // Нижний бар по смыслу, слева направо: транспорт и громкость · прогресс · название трека с действиями над ним · разделитель ·
-    // правая группа «не про текущий трек»: «С другом», режим роликов, эффекты. Блок громкости растворяется (contents), чтобы ролики и джем,
-    // что стоят рядом с громкостью в DOM, встали в правую группу через order. Правая группа всегда на месте и никогда не уходит в «…»
+    // Нижний бар по смыслу, слева направо (2.15.12): транспорт · прогресс · название трека с лайком, «Не нравится», очередью и «…» ·
+    // разделитель · режим роликов и громкость. Блок громкости растворяется (contents), чтобы ролики и громкость встали за разделитель
+    // через order. «С другом» и эффекты стоят последними и видны только без «…»
     `html.scv-bar-on body .playControls .playControls__volume{display:contents!important}`,
-    `${BAR} .scv[data-kind="bar"]{order:1}`,
     `${BAR} .playControls__elements>.playControls__timeline{order:2}`,
     `${BAR} .playControls__elements>.playControls__soundBadge{order:3}`,
     `${BAR} .sca-bar-sep{order:4}`,
-    `${BAR} .scj-chip.bar{order:5}`,
-    `${BAR} .scc-open{order:6}`,
-    `${BAR} button.sca-fx{order:7}`,
+    `${BAR} .scc-open{order:5}`,
+    `${BAR} .scv[data-kind="bar"]{order:6}`,
+    `${BAR} .scj-chip.bar{order:7}`,
+    `${BAR} button.sca-fx{order:8}`,
     // Одинаковые круглые кнопки 32 px с одинаковыми отступами
     `${BAR} .scj-chip.bar,${BAR} .scc-open,${BAR} button.sca-fx{display:inline-grid!important;flex:none!important;width:32px!important;height:32px!important;margin:0 3px!important;align-self:center}`,
     '.sca-more-pop{position:fixed;z-index:2147483601;display:none;flex-direction:column;gap:2px;min-width:190px;max-width:calc(100vw - 16px);padding:6px;border-radius:14px;font:600 13px/1.2 system-ui,-apple-system,sans-serif;color:#fff;' +

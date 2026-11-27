@@ -774,6 +774,7 @@ export function appearanceCss(appearance: Appearance): string {
         `${bar} .scd-dock{flex:none;margin-left:0;padding:0;gap:6px;background:none;box-shadow:none}`,
         // Кнопки справа по смыслу (2.8.3): док растворяется в ряду кнопок сайта, порядок задаётся order.
         // Оценка: лайк, «Не нравится», «Больше такого» · очередь: «Следующим», «Волна от трека», очередь сайта · подписка · «К дропу»
+        // 2.15.12: из них на виду лайк, «Не нравится» и очередь, остальные скрыты в «⋯» (narrowLayout, класс sca-tidy); порядок для узкого случая без «⋯»
         `${bar} .playbackSoundBadge__actions{flex-wrap:nowrap}`,
         `${bar} .playbackSoundBadge__actions>.scd-dock{display:contents}`,
         `${bar} .playbackSoundBadge__actions>*{order:60}`,
@@ -1373,7 +1374,7 @@ export function auroraPage(config: AuroraConfig): void {
             item.addEventListener('click', (event) => {
                 event.stopPropagation();
                 chooseFxMode(mode);
-                fxButton?.focus();
+                fxAnchor()?.focus();
             });
             pop.append(item);
         }
@@ -1440,12 +1441,19 @@ export function auroraPage(config: AuroraConfig): void {
         range.disabled = fxMode !== 'full';
         fxPop.querySelector('.sca-fx-beat')?.classList.toggle('off', fxMode !== 'full');
     }
+    // Кнопка эффектов живёт в «⋯» (2.15.12): у скрытой кнопки нет места на экране, поэтому меню встаёт над «⋯»
+    // и фокус после выбора и Escape возвращается к ней
+    function fxAnchor(): HTMLElement | null {
+        if (fxButton?.getClientRects().length) return fxButton;
+        return moreButton?.isConnected ? moreButton : fxButton;
+    }
     function openFxMenu(): void {
-        if (!fxButton) return;
+        const anchor = fxAnchor();
+        if (!fxButton || !anchor) return;
         fxPop ??= buildFxMenu();
         syncFxMenu();
         if (!fxPop.isConnected) document.body.append(fxPop);
-        const box = fxButton.getBoundingClientRect();
+        const box = anchor.getBoundingClientRect();
         fxPop.style.left = Math.max(125, Math.min(window.innerWidth - 125, box.left + box.width / 2)) + 'px';
         fxPop.style.top = box.top - 8 + 'px';
         fxPop.classList.add('on');
@@ -1464,70 +1472,105 @@ export function auroraPage(config: AuroraConfig): void {
     const onFxKey = (event: KeyboardEvent): void => {
         if (event.key === 'Escape' && fxPop?.classList.contains('on')) {
             closeFxMenu();
-            fxButton?.focus();
+            fxAnchor()?.focus();
         }
     };
     document.addEventListener('pointerdown', onFxAway, true);
     document.addEventListener('keydown', onFxKey, true);
     window.addEventListener('resize', closeFxMenu);
     applyFx();
-    // Ряд кнопок справа (2.12.2): когда он не помещается, второстепенные кнопки уходят в меню «…», а не обрезаются и не
-    // наползают на название. Лайк, «Не нравится» (2.15.7: оценка трека, её не находили в «…»), кнопка эффектов и сама «…»
-    // остаются всегда. Порядок ухода: «К дропу», «Больше такого», «Волна от трека», «Следующим», подписка, очередь.
-    // Скрытая кнопка живая: пункт меню нажимает её
-    const OVF_ORDER = ['drop', 'more', 'wave', 'next', 'follow', 'queue'];
+    // Сразу, до первого замера бара: второстепенные кнопки не мелькают в ряду, пока «⋯» ещё не встала
+    document.documentElement.classList.add('sca-tidy');
+    // Ряд кнопок справа (2.12.2, разгружен в 2.15.12). Справа от названия на виду только лайк, «Не нравится», очередь сайта и «⋯»,
+    // за разделителем режим роликов и громкость: семнадцать одинаковых кругов подряд не различали. Второстепенное всегда в «⋯»
+    // пунктами со значком и подписью: «Слушать следующим», «Волна по треку», «Больше такого», «К дропу», подписка, «С другом», эффекты.
+    // Очередь уходит в «⋯», только когда ряд не помещается. Скрытая кнопка живая: пункт меню нажимает её, обработчики те же.
+    // Прячет их CSS (narrowLayout) по классу sca-tidy на <html>: класс стоит, пока жив этот скрипт с «⋯», и кнопки не мелькают до замера
+    const OVF_ORDER = ['next', 'wave', 'more', 'drop', 'follow', 'jam', 'fx', 'queue'];
+    // Эти уходят в «⋯» только в тесном окне, остальные из OVF_ORDER всегда там
+    const OVF_TIGHT = ['queue'];
     const OVF_SELECTOR: Record<string, string> = {
-        drop: '[data-act="drop"]',
-        more: '[data-act="more"]',
-        wave: '[data-act="wave"]',
-        next: '[data-act="next"]',
-        follow: '.sc-button-follow',
-        queue: '[class*="showQueue"]',
+        next: '.scd-dock>[data-act="next"]',
+        wave: '.scd-dock>[data-act="wave"]',
+        more: '.scd-dock>[data-act="more"]',
+        drop: '.scd-dock>[data-act="drop"]',
+        follow: '.playbackSoundBadge__actions .sc-button-follow',
+        jam: '.scj-chip.bar',
+        fx: 'button.sca-fx',
+        queue: '.playbackSoundBadge__actions [class*="showQueue"]',
     };
     const OVF_LABEL: Record<string, string> = ruFx
-        ? { drop: 'К дропу', more: 'Больше такого', wave: 'Волна по треку', next: 'Слушать следующим', follow: 'Подписаться', dislike: 'Не нравится', queue: 'Очередь' }
-        : { drop: 'Jump to the drop', more: 'More like this', wave: 'Wave from track', next: 'Play next', follow: 'Follow', dislike: 'Dislike', queue: 'Queue' };
+        ? { drop: 'К дропу', more: 'Больше такого', wave: 'Волна по треку', next: 'Слушать следующим', follow: 'Подписаться', jam: 'Слушать вместе с другом', fx: 'Эффекты', dislike: 'Не нравится', queue: 'Очередь' }
+        : { drop: 'Jump to the drop', more: 'More like this', wave: 'Wave from track', next: 'Play next', follow: 'Follow', jam: 'Listen together with a friend', fx: 'Effects', dislike: 'Dislike', queue: 'Queue' };
+    // Значки на случай, если у кнопки сайта картинка фоном, а не svg: у пункта меню значок есть всегда
+    const OVF_ICON: Record<string, string> = {
+        follow: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="6" cy="5" r="2.6" fill="currentColor"/><path fill="currentColor" d="M1 13.5a5 5 0 0 1 10 0zM12.25 4.5h1.5v2h2V8h-2v2h-1.5V8h-2V6.5h2z"/></svg>',
+        queue: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M1.5 3h13v1.5h-13zM1.5 7.25h13v1.5h-13zM1.5 11.5h8V13h-8z"/></svg>',
+    };
     let moreButton: HTMLButtonElement | null = null;
     let morePop: HTMLElement | null = null;
     let fitBusy = false;
     let fitKey = '';
     const OVF_DOTS = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg>';
-    function ovfItems(actions: Element): Array<{ key: string; node: HTMLElement }> {
-        const list: Array<{ key: string; node: HTMLElement }> = [];
+    type OvfItem = { key: string; node: HTMLElement };
+    /** Кнопки бара, которые уходят в «⋯», в порядке меню. Ищутся по всему ряду плеера: джем и эффекты стоят вне ряда бейджа */
+    function ovfItems(root: Element): OvfItem[] {
+        const list: OvfItem[] = [];
         for (const key of OVF_ORDER) {
-            const node = actions.querySelector<HTMLElement>(OVF_SELECTOR[key]);
+            const node = root.querySelector<HTMLElement>(OVF_SELECTOR[key]);
             if (node) list.push({ key, node });
         }
         return list;
     }
+    const ovfHidden = (item: OvfItem): boolean => !OVF_TIGHT.includes(item.key) || item.node.classList.contains('sca-ovf');
+    const ovfLabel = (item: OvfItem): string => item.node.getAttribute('aria-label') || item.node.getAttribute('title') || OVF_LABEL[item.key];
+    const ovfIcon = (item: OvfItem): string => item.node.querySelector('svg')?.outerHTML ?? OVF_ICON[item.key] ?? '';
+    const barRow = (): HTMLElement | null => document.querySelector<HTMLElement>('.playControls .playControls__elements');
     function closeMore(): void {
         morePop?.classList.remove('on');
         moreButton?.setAttribute('aria-expanded', 'false');
     }
+    // Запасное меню «⋯», пока меню трека из волны нет: только ушедшие кнопки. Стрелки, Home и End ходят по пунктам, Escape закрывает
     function openMore(): void {
-        const actions = moreButton?.parentElement;
-        if (!moreButton || !actions) return;
-        const hiddenItems = ovfItems(actions).filter((item) => item.node.classList.contains('sca-ovf'));
+        const row = barRow();
+        if (!moreButton || !row) return;
+        const hiddenItems = ovfItems(row).filter(ovfHidden);
         if (!hiddenItems.length) return;
-        morePop ??= Object.assign(document.createElement('div'), { className: 'sca-more-pop' });
-        morePop.setAttribute('role', 'menu');
+        if (!morePop) {
+            morePop = Object.assign(document.createElement('div'), { className: 'sca-more-pop' });
+            morePop.setAttribute('role', 'menu');
+            morePop.setAttribute('aria-label', moreButton.title);
+            morePop.addEventListener('keydown', (event) => {
+                const stops = [...(morePop?.querySelectorAll<HTMLElement>('.sca-more-item') ?? [])];
+                const at = stops.indexOf(document.activeElement as HTMLElement);
+                let next = -1;
+                if (event.key === 'ArrowDown') next = (at + 1) % stops.length;
+                else if (event.key === 'ArrowUp') next = (at - 1 + stops.length) % stops.length;
+                else if (event.key === 'Home') next = 0;
+                else if (event.key === 'End') next = stops.length - 1;
+                else if (event.key === 'Tab') closeMore();
+                if (next < 0) return;
+                event.preventDefault();
+                stops[next]?.focus();
+            });
+        }
         morePop.textContent = '';
         for (const item of hiddenItems) {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'sca-more-item';
-            row.setAttribute('role', 'menuitem');
-            const icon = item.node.querySelector('svg');
-            if (icon) row.append(icon.cloneNode(true));
+            const entry = document.createElement('button');
+            entry.type = 'button';
+            entry.className = 'sca-more-item';
+            entry.setAttribute('role', 'menuitem');
+            entry.insertAdjacentHTML('beforeend', ovfIcon(item));
             const text = document.createElement('span');
-            text.textContent = item.node.getAttribute('aria-label') || item.node.getAttribute('title') || OVF_LABEL[item.key];
-            row.append(text);
-            row.addEventListener('click', (event) => {
+            text.textContent = ovfLabel(item);
+            entry.append(text);
+            entry.addEventListener('click', (event) => {
                 event.stopPropagation();
                 closeMore();
+                moreButton?.focus();
                 item.node.click();
             });
-            morePop.append(row);
+            morePop.append(entry);
         }
         if (!morePop.isConnected) document.body.append(morePop);
         const box = moreButton.getBoundingClientRect();
@@ -1539,21 +1582,17 @@ export function auroraPage(config: AuroraConfig): void {
     }
     type TrackMenu = (request: { anchor: HTMLElement; byKeyboard: boolean; extras: Array<{ id: string; label: string; icon?: string; run(): void }> }) => boolean;
     const trackMenu = (): TrackMenu | undefined => (host as { __scTrackMenu?: TrackMenu }).__scTrackMenu;
-    // Пункты места: скрытые кнопки бара, которых нет в общем наборе меню трека
-    const OVF_EXTRA = ['follow', 'queue'];
+    // Пункты места: ушедшие кнопки бара, которых нет в общем наборе меню трека. «Слушать следующим», «Волна по треку»,
+    // «Больше такого» и «К дропу» в нём уже есть и зовут те же действия, что кнопки дока
+    const OVF_EXTRA = ['follow', 'jam', 'fx', 'queue'];
     function openTrackMenu(byKeyboard: boolean): boolean {
         const open = trackMenu();
-        const actions = moreButton?.parentElement;
-        if (!open || !moreButton || !actions) return false;
+        const row = barRow();
+        if (!open || !moreButton || !row) return false;
         closeMore();
-        const extras = ovfItems(actions)
-            .filter((item) => OVF_EXTRA.includes(item.key) && item.node.classList.contains('sca-ovf'))
-            .map((item) => ({
-                id: item.key,
-                label: item.node.getAttribute('aria-label') || item.node.getAttribute('title') || OVF_LABEL[item.key],
-                icon: item.node.querySelector('svg')?.outerHTML,
-                run: () => item.node.click(),
-            }));
+        const extras = ovfItems(row)
+            .filter((item) => OVF_EXTRA.includes(item.key) && ovfHidden(item))
+            .map((item) => ({ id: item.key, label: ovfLabel(item), icon: ovfIcon(item), run: () => item.node.click() }));
         return open({ anchor: moreButton, byKeyboard, extras });
     }
     function ensureMoreButton(actions: HTMLElement): HTMLButtonElement {
@@ -1562,12 +1601,12 @@ export function auroraPage(config: AuroraConfig): void {
             moreButton.type = 'button';
             moreButton.className = 'sca-more';
             moreButton.innerHTML = OVF_DOTS;
-            moreButton.title = ruFx ? 'Действия с треком' : 'Track actions';
+            moreButton.title = ruFx ? 'Ещё действия' : 'More actions';
             moreButton.setAttribute('aria-label', moreButton.title);
             moreButton.setAttribute('aria-haspopup', 'menu');
             moreButton.setAttribute('aria-expanded', 'false');
             // 2.13.6: «⋯» открывает то же меню трека, что правый клик (wave/menu.ts): полный набор действий играющего трека
-            // плюс ушедшие в «⋯» кнопки бара, которым в нём места нет (подписка, очередь). Без раздела волны — прежний список
+            // плюс ушедшие в «⋯» кнопки бара, которым в нём места нет (подписка, «С другом», эффекты, очередь). Без волны — запасной список
             moreButton.dataset.trackMenu = 'bar';
             moreButton.addEventListener('click', (event) => {
                 event.stopPropagation();
@@ -1578,17 +1617,18 @@ export function auroraPage(config: AuroraConfig): void {
             // Стрелка вниз на кнопке открывает меню и встаёт на первый пункт
             moreButton.addEventListener('keydown', (event) => {
                 if (event.key !== 'ArrowDown' || moreButton?.getAttribute('aria-expanded') === 'true') return;
-                if (openTrackMenu(true)) event.preventDefault();
+                event.preventDefault();
+                if (!openTrackMenu(true)) openMore();
             });
         }
         if (moreButton.parentElement !== actions) actions.append(moreButton);
         return moreButton;
     }
-    // Не помещается: название трека сжато меньше ~110 px или хвост ряда вылез за край окна
+    // Не помещается: название трека сжато меньше ~110 px или хвост ряда (бейдж, режим роликов, громкость) вылез за край окна
     function barTight(elements: HTMLElement, actions: HTMLElement): boolean {
         const edge = Math.min(document.documentElement.clientWidth, elements.getBoundingClientRect().right) - 8;
-        const tail = fxButton?.isConnected ? fxButton : actions;
-        if (tail.getBoundingClientRect().right > edge + 0.5) return true;
+        const tails = [actions, ...elements.querySelectorAll<HTMLElement>('.scc-open, .scv[data-kind="bar"]')];
+        if (Math.max(...tails.map((node) => node.getBoundingClientRect().right)) > edge + 0.5) return true;
         const badge = actions.closest<HTMLElement>('.playbackSoundBadge');
         if (!badge) return false;
         const avatar = badge.querySelector<HTMLElement>('.playbackSoundBadge__avatar');
@@ -1597,24 +1637,25 @@ export function auroraPage(config: AuroraConfig): void {
     }
     function fitBar(): void {
         if (fitBusy) return;
-        const elements = document.querySelector<HTMLElement>('.playControls .playControls__elements');
+        const elements = barRow();
         const actions = elements?.querySelector<HTMLElement>('.playbackSoundBadge__actions');
         if (!elements || !actions) return;
         fitBusy = true;
         try {
             const more = ensureMoreButton(actions);
-            const items = ovfItems(actions);
-            for (const item of items) item.node.classList.remove('sca-ovf');
-            // С меню трека «⋯» видна всегда: в нём полный набор действий, а не только ушедшие кнопки
-            more.classList.toggle('on', !!trackMenu());
+            document.documentElement.classList.add('sca-tidy');
+            const items = ovfItems(elements);
+            const tight = items.filter((item) => OVF_TIGHT.includes(item.key));
+            for (const item of tight) item.node.classList.remove('sca-ovf');
             if (barTight(elements, actions)) {
-                more.classList.add('on');
-                for (const item of items) {
+                for (const item of tight) {
                     item.node.classList.add('sca-ovf');
                     if (!barTight(elements, actions)) break;
                 }
             }
-            if (!more.classList.contains('on') || !actions.querySelector('.sca-ovf')) closeMore();
+            // «⋯» видна, когда в ней что-то есть: меню трека или ушедшие кнопки
+            more.classList.toggle('on', !!trackMenu() || items.some(ovfHidden));
+            if (!more.classList.contains('on')) closeMore();
         } finally {
             fitBusy = false;
         }
@@ -1622,8 +1663,8 @@ export function auroraPage(config: AuroraConfig): void {
     // Пересчёт по изменению размера и по составу ряда (сайт и док перерисовывают кнопки сами)
     function fitSignature(): string {
         const actions = document.querySelector('.playControls .playbackSoundBadge__actions');
-        const chip = document.querySelector('.playControls .scj-chip');
-        return [window.innerWidth, actions?.querySelectorAll('button,a').length ?? 0, chip?.textContent ?? '', fxButton?.isConnected ? 1 : 0].join('|');
+        const chip = document.querySelector('.playControls .scj-chip.bar');
+        return [window.innerWidth, actions?.querySelectorAll('button,a').length ?? 0, chip ? 1 : 0, chip?.textContent ?? '', fxButton?.isConnected ? 1 : 0, trackMenu() ? 1 : 0].join('|');
     }
     // Подсказка и подпись для скринридера у кнопки повтора: выкл / очередь / трек
     function syncRepeat(): void {
@@ -2069,6 +2110,7 @@ export function auroraPage(config: AuroraConfig): void {
             document.removeEventListener('pointerdown', onMoreAway, true);
             document.removeEventListener('keydown', onMoreKey, true);
             for (const node of document.querySelectorAll('.playControls .sca-ovf')) node.classList.remove('sca-ovf');
+            document.documentElement.classList.remove('sca-tidy');
             moreButton?.remove();
             morePop?.remove();
             window.removeEventListener('pointermove', onMove);

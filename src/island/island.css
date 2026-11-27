@@ -3,7 +3,8 @@
    подобраны так, чтобы затухнуть внутри этих полей и не упираться в край окна: вверх не уходят вовсе, вбок меньше 20px */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-    --accent: #ff5500;
+    /* Акцент из обложки ставит island.js; без обложки это оранжевый бренда */
+    --accent: var(--sc2-accent);
     /* Цвет текста и штрихов как «r, g, b»: белый на тёмной плашке, чёрный на светлой (data-tone=light) */
     --fg: 255, 255, 255;
     --island-bg: #000;
@@ -23,7 +24,7 @@
 }
 html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
 body {
-    font: 13px/18px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    font: 13px/18px var(--sc2-font);
     color: rgb(var(--fg));
     -webkit-font-smoothing: antialiased;
     user-select: none;
@@ -81,7 +82,9 @@ html[data-position='right'] .compact, html[data-position='right'] .expanded { le
 .island[data-state='expanded'] .expanded { opacity: 1; transform: none; pointer-events: auto; transition-delay: 90ms; }
 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
-button:focus-visible { outline: 2px solid rgba(var(--fg), 0.5); outline-offset: 1px; }
+button:focus-visible { outline: 2px solid var(--sc2-focus); outline-offset: 1px; }
+/* На светлой плашке оранжевый даёт меньше 3:1, кольцо остаётся цветом текста */
+html[data-tone='light'] button:focus-visible { outline-color: rgba(var(--fg), 0.5); }
 .art { flex: none; background: #1c1c1e center/cover no-repeat; }
 .art.sm { width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12); }
 .art.lg { width: 58px; height: 58px; border-radius: 14px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 6px 14px -6px rgba(0, 0, 0, 0.8); transition: transform 160ms ease; }

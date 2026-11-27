@@ -429,9 +429,10 @@ it('одно меню трека: «⋯» карточки, __scTrackMenu бар
     const follow = vi.fn();
     const open = (window as unknown as { __scTrackMenu(request: object): boolean }).__scTrackMenu;
     expect(open({ anchor: bar, byKeyboard: true, extras: [{ id: 'follow', label: 'Follow', run: follow }] })).toBe(true);
-    // Пункты места уходят в подменю «Ещё», первыми
-    expect(menuActs()).toEqual([...playing.slice(0, 8), 'x:follow', ...playing.slice(8)]);
-    expect(document.querySelector('#scw-msub-more > .scw-mi')?.getAttribute('data-menu')).toBe('x:follow');
+    // Пункты места (2.15.12) своей группой на верхнем уровне, после волн: ушедшие из бара кнопки не прячутся в подменю
+    expect(menuActs()).toEqual([...playing.slice(0, 4), 'x:follow', ...playing.slice(4)]);
+    expect(rootActs()).toEqual(['drop', 'queue-next', 'queue-last', 'wave-track', 'sub:waves', 'x:follow', 'sub:more', 'dislike', 'sub:hide']);
+    expect(document.querySelector('.scw-menu:not(.scw-msub) > [data-menu="x:follow"]')?.previousElementSibling?.matches('hr')).toBe(true);
     expect((document.activeElement as HTMLElement).dataset.menu).toBe('drop');
     // У играющего трека подсказка сочетания клавиш справа
     expect(document.querySelector('.scw-menu [data-menu="drop"]')?.getAttribute('aria-keyshortcuts')).toBe('Control+J');

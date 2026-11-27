@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { NARROW_CSS } from './narrowLayout';
+import { NARROW_CSS, OVF_ALWAYS } from './narrowLayout';
 
 function block(css: string, head: string): string {
     const start = css.indexOf(head);
@@ -96,38 +96,44 @@ describe('wave.ts узкое/низкое окно', () => {
 
 describe('плеер: лишние кнопки уходят в меню «…», а не обрезаются', () => {
     const aurora = readFileSync(join(__dirname, 'aurora.ts'), 'utf8');
-    it('CSS не прячет кнопки по ширине окна, прячет только класс sca-ovf', () => {
-        expect(NARROW_CSS).not.toContain('[data-act="drop"]');
-        expect(NARROW_CSS).not.toContain('[data-act="wave"]');
-        expect(NARROW_CSS).not.toContain('[data-act="next"]');
-        expect(NARROW_CSS).not.toContain('.sc-button-follow');
+    it('CSS не прячет кнопки по ширине окна: только класс sca-ovf и одно правило под sca-tidy вне медиа-запросов', () => {
         expect(NARROW_CSS).toContain('.sca-ovf.sca-ovf{display:none!important}');
+        const tidy = NARROW_CSS.split('\n').filter((line) => line.includes('[data-act="drop"]') || line.includes('.sc-button-follow'));
+        expect(tidy).toHaveLength(1);
+        expect(tidy[0]).toMatch(/^html\.sca-tidy body \.playControls \.playControls__elements :is\([^)]*\)\{display:none!important\}$/);
+        for (const media of NARROW_CSS.split('@media').slice(1)) expect(media).not.toMatch(/data-act|sca-tidy|sc-button-follow/);
     });
     it('кнопка «…» и меню оформлены, бейдж трека сжимается', () => {
         expect(NARROW_CSS).toContain('button.sca-more');
         expect(NARROW_CSS).toContain('.sca-more-pop');
         expect(NARROW_CSS).toContain('.playControls__soundBadge{min-width:0!important}');
     });
-    it('лайк и кнопка эффектов не уходят в «…»', () => {
+    it('2.15.12: на виду лайк, «Не нравится», очередь, «…», ролики и громкость; второстепенное всегда в «…»', () => {
         expect(NARROW_CSS).not.toMatch(/sca-ovf[^}]*like/);
-        expect(NARROW_CSS).toContain('button.sca-fx{display:inline-grid!important');
         const order = /const OVF_ORDER = \[([^\]]*)\]/.exec(aurora)?.[1] ?? '';
-        expect(order).toContain("'drop'");
-        expect(order).not.toContain("'like'");
-        expect(order).not.toContain("'fx'");
+        for (const key of ['next', 'wave', 'more', 'drop', 'follow', 'jam', 'fx', 'queue']) expect(order).toContain(`'${key}'`);
+        for (const key of ['like', 'dislike', 'clip', 'volume']) expect(order).not.toContain(`'${key}'`);
+        // Очередь уходит только в тесном окне
+        expect(/const OVF_TIGHT = \[([^\]]*)\]/.exec(aurora)?.[1]).toBe("'queue'");
+        // Селекторы «всегда в …» те же, что ищет aurora (без очереди), и ни один не задевает видимые кнопки
+        const selectors = /const OVF_SELECTOR: Record<string, string> = \{([^}]*)\}/.exec(aurora)?.[1] ?? '';
+        const always = [...selectors.matchAll(/(\w+): '([^']+)'/g)].filter((match) => match[1] !== 'queue').map((match) => match[2]);
+        expect(always).toEqual(OVF_ALWAYS);
+        for (const selector of OVF_ALWAYS) expect(selector).not.toMatch(/dislike|like|scc-open|scv|showQueue|sca-more/);
         expect(aurora).toContain('function fitBar()');
+        expect(aurora).toContain("classList.add('sca-tidy')");
+        expect(aurora).toContain("classList.remove('sca-tidy')");
     });
-    it('правая группа бара: «С другом», ролики, эффекты стоят справа за разделителем, всегда на месте', () => {
+    it('правая группа бара: за разделителем ролики и громкость, «С другом» и эффекты последними (без «…» видны)', () => {
         const order = (selector: string) => {
             const at = NARROW_CSS.indexOf(selector + '{order:');
             return at < 0 ? Number.NaN : parseInt(NARROW_CSS.slice(at + selector.length + 7), 10);
         };
-        const seq = [order('.playControls__elements>.playControls__soundBadge'), order('.sca-bar-sep'), order('.scj-chip.bar'), order('.scc-open'), order('button.sca-fx')];
+        const seq = [order('.playControls__elements>.playControls__soundBadge'), order('.sca-bar-sep'), order('.scc-open'), order('.scv[data-kind="bar"]'), order('.scj-chip.bar'), order('button.sca-fx')];
         expect(seq.every(Number.isFinite)).toBe(true);
         expect([...seq].sort((x, y) => x - y)).toEqual(seq);
         expect(new Set(seq).size).toBe(seq.length);
-        // Громкость слева от прогресса, название трека правее прогресса
-        expect(order('.scv[data-kind="bar"]')).toBeLessThan(order('.playControls__elements>.playControls__timeline'));
+        // 2.15.12: громкость за разделителем справа от названия, название трека правее прогресса
         expect(order('.playControls__elements>.playControls__timeline')).toBeLessThan(seq[0]);
         expect(NARROW_CSS).toContain('.playControls__volume{display:contents!important}');
         // Одинаковые круглые кнопки, ни одна не прячется по ширине окна

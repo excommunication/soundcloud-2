@@ -13,7 +13,7 @@ const BG = '#121212';
 const GREEN = '#f50';
 const FRAMES = 8;
 // Шрифт Onest из клиента (OFL): фирменный Interstate у SoundCloud платный и в репозиторий не кладётся
-const font = (file, range) => `@font-face{font-family:'Onest';font-weight:100 900;src:url(data:font/woff2;base64,${fs.readFileSync(path.resolve(__dirname, '..', 'src', 'history', 'fonts', file)).toString('base64')}) format('woff2');unicode-range:${range}}`;
+const font = (file, range) => `@font-face{font-family:'Onest';font-weight:100 900;src:url(data:font/woff2;base64,${fs.readFileSync(path.resolve(__dirname, '..', 'src', 'shared', 'fonts', file)).toString('base64')}) format('woff2');unicode-range:${range}}`;
 const FONTS = font('onest-latin.woff2', 'U+0000-00FF,U+2000-206F') + font('onest-cyrillic.woff2', 'U+0400-04FF');
 const RAYS = 12;
 // Длины лучей по кругу: повторяются через четыре, поэтому поворот на 120° даёт тот же рисунок и круг замыкается
