@@ -47,6 +47,7 @@ export function validateTrackInfo(data: unknown): TrackInfo | null {
         duration: cleanTrackString(input.duration, 32),
         isPlaying: typeof input.isPlaying === 'boolean' ? input.isPlaying : false,
         isLiked: typeof input.isLiked === 'boolean' ? input.isLiked : false,
+        isRepeat: input.isRepeat === true,
         url: cleanTrackUrl(input.url),
         artistUrl: cleanTrackUrl(input.artistUrl),
     };

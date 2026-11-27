@@ -71,6 +71,7 @@ export function installAudioMonitor(): void {
             artistUrl: artist instanceof HTMLAnchorElement ? artist.href.split('?')[0] : '',
             isPlaying: play ? play.classList.contains('playing') : useMedia && !media!.paused && !media!.ended,
             isLiked: query('.playbackSoundBadge__like')?.classList.contains('sc-button-selected') ?? false,
+            isRepeat: query('.playControls .repeatControl')?.classList.contains('m-one') ?? false,
         };
     }
     function notify(): void {
@@ -85,6 +86,7 @@ export function installAudioMonitor(): void {
         else if (
             track.isPlaying === last.isPlaying &&
             track.isLiked === last.isLiked &&
+            track.isRepeat === last.isRepeat &&
             track.elapsed !== last.elapsed
         ) {
             const previous = toSeconds(last.elapsed);

@@ -20,6 +20,8 @@ export interface TrackInfo {
     isPlaying: boolean;
     /** Whether the track is liked by the user */
     isLiked: boolean;
+    /** Включён ли повтор одного трека */
+    isRepeat?: boolean;
     /** SoundCloud URL of the track */
     url: string;
     /** SoundCloud URL of the artist profile */

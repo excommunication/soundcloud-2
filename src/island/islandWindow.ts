@@ -18,7 +18,7 @@ export interface DynamicIslandDeps {
     /** Новогодняя тема сейчас: в острове идёт снег */
     winter(): boolean;
     reduceMotion(): boolean;
-    command(name: 'toggle' | 'next' | 'previous' | 'like'): void;
+    command(name: 'toggle' | 'next' | 'previous' | 'like' | 'repeat'): void;
     /** Громкость страницы: число 0..1 ставит, 'mute' переключает звук, без значения просто читает; -1, если не вышло */
     volume(value?: number | 'mute'): Promise<number>;
     /** Перемотать играющий трек на долю 0..1 */
@@ -162,7 +162,7 @@ export class DynamicIsland {
         ipcMain.on('island:act', (event, act: unknown) => {
             if (!this.owns(event.sender) || typeof act !== 'string') return;
             switch (act) {
-                case 'toggle': case 'next': case 'previous': case 'like':
+                case 'toggle': case 'next': case 'previous': case 'like': case 'repeat':
                     this.deps.command(act);
                     return;
                 case 'open': this.deps.open(); return;
@@ -190,7 +190,7 @@ export class DynamicIsland {
     private state(): object {
         const track = this.deps.track();
         return {
-            track: { title: track.title, author: track.author, artwork: track.artwork, artworkLarge: track.artwork ? largeArtwork(track.artwork) : '', isPlaying: track.isPlaying, isLiked: track.isLiked, elapsed: track.elapsed, duration: track.duration },
+            track: { title: track.title, author: track.author, artwork: track.artwork, artworkLarge: track.artwork ? largeArtwork(track.artwork) : '', isPlaying: track.isPlaying, isLiked: track.isLiked, isRepeat: track.isRepeat === true, elapsed: track.elapsed, duration: track.duration },
             settings: { position: this.settings.position, look: this.settings.look, color: this.settings.color, color2: this.settings.color2, opacity: this.settings.opacity, expandOnHover: this.settings.expandOnHover, showTitle: this.settings.showTitle, showLyrics: this.settings.showLyrics, lyricsStyle: this.settings.lyricsStyle, layout: this.settings.layout },
             lyrics: this.settings.layout === 'cover' && this.settings.showLyrics ? this.lyricLines : [],
             shaped: this.deps.shaped,

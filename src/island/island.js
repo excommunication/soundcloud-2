@@ -7,8 +7,8 @@
     const api = window.islandAPI || demoApi();
 
     const TEXT = {
-        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка', lyrics: 'Текст песни', cover: 'Большая обложка' },
-        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek', lyrics: 'Lyrics', cover: 'Big cover' },
+        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка', lyrics: 'Текст песни', cover: 'Большая обложка', repeat: 'Повтор трека' },
+        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek', lyrics: 'Lyrics', cover: 'Big cover', repeat: 'Repeat track' },
     };
     let state = null;
     let text = TEXT.ru;
@@ -346,6 +346,9 @@
         $('author').textContent = track.author || '';
         $('like').setAttribute('aria-pressed', String(track.isLiked === true));
         $('like').setAttribute('aria-label', text.like);
+        $('repeat').setAttribute('aria-pressed', String(track.isRepeat === true));
+        $('repeat').setAttribute('aria-label', text.repeat);
+        $('repeat').title = text.repeat;
         $('lyr').setAttribute('aria-pressed', String(settings.showLyrics !== false));
         root.dataset.lyrics = settings.lyricsStyle === 'line' ? 'line' : 'over';
         $('lyr').setAttribute('aria-label', text.lyrics);

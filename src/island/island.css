@@ -183,8 +183,10 @@ html[data-layout='cover'] .controls > [data-act='lyrics'] { display: grid; }
 .controls > [data-act='previous'] { grid-column: 4; }
 .controls > [data-act='toggle'] { grid-column: 5; }
 .controls > [data-act='next'] { grid-column: 6; }
+.controls > [data-act='repeat'] { grid-column: 7; justify-self: start; }
 .controls > [data-act='cover'] { grid-column: 7; justify-self: end; }
-.ctl.cov svg { fill: none; }
+.ctl.cov svg, .ctl.rep svg { fill: none; }
+.ctl.rep[aria-pressed='true'] { color: var(--accent); }
 .ctl.cov[aria-pressed='true'] { color: var(--accent); }
 .controls > [data-act='open'] { grid-column: 8; }
 .controls > [data-act='menu'] { grid-column: 9; }
