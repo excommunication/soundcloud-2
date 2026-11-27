@@ -169,6 +169,7 @@ export class DynamicIsland {
                 case 'menu': this.menu(); return;
                 case 'hide': this.hideUntilNext(); return;
                 case 'lyrics': this.cycleLyrics(); return;
+                case 'cover': this.toggleCover(); return;
                 case 'ready':
                     this.ready = true;
                     this.push();
@@ -250,6 +251,14 @@ export class DynamicIsland {
     }
 
     /** Кнопка на плашке перебирает по кругу: поверх обложки → строкой под названием → выключен → поверх обложки */
+    private toggleCover(): void {
+        this.settings = { ...this.settings, layout: this.settings.layout === 'cover' ? 'classic' : 'cover' };
+        this.deps.save(this.settings);
+        this.place();
+        this.ensureLyrics();
+        this.push();
+    }
+
     private cycleLyrics(): void {
         const { showLyrics, lyricsStyle } = this.settings;
         if (!showLyrics) this.setLyrics({ showLyrics: true, lyricsStyle: 'over' });
@@ -659,11 +668,7 @@ export class DynamicIsland {
                 return;
             }
             case 'cover':
-                this.settings = { ...this.settings, layout: this.settings.layout === 'cover' ? 'classic' : 'cover' };
-                this.deps.save(this.settings);
-                this.place();
-                this.ensureLyrics();
-                this.push();
+                this.toggleCover();
                 return;
             case 'fullscreen':
                 this.settings = { ...this.settings, hideFullscreen: !this.settings.hideFullscreen };

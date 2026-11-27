@@ -12,6 +12,7 @@ const HEADER = 32;
 const DAY = 86400000;
 const RECAP_KEEP = 6 * 3600000;
 const ARTIST_PATH = /^\/[a-z0-9_-]{1,100}$/;
+const FIRST_FILL_MS = 2500;
 const INVOKE = ['history:init', 'history:overview', 'history:recap', 'history:wave', 'history:day', 'history:search', 'history:play', 'history:taste', 'history:taste-remove', 'history:people', 'history:recap-copy', 'history:recap-save'] as const;
 const SEND = ['history:ready', 'history:close', 'history:artist', 'history:recap-seen'] as const;
 
@@ -94,7 +95,10 @@ export class HistoryManager {
                 } catch (error) {
                     console.warn('История: журнал не перенесён в индекс', error);
                 }
-                void this.fill(this.userId);
+                // Страница не рисуется, пока не ответит init: безымянные старые записи добираются до первой отрисовки (не дольше FIRST_FILL_MS),
+                // иначе на секунду мелькают строки «Название загружается» и только потом подставляются названия
+                const filled = this.fill(this.userId);
+                await Promise.race([filled, new Promise<void>((resolve) => setTimeout(resolve, FIRST_FILL_MS).unref?.())]);
             }
             const recap = this.recapOnOpen;
             this.recapOnOpen = false;

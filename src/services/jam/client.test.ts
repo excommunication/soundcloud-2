@@ -55,6 +55,18 @@ describe('задержка переподключения', () => {
     });
 });
 
+describe('стабильный cid', () => {
+    it('перезаход в ту же комнату идёт с тем же cid, чтобы сервер вытеснил прежнее соединение', () => {
+        const t = setup();
+        t.client.join(BASE, 'ABC234', 'Me', '');
+        t.client.leave();
+        t.client.join(BASE, 'ABC234', 'Me', '');
+        const cid = (url: string) => new URL(url).searchParams.get('cid');
+        expect(cid(t.sockets[0].url)).toMatch(/^[0-9a-f]{16}$/);
+        expect(cid(t.sockets[1].url)).toBe(cid(t.sockets[0].url));
+    });
+});
+
 describe('создание и вход', () => {
     it('создание: POST /rooms, затем сокет с токеном хозяина', async () => {
         const t = setup();

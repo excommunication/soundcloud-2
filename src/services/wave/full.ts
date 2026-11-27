@@ -12,9 +12,20 @@ export interface FullCore {
     disposed(): boolean;
     /** Ссылка на полный поток или null, если main ничего подходящего не нашёл (или функция выключена) */
     resolve(query: { title: string; uploader: string; durationMs: number }): Promise<{ url: string } | null>;
+    /** Трек по пути страницы (/artist/track); null, если сайт его не отдал. Нужен, чтобы понять, закрыт ли трек под кнопкой */
+    lookup?(path: string): Promise<{ id: number; title?: string; policy?: string; streamable?: boolean; duration?: number; full_duration?: number; user?: { username?: string } } | null>;
+    showToast?(text: string): void;
 }
 export interface FullSection {
     dispose(): void;
+}
+
+/** Трек закрыт в стране (BLOCK) или не отдаёт поток (streamable: false без отрывка Go+): сайт отключает у него кнопку «играть».
+ *  Правило то же, что у автозамены в swap.ts. Отрывок Go+ (SNIP) сюда не входит: он играет и подменяется в step() */
+export function isBlockedTrack(track: { policy?: string; streamable?: boolean } | null | undefined): boolean {
+    if (!track) return false;
+    if (track.policy === 'BLOCK') return true;
+    return track.streamable === false && track.policy !== 'SNIP';
 }
 
 export function installFull(core: FullCore): FullSection {
@@ -78,9 +89,88 @@ export function installFull(core: FullCore): FullSection {
         el.src = url;
         el.load();
     }
+    // Закрытые в стране треки: кнопка «играть» у них отключена сайтом. Включаем её и по клику ставим тот же полный поток
+    // с YouTube на собственный аудиоэлемент (плеер сайта такой трек не играет вовсе)
+    const PLAY_BUTTON = '.sc-button-play, .playButton, .sc-button-startstop, button[class*="playButton"], button[class*="PlayButton"]';
+    const ITEM = '.soundList__item, .searchItem__trackItem, .trackItem, .compactTrackList__item, .playableTile, .soundBadge, .sound, .listenEngagement, .fullListenHero, .l-listen-hero';
+    const TRACK_LINK = 'a.soundTitle__title, a.trackItem__trackTitle, a.playableTile__mainHeading, a.playableTile__heading, a.sound__coverArt, a.playableTile__artworkLink';
+    const blockedByPath = new Map<string, ReturnType<typeof trackOf> | null>();
+    const lookups = new Set<string>();
+    let own: HTMLAudioElement | null = null;
+    let ownPath = '';
+    const pathOf = (button: Element): string => {
+        const item = button.closest(ITEM);
+        const link = item?.querySelector<HTMLAnchorElement>(TRACK_LINK);
+        const href = link?.getAttribute('href') ?? (item ? '' : location.pathname);
+        const match = /^\/([a-z0-9_-]{1,100})\/([a-z0-9_-]{1,255})\/?$/i.exec((href ?? '').split(/[?#]/)[0]);
+        return match ? '/' + match[1].toLowerCase() + '/' + match[2].toLowerCase() : '';
+    };
+    function lookupBlocked(path: string): void {
+        if (!path || lookups.has(path) || !core.lookup) return;
+        lookups.add(path);
+        void core
+            .lookup(path)
+            .then((track) => {
+                const blocked = !!track && typeof track.id === 'number' && isBlockedTrack(track);
+                blockedByPath.set(path, blocked ? (track as NonNullable<ReturnType<typeof trackOf>>) : null);
+            })
+            .catch(() => lookups.delete(path));
+    }
+    // Кнопки закрытых треков: сайт ставит disabled, из-за этого клик не доходит ни до кого
+    function enableBlockedButtons(): void {
+        for (const button of document.querySelectorAll<HTMLElement>(PLAY_BUTTON)) {
+            const off = button.hasAttribute('disabled') || button.getAttribute('aria-disabled') === 'true' || button.classList.contains('sc-button-disabled');
+            if (!off && !button.hasAttribute('data-sc-blocked')) continue;
+            const path = pathOf(button);
+            if (!path) continue;
+            if (!blockedByPath.has(path)) {
+                lookupBlocked(path);
+                continue;
+            }
+            if (!blockedByPath.get(path)) continue;
+            button.removeAttribute('disabled');
+            button.removeAttribute('aria-disabled');
+            button.classList.remove('sc-button-disabled');
+            button.setAttribute('data-sc-blocked', path);
+            button.style.pointerEvents = 'auto';
+            button.style.opacity = '1';
+        }
+    }
+    async function playBlocked(path: string): Promise<void> {
+        const track = blockedByPath.get(path);
+        if (!track) return;
+        if (own && ownPath === path) {
+            if (own.paused) void own.play().catch(() => undefined);
+            else own.pause();
+            return;
+        }
+        const found = await core
+            .resolve({ title: track.title ?? '', uploader: track.user?.username ?? '', durationMs: trackDuration(track) })
+            .catch(() => null);
+        if (core.disposed()) return;
+        if (!found?.url) {
+            core.showToast?.(document.documentElement.lang === 'ru' ? 'Не нашёл, откуда сыграть этот трек' : 'Could not find a source for this track');
+            return;
+        }
+        core.player()?.pauseCurrent({ userInitiated: true });
+        own?.pause();
+        own = new Audio(found.url);
+        ownPath = path;
+        await own.play().catch(() => core.showToast?.(document.documentElement.lang === 'ru' ? 'Не удалось запустить трек' : 'Could not start the track'));
+    }
+    const onClick = (event: MouseEvent): void => {
+        const button = event.target instanceof Element ? event.target.closest<HTMLElement>(PLAY_BUTTON) : null;
+        const path = button?.getAttribute('data-sc-blocked');
+        if (!button || !path) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void playBlocked(path);
+    };
+    document.addEventListener('click', onClick, true);
     const timer = setInterval(() => {
         try {
             step();
+            enableBlockedButtons();
         } catch (error) {
             console.warn('Полный трек: шаг не удался', error);
         }
@@ -88,6 +178,8 @@ export function installFull(core: FullCore): FullSection {
     return {
         dispose() {
             clearInterval(timer);
+            document.removeEventListener('click', onClick, true);
+            own?.pause();
         },
     };
 }

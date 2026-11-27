@@ -471,6 +471,10 @@ export function appearanceCss(appearance: Appearance): string {
             `.collectionSection{margin-bottom:28px!important;border:0!important}`,
             `.collectionSection__title,.collectionSection__titleLink{font-size:20px!important;font-weight:700!important;letter-spacing:-.2px}`,
             // Карточка одна: если в пункте списка лежит плитка, стекло у плитки, а пункт без подложки (иначе две рамки одна в другой)
+            // Пустые заглушки без ссылки (сайт оставляет их под надписью «Плейлистов пока нет») не показываются; плитка «Все» без подложки и острых углов
+            `.collectionSection .badgeList__item:not(:has(.playableTile,a[href])){display:none!important}`,
+            `.collectionSection .badgeList__item:not(:has(.playableTile)):has(a[href])>*{background:transparent!important;border-radius:inherit}`,
+            `.collectionSection .badgeList__item:not(:has(.playableTile)):has(a[href]){overflow:hidden}`,
             `.collectionSection .badgeList__item:not(:has(.playableTile)),.collectionSection .playableTile{padding:10px!important;border-radius:${r}px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);transition:background-color .18s ease,transform .18s ease}`,
             `.collectionSection .badgeList__item:has(.playableTile){padding:0!important;height:auto!important;background:none!important;box-shadow:none!important;transform:none!important}`,
             `.collectionSection .badgeList__item:not(:has(.playableTile)):hover,.collectionSection .playableTile:hover{background:rgba(255,255,255,.09)}`,

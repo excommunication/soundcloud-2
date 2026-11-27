@@ -273,6 +273,15 @@ h2 {
     color: var(--muted);
     font-weight: 400;
 }
+.ti b.sk,
+.nm-top b.sk {
+    display: block;
+    width: 55%;
+    height: 14px;
+    margin: 2px 0;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+}
 .ti span {
     color: var(--muted);
     font-size: 13px;

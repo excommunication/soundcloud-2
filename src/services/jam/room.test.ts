@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JAM_LIMITS, type JamClientMsg, type JamMember, type JamState, type JamTrack } from './protocol';
-import { addMember, applyEvent, canAdd, canControl, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire, type Outcome } from './room';
+import { addMember, applyEvent, canAdd, canControl, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire, supersededConnections, type Outcome } from './room';
 
 const track = (id: number, extra: Partial<JamTrack> = {}): JamTrack => ({ id, url: 'https://soundcloud.com/a/t' + id, title: 'T' + id, artist: 'A', artwork: '', durationMs: 200000, ...extra });
 
@@ -259,5 +259,31 @@ describe('кто добавил и стирание комнаты', () => {
         expect(shouldExpire(0)).toBe(true);
         expect(shouldExpire(1)).toBe(false);
         expect(shouldExpire(5)).toBe(false);
+    });
+});
+
+describe('вытеснение двойников при перезаходе', () => {
+    const joined = (): JamState => {
+        let state = newState('ABC234');
+        for (const [id, name] of [['1', 'shhr'], ['2', 'shhr'], ['3', 'other']] as const) state = addMember(state, { id, name, avatar: 'a' }).state;
+        return state;
+    };
+    it('тот же cid вытесняется, другой cid с тем же именем (второе устройство) остаётся', () => {
+        const conns = [{ id: '1', cid: 'c1' }, { id: '2', cid: 'c2' }, { id: '3', cid: 'c3' }];
+        const out = supersededConnections(joined(), conns, { cid: 'c1', name: 'shhr', avatar: 'a' });
+        expect(out.map((c) => c.id)).toEqual(['1']);
+    });
+    it('старый клиент без cid: двойник находится по имени и аватарке', () => {
+        const conns = [{ id: '1' }, { id: '2', cid: 'c2' }, { id: '3' }];
+        const out = supersededConnections(joined(), conns, { cid: '', name: 'shhr', avatar: 'a' });
+        expect(out.map((c) => c.id)).toEqual(['1', '2']);
+    });
+    it('после вытеснения и prune остаётся один shhr', () => {
+        const state = joined();
+        const gone = supersededConnections(state, [{ id: '1', cid: 'c1' }, { id: '3', cid: 'c3' }], { cid: 'c1', name: 'shhr', avatar: 'a' });
+        const live = new Set(['3']);
+        expect(gone).toHaveLength(1);
+        const pruned = pruneMembers(addMember(removeMember(state, '2').state, { id: '9', name: 'shhr', avatar: 'a' }).state, live);
+        expect(pruned.state.members.map((m) => m.id)).toEqual(['3']);
     });
 });

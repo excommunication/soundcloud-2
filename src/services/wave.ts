@@ -82,7 +82,7 @@ const { installJam, jamHelpers } = jamSectionModule;
 const { createSeekWatch, restorePosition, seekBackDelta } = seekGuardModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
-const { installFull } = fullSectionModule;
+const { installFull, isBlockedTrack } = fullSectionModule;
 const { installLikes, likeStreak } = likesSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
@@ -976,6 +976,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         player: () => player,
         disposed: () => disposed,
         resolve: async (query) => (await host.soundcloudAPI?.fullTrack?.(query).catch(() => null)) ?? null,
+        lookup: async (path) => asTrack(await resolveUrl('https://soundcloud.com' + path)),
+        showToast,
     });
     // Дата лайка на странице лайков: раздел в wave/likes.ts
     const likesSection = installLikes({
@@ -6265,7 +6267,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, installLikes, likeStreak, trackAccess, installForYou, installJam, ...jamHelpers,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, isBlockedTrack, installLikes, likeStreak, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery, createSeekWatch, restorePosition, seekBackDelta,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installDownload, pickTranscoding, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];

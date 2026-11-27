@@ -515,7 +515,8 @@
             (r.away ? '<span role="img" data-tip="' + esc(T.away) + '" aria-label="' + esc(T.away) + '">' + ICON.away + '</span>' : '') +
             (r.liked ? '<span class="like" role="img" data-tip="' + esc(T.like) + '" aria-label="' + esc(T.like) + '">' + ICON.like + '</span>' : '');
         const heard = !r.dur ? clock(r.heard) : skipped ? T.skipped(clock(stop)) : r.end === 'done' ? T.done(clock(r.dur)) : T.of(clock(r.heard), clock(r.dur));
-        const title = r.title ? '<b>' + esc(r.title) + '</b>' : '<b class="none">' + esc(r.resolved === 2 ? T.unavailable : T.loading) + '</b>';
+        // Название ещё добирается: пустой скелетон вместо подписи, пока данные не готовы
+        const title = r.title ? '<b>' + esc(r.title) + '</b>' : r.resolved === 2 ? '<b class="none">' + esc(T.unavailable) + '</b>' : '<b class="none sk" role="status" aria-label="' + esc(T.loading) + '"></b>';
         const when = withDate ? cap(fmtShort.format(r.at)) + ', ' + timeOf(r.at) : timeOf(r.at);
         const play = r.path ? ' play" role="button" tabindex="0" data-path="' + esc(r.path) + '" data-id="' + r.id : '';
         return (
@@ -533,13 +534,13 @@
         return (
             '<ol class="tl">' +
             entries.slice(0, limit).map((e, i) => {
-                const name = kind === 'genre' ? cap(e.name) : e.name || T.loading;
+                const name = kind === 'genre' ? cap(e.name) : e.name || '';
                 const cover = kind === 'genre' ? '' : art(e.artwork, 'art');
                 const tipText = e.plays + ' ' + plural(e.plays, T.times) + ', ' + span(e.ms);
                 const play = kind === 'track' && e.path ? ' play" role="button" tabindex="0" data-path="' + esc(e.path) : '';
                 return (
                     '<li class="' + (cover ? '' : 'noart') + play + '" data-tip="' + esc(tipText) + '"><span class="rk num">' + (i + 1) + '</span>' + cover +
-                    '<span class="nm"><span class="nm-top"><b>' + esc(name) + '</b><span class="num">' + e.plays + '</span></span>' +
+                    '<span class="nm"><span class="nm-top">' + (name ? '<b>' + esc(name) + '</b>' : '<b class="none sk" role="status" aria-label="' + esc(T.loading) + '"></b>') + '<span class="num">' + e.plays + '</span></span>' +
                     (kind === 'track' ? '<span class="nm-by">' + esc(e.artistName) + '</span>' : '') +
                     '<span class="bar"><i style="width:' + ((e.plays / max) * 100).toFixed(1) + '%"></i></span></span></li>'
                 );
@@ -619,7 +620,7 @@
                 const key = kind === 'artist' ? e.id : e.key;
                 return (
                     '<li class="taste' + (cover ? '' : ' noart') + '"><span class="rk num">' + (i + 1) + '</span>' + cover +
-                    '<span class="nm"><span class="nm-top"><b>' + esc(name) + '</b></span><span class="bar"><i style="width:' + ((e.weight / max) * 100).toFixed(1) + '%"></i></span></span>' +
+                    '<span class="nm"><span class="nm-top">' + (name ? '<b>' + esc(name) + '</b>' : '<b class="none sk" role="status" aria-label="' + esc(T.loading) + '"></b>') + '</span><span class="bar"><i style="width:' + ((e.weight / max) * 100).toFixed(1) + '%"></i></span></span>' +
                     '<button class="drop" data-drop="' + kind + '" data-key="' + esc(key) + '">' + esc(T.drop) + '</button></li>'
                 );
             }).join('') +

@@ -4,7 +4,7 @@
 // была активность за последние 7 суток (JAM_LIMITS.idleMs) или есть хоть одно соединение; потом alarm стирает всё хранилище.
 import { DurableObject } from 'cloudflare:workers';
 import { JAM_LIMITS, cleanAvatar, cleanName, makeCode, parseClientMsg, parseCode, type JamServerMsg, type JamState } from '../../src/services/jam/protocol';
-import { addMember, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire } from '../../src/services/jam/room';
+import { addMember, memberOf, newState, pruneMembers, reduce, removeMember, shouldExpire, supersededConnections } from '../../src/services/jam/room';
 
 interface Env {
     JAM_ROOM: DurableObjectNamespace<JamRoom>;
@@ -123,20 +123,20 @@ export class JamRoom extends DurableObject<Env> {
         // иначе в списке слушателей появляются двойники
         const rawCid = url.searchParams.get('cid') ?? '';
         const cid = /^[0-9a-f]{16}$/.test(rawCid) ? rawCid : '';
-        const live = new Set<string>();
-        const replaced: WebSocket[] = [];
+        const avatar = cleanAvatar(url.searchParams.get('avatar'));
+        const conns: Array<Attachment & { ws: WebSocket }> = [];
         for (const ws of this.ctx.getWebSockets()) {
             const attached = ws.deserializeAttachment() as Attachment | null;
-            if (!attached?.id) continue;
-            if (cid && attached.cid === cid) { replaced.push(ws); continue; }
-            live.add(attached.id);
+            if (attached?.id) conns.push({ ...attached, ws });
         }
+        const replaced = supersededConnections(this.state(), conns, { cid, name, avatar }).map((conn) => conn.ws);
+        const live = new Set(conns.filter((conn) => !replaced.includes(conn.ws)).map((conn) => conn.id));
         const pruned = pruneMembers(this.state(), live);
         for (const ws of replaced) {
             ws.serializeAttachment({ id: '' } satisfies Attachment);
             try { ws.close(1000, 'replaced'); } catch { /* уже закрыт */ }
         }
-        const added = addMember(pruned.state, { id, name, avatar: cleanAvatar(url.searchParams.get('avatar')) }, asHost);
+        const added = addMember(pruned.state, { id, name, avatar }, asHost);
 
         const pair = new WebSocketPair();
         const [client, server] = [pair[0], pair[1]];

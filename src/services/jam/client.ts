@@ -118,6 +118,8 @@ export class JamClient {
     private pings = new Map<number, number>();
     private generation = 0;
     private persisted = false;
+    /** Один cid на весь процесс: перезаход в комнату (выход и новый вход, обрыв посреди выхода) вытесняет прежнее соединение, а не множит участника */
+    private cid = '';
 
     constructor(private readonly deps: JamClientDeps, private readonly emit: (event: JamUiEvent) => void) {}
 
@@ -146,7 +148,7 @@ export class JamClient {
         const code = parseCode(body?.code);
         if (reply.status === 503) return this.fail(generation, 'busy');
         if (reply.status !== 200 || !code || typeof body?.hostToken !== 'string' || !/^[0-9a-f]{48}$/.test(body.hostToken)) return this.fail(generation, 'unreachable');
-        this.session = { base, code, token: body.hostToken, name, avatar, cid: newCid() };
+        this.session = { base, code, token: body.hostToken, name, avatar, cid: this.clientId() };
         this.open();
         return { ok: true, code };
     }
@@ -155,7 +157,7 @@ export class JamClient {
         if (!clean) return { ok: false, error: 'invalid' };
         if (this.active) this.leave();
         ++this.generation;
-        this.session = { base, code: clean, token: '', name, avatar, cid: newCid() };
+        this.session = { base, code: clean, token: '', name, avatar, cid: this.clientId() };
         this.setStatus('connecting');
         this.open();
         return { ok: true, code: clean };
@@ -170,11 +172,16 @@ export class JamClient {
         if (!saved) { this.forget(); return false; }
         if (saved.server !== base.http) return false;
         ++this.generation;
-        this.session = { base, code: saved.code, token: saved.token, name: saved.name, avatar: saved.avatar, cid: saved.cid || newCid(), restoring: true };
+        this.session = { base, code: saved.code, token: saved.token, name: saved.name, avatar: saved.avatar, cid: this.clientId(saved.cid), restoring: true };
         this.persisted = true;
         this.setStatus('connecting');
         this.open();
         return true;
+    }
+    private clientId(saved?: string): string {
+        if (saved) this.cid = saved;
+        if (!this.cid) this.cid = newCid();
+        return this.cid;
     }
     /** Выход по кнопке: комната забывается и при следующем запуске не поднимается */
     leave(): void {
