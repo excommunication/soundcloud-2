@@ -117,7 +117,7 @@ html.playing .bars i:nth-child(5) { animation-duration: 0.83s; animation-delay: 
     display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; line-height: 1; font-weight: 500; white-space: nowrap; color: rgba(var(--fg), 0.88);
     background: linear-gradient(180deg, rgba(var(--fg), 0.16), rgba(var(--fg), 0.08));
     box-shadow: inset 0 0 0 0.5px rgba(var(--fg), 0.16), inset 0 1px 0 rgba(var(--fg), 0.12);
-    opacity: 0; transform: scale(0.85); transform-origin: 100% 50%;
+    opacity: 0; transform: scale(0.85); transform-origin: 100% 50%; pointer-events: none;
     transition: opacity 160ms ease, transform 200ms var(--spring), background 120ms, color 120ms;
 }
 .hide svg { width: 14px; height: 14px; flex: none; }
@@ -127,7 +127,7 @@ html.playing .bars i:nth-child(5) { animation-duration: 0.83s; animation-delay: 
 html[data-layout='cover'] .island[data-state='expanded'] .head:has(.meta:hover) .meta { -webkit-mask-image: none; mask-image: none; }
 .hide:hover { background: linear-gradient(180deg, rgba(var(--fg), 0.24), rgba(var(--fg), 0.14)); color: rgb(var(--fg)); }
 .hide:active { transform: scale(0.95); }
-.island[data-state='expanded'] .head:has(.meta:hover) .hide, .island[data-state='expanded'] .hide:hover, .island[data-state='expanded'] .hide:focus-visible { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
+.island[data-state='expanded'] .head:has(.meta:hover, .hide:hover) .hide, .island[data-state='expanded'] .hide:focus-visible { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
 .island[data-state='expanded'] .head:has(.meta:hover, .hide:hover) .bars.big { opacity: 0; transition-delay: 0s; }
 
 /* Полоса перемотки: тянется мышью, под курсором толще (через scaleY, без перерасчёта вёрстки); зона нажатия выше полосы */
@@ -175,7 +175,7 @@ html.shaped .progress .fill::after { display: none; }
 .volume[data-level='0'] .vol-fill { background: rgba(var(--fg), 0.35); }
 
 /* Управление: шесть кнопок, «играть» точно по центру. Слева лайк, в центре предыдущий/играть/следующий, справа открыть и «⋯» */
-.controls { display: grid; grid-template-columns: 34px 34px 1fr 34px 44px 34px 1fr 34px 34px; column-gap: 8px; align-items: center; height: 38px; padding: 0 2px; }
+.controls { display: grid; grid-template-columns: 34px 34px 1fr 34px 44px 34px 34px 1fr 34px 34px; column-gap: 8px; align-items: center; height: 38px; padding: 0 2px; }
 .controls > [data-act='like'] { grid-column: 1; }
 /* Текст песни рядом с лайком, в пустой колонке слева: только в «Большой обложке», где текст и показывается */
 .controls > [data-act='lyrics'] { grid-column: 2; display: none; }
@@ -183,13 +183,13 @@ html[data-layout='cover'] .controls > [data-act='lyrics'] { display: grid; }
 .controls > [data-act='previous'] { grid-column: 4; }
 .controls > [data-act='toggle'] { grid-column: 5; }
 .controls > [data-act='next'] { grid-column: 6; }
-.controls > [data-act='repeat'] { grid-column: 7; justify-self: start; }
-.controls > [data-act='cover'] { grid-column: 7; justify-self: end; }
+.controls > [data-act='repeat'] { grid-column: 7; }
+.controls > [data-act='cover'] { grid-column: 8; justify-self: end; }
 .ctl.cov svg, .ctl.rep svg { fill: none; }
 .ctl.rep[aria-pressed='true'] { color: var(--accent); }
 .ctl.cov[aria-pressed='true'] { color: var(--accent); }
-.controls > [data-act='open'] { grid-column: 8; }
-.controls > [data-act='menu'] { grid-column: 9; }
+.controls > [data-act='open'] { grid-column: 9; }
+.controls > [data-act='menu'] { grid-column: 10; }
 .ctl.lyr svg { fill: none; }
 .ctl.lyr[aria-pressed='false'] { color: rgba(var(--fg), 0.4); }
 .ctl.lyr[aria-pressed='true'] { color: var(--accent); }
@@ -362,7 +362,7 @@ html.shaped .backdrop { filter: none; opacity: 0.35; }
    (--eh 250 -> 290, окно в islandSettings.ts выше на столько же) */
 .lyric { display: none; }
 html[data-layout='cover'][data-lyrics='line'].lyric-on { --eh: 290px; }
-html[data-layout='cover'].lyric-on .lyric { display: block; height: 36px; margin-top: 8px; padding: 0 2px; text-align: left; pointer-events: none; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+html[data-layout='cover'].lyric-on .lyric { display: block; height: 36px; margin-top: 8px; padding: 0 2px; text-align: left; pointer-events: none; }
 .lyric span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #lyric-now { font-size: 14px; line-height: 20px; font-weight: 600; color: #fff; }
 #lyric-next { font-size: 12px; line-height: 16px; color: rgba(255, 255, 255, 0.5); }
@@ -380,17 +380,14 @@ html[data-layout='cover'][data-lyrics='over'] .lyric span { max-width: 100%; }
 html[data-layout='cover'][data-lyrics='over'] #lyric-now {
     font-size: 21px; line-height: 26px; font-weight: 800; letter-spacing: -0.01em; white-space: normal;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7), 0 0 2px rgba(0, 0, 0, 0.5);
 }
-html[data-layout='cover'][data-lyrics='over'] #lyric-next { font-size: 13px; line-height: 17px; color: rgba(255, 255, 255, 0.62); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+html[data-layout='cover'][data-lyrics='over'] #lyric-next { font-size: 13px; line-height: 17px; color: rgba(255, 255, 255, 0.62); }
 html[data-layout='cover'] .head .art.lg, html[data-layout='cover'] .head .meta, html[data-layout='cover'] .head .bars.big { transition: filter 300ms ease, opacity 300ms ease, transform 300ms ease; }
 html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .art.lg { filter: brightness(0.4) blur(1.5px); transform: scale(0.96); }
 html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .meta, html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .bars.big { opacity: 0; }
 /* Кнопка текста: поверх обложки — с подложкой цвета обложки, строкой — просто цветом обложки */
 html[data-lyrics='over'] .ctl.lyr[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 
-/* Большая обложка: сплошная плашка и читаемая тень у всего текста поверх обложки */
+/* Большая обложка: сплошная плашка */
 html[data-layout='cover'] .island { background: var(--island-bg, #18181b); }
 html[data-layout='cover'] .backdrop { background-color: #111; }
-html[data-layout='cover'] .expanded .meta b, html[data-layout='cover'] .expanded .meta span, html[data-layout='cover'] .expanded .progress span, html[data-layout='cover'] .expanded .vol-out, html[data-layout='cover'] .expanded .hide span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.6); }
-html[data-layout='cover'] .expanded .lyric span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.7); }
