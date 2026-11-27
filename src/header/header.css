@@ -1,26 +1,7 @@
-@font-face {
-    font-family: 'SC-Font';
-    src: url('https://assets.web.soundcloud.cloud/_next/static/media/a34f9d1faa5f3315-s.p.woff2') format('woff2');
-    font-weight: bold;
-    font-style: normal;
-    font-display: swap;
-}
-
 body {
     margin: 0;
     padding: 0;
-    font-family:
-        'SC-Font',
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        Roboto,
-        Oxygen,
-        Ubuntu,
-        Cantarell,
-        'Open Sans',
-        'Helvetica Neue',
-        sans-serif;
+    font-family: var(--sc2-font);
     user-select: none;
     overflow: hidden;
 }
@@ -29,7 +10,7 @@ body {
 :root {
     --header-bg: #070a12;
     --header-text: #ffffff;
-    --header-accent: #ff5500;
+    --header-accent: var(--sc2-accent);
     --hover-bg: rgba(255, 255, 255, 0.1);
     --scrollbar-bg: rgba(255, 255, 255, 0.05);
     --scrollbar-thumb: rgba(255, 255, 255, 0.2);
@@ -162,7 +143,7 @@ button.nav-button {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #ff5500;
+    background: var(--sc2-accent);
     box-shadow: 0 0 0 2px var(--header-bg);
 }
 .nav-button[aria-pressed='true'] {
@@ -170,10 +151,10 @@ button.nav-button {
     background-color: var(--hover-bg);
 }
 .nav-button:focus-visible {
-    outline: 2px solid var(--header-text);
+    outline: 2px solid var(--sc2-focus);
     outline-offset: -2px;
 }
-.windows-controls .control:focus-visible { outline: 2px solid var(--header-text); outline-offset: -3px; }
+.windows-controls .control:focus-visible { outline: 2px solid var(--sc2-focus); outline-offset: -3px; }
 @media (prefers-reduced-motion: reduce) { .nav-button, .windows-controls .control, .theme-toggle { transition: none; } .nav-button.refreshing .refresh-icon { animation: none; } }
 
 .title-bar {
@@ -247,7 +228,7 @@ button.nav-button {
 }
 
 .windows-controls .control .icon-glyph {
-    font-family: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
+    font-family: var(--sc2-font-icons);
     font-size: 10px;
     line-height: 1;
     font-weight: 400;
@@ -276,9 +257,9 @@ body.platform-win32 .windows-controls {
 
 /* Theme specific styles */
 :root {
-    --header-bg: #121212;
-    --header-text: #ffffff;
-    --header-accent: #ff5500;
+    --header-bg: var(--sc2-bg);
+    --header-text: var(--sc2-white);
+    --header-accent: var(--sc2-accent);
     --hover-bg: rgba(255, 255, 255, 0.1);
     --scrollbar-bg: rgba(255, 255, 255, 0.05);
     --scrollbar-thumb: rgba(255, 255, 255, 0.2);

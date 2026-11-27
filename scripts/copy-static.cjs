@@ -1,4 +1,4 @@
-// Кладёт рядом со скомпилированным кодом статические файлы шапки, панели настроек и истории: tsc их не переносит
+// Кладёт рядом со скомпилированным кодом статические файлы окон клиента и их общие токены: tsc их не переносит
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -20,5 +20,5 @@ for (const folder of ['settings', 'history', 'tray', 'intro', 'island']) {
         if (/\.(html|css|js)$/.test(name)) fs.copyFileSync(path.join(source, name), path.join(target, name));
     }
 }
-// Шрифт сводки недели в истории: Onest под OFL, файлы рядом со страницей
-fs.cpSync(path.join(root, 'src', 'history', 'fonts'), path.join(root, 'tsc', 'history', 'fonts'), { recursive: true });
+// Общие токены окон и шрифт Onest (OFL): окна подключают их как ../shared/tokens.css
+fs.cpSync(path.join(root, 'src', 'shared'), path.join(root, 'tsc', 'shared'), { recursive: true });

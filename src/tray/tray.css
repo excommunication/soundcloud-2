@@ -1,9 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: transparent; overflow: hidden; }
 body {
-    background: #10121a;
-    font: 13px/18px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    color: #f5f6f8;
+    background: var(--sc2-panel);
+    font: 13px/18px var(--sc2-font);
+    color: var(--sc2-text);
     -webkit-font-smoothing: antialiased;
     user-select: none;
     padding: 0;
@@ -12,7 +12,7 @@ body {
     height: 100%;
     border-radius: 0;
     padding: 14px;
-    background: radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--c, #7c8cff) 26%, transparent), transparent 60%), rgba(16, 18, 26, 0.94);
+    background: radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--c, var(--sc2-accent)) 26%, transparent), transparent 60%), rgba(16, 18, 26, 0.94);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
     animation: pop-in 160ms cubic-bezier(.2, 0, 0, 1);
 }
@@ -29,13 +29,13 @@ button, label { font: inherit; color: inherit; background: none; border: 0; curs
 .ctl:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 .ctl:active { transform: scale(.92); }
 .ctl svg { width: 15px; height: 15px; fill: currentColor; }
-.ctl.main { width: 44px; height: 44px; background: #fff; color: #0b0c10; }
+.ctl.main { width: 44px; height: 44px; background: #fff; color: var(--sc2-ink); }
 .ctl.main:hover { transform: scale(1.05); }
 .ctl.main svg { width: 17px; height: 17px; }
-.ctl.like[aria-pressed='true'] { color: #9aa8ff; }
+.ctl.like[aria-pressed='true'] { color: var(--sc2-accent); }
 .list { display: flex; flex-direction: column; gap: 1px; }
 .list button, .list label {
-    display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; text-align: left;
+    display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: var(--sc2-radius-sm); text-align: left;
     color: rgba(245, 246, 248, 0.82); transition: background 120ms, color 120ms;
 }
 .list button:hover, .list label:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
@@ -44,11 +44,11 @@ button, label { font: inherit; color: inherit; background: none; border: 0; curs
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
 .switch i { position: relative; width: 28px; height: 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); transition: background 160ms; }
 .switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 160ms cubic-bezier(.2, 0, 0, 1); }
-.switch input:checked + i { background: #9aa8ff; }
+.switch input:checked + i { background: var(--sc2-accent); }
 .switch input:checked + i::after { transform: translateX(12px); }
 hr { border: 0; height: 1px; background: rgba(255, 255, 255, 0.08); margin: 4px 6px; }
 .quit:hover { color: #ff8a8a !important; }
-:focus-visible { outline: 2px solid var(--accent, #9aa8ff); outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--sc2-focus); outline-offset: 1px; }
 /* Сам флажок прозрачный: кольцо фокуса с клавиатуры рисуется на ползунке */
-.switch input:focus-visible + i { outline: 2px solid var(--accent, #9aa8ff); outline-offset: 2px; }
+.switch input:focus-visible + i { outline: 2px solid var(--sc2-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .pop { animation: none; } * { transition: none !important; } }

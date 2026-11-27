@@ -2,14 +2,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family:
-        Söhne,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        Roboto,
-        sans-serif;
+    font-family: var(--sc2-font);
     -webkit-font-smoothing: antialiased;
 }
 button,
@@ -18,7 +11,6 @@ select {
     font: inherit;
     color: inherit;
 }
-/* Цвета темы страницы подставляет SettingsManager поверх этих значений */
 :root {
     --bg-primary: #181818;
     --bg-secondary: #242424;
@@ -30,8 +22,8 @@ select {
     --border: rgba(255, 255, 255, 0.1);
     --film: rgba(255, 255, 255, 0.06);
     --film-strong: rgba(255, 255, 255, 0.1);
-    --focus: #ff7133;
-    --link-color: #5bb7ff;
+    --focus: var(--sc2-focus);
+    --link-color: var(--sc2-accent);
 }
 html,
 body {
@@ -548,14 +540,15 @@ select optgroup {
     background: rgba(255, 255, 255, 0.075);
     color: var(--text-primary);
 }
+/* Выбранный сегмент в цвет бренда, текст тёмный: на #ff5500 он даёт 6.10, белый только 3.21 */
 .segment[aria-checked='true'] {
-    background: #fff;
-    color: #0b0c10;
+    background: var(--sc2-accent);
+    color: var(--sc2-on-accent);
     font-weight: 600;
 }
 .segment[aria-checked='true']:hover:not(:disabled) {
-    background: #fff;
-    color: #0b0c10;
+    background: var(--sc2-accent-hover);
+    color: var(--sc2-on-accent);
 }
 .segment:disabled {
     cursor: default;
@@ -641,6 +634,7 @@ select optgroup {
 }
 .dropdown-option[aria-selected='true'] {
     font-weight: 600;
+    color: var(--sc2-accent);
 }
 .field-grid {
     display: grid;
@@ -908,20 +902,19 @@ textarea.input {
     }
 }
 
-/* ===== SoundCloud 2: та же система, что на странице (токены --sc2-*): стекло, таблетки, один акцент, 120-200 мс ===== */
+/* ===== SoundCloud 2: та же система, что на странице (токены --sc2-*): стекло, таблетки, один акцент, 120-200 мс.
+   Акцент, фокус и шрифт общие для окон клиента: src/shared/tokens.css ===== */
 :root {
     --bg-primary: rgba(14, 16, 23, 0.96);
     --bg-secondary: rgba(255, 255, 255, 0.045);
     --border: rgba(255, 255, 255, 0.09);
-    --sc2-accent: #9aa8ff;
     --sc2-surface-1: rgba(255, 255, 255, 0.045);
     --sc2-surface-2: rgba(255, 255, 255, 0.075);
     --sc2-ease: cubic-bezier(.2, 0, 0, 1);
-    --focus: #9aa8ff;
 }
 .backdrop { background: rgba(4, 5, 10, 0.55); }
 .dialog {
-    border-radius: 20px;
+    border-radius: var(--sc2-radius-lg);
     border-color: var(--border);
     box-shadow: 0 30px 90px -24px rgba(0, 0, 0, 0.85);
 }
@@ -931,7 +924,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
 @keyframes section-in { from { opacity: 0; } }
 .btn { border-radius: 999px; padding: 8px 14px; transition: background-color 120ms, border-color 120ms, transform 120ms var(--sc2-ease); }
 .btn:active { transform: scale(.97); }
-.btn.solid { background: #fff; color: #0b0c10; font-weight: 600; }
+.btn.solid { background: #fff; color: var(--sc2-ink); font-weight: 600; }
 .btn.solid:hover { opacity: .9; }
 .slider { background: rgba(255, 255, 255, 0.1); border-color: transparent; transition: background .2s; }
 .slider::before { transition: transform .2s var(--sc2-ease), background .2s; }
@@ -946,7 +939,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
     transition: background .12s, box-shadow .12s;
 }
 .fx-card:hover { background: var(--sc2-surface-2); }
-.fx-card[aria-checked='true'] { box-shadow: inset 0 0 0 2px #fff; }
+.fx-card[aria-checked='true'] { box-shadow: inset 0 0 0 2px var(--sc2-accent); }
 .fx-card b { font-size: 13px; font-weight: 600; padding: 4px 4px 0; }
 .fx-card small { font-size: 11px; color: var(--text-secondary); padding: 0 4px; }
 .fx-prev { display: block; height: 60px; border-radius: 11px; background-size: 200% 200%; animation: fx-drift 9s ease-in-out infinite alternate; }
@@ -967,7 +960,7 @@ body.visible .dialog { animation: settings-pop 200ms var(--sc2-ease); }
     transition: background .12s, color .12s, box-shadow .12s;
 }
 .pal:hover { background: var(--sc2-surface-2); color: var(--text-primary); }
-.pal[aria-checked='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1.5px #fff; }
+.pal[aria-checked='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1.5px var(--sc2-accent); }
 .pal-dot { width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(var(--a), var(--b), var(--c), var(--a)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
 .pal-cover { background: conic-gradient(#ff5500, #ffb000, #4f7bff, #9a5cff, #ff5500); }
 .color-set { display: inline-flex; gap: 8px; }
@@ -995,8 +988,8 @@ input[type='range']:active::-webkit-slider-thumb { transform: scale(1.15); }
     --row-x: 12px; /* внутренний отступ строки: по нему выровнены заголовки, группы, подсказки и сетки */
     --ctl-w: 240px; /* ширина полей, списков и времени справа в строке */
     --ctl-h: 34px;
-    --ctl-radius: 10px;
-    --accent-soft: rgba(154, 168, 255, 0.16);
+    --ctl-radius: var(--sc2-radius-sm);
+    --accent-soft: var(--sc2-accent-soft);
     --divider: rgba(255, 255, 255, 0.05);
 }
 .dialog {
@@ -1269,7 +1262,7 @@ h2 + .group,
 .input:focus,
 .input:focus-visible {
     outline: none;
-    border-color: rgba(154, 168, 255, 0.55);
+    border-color: var(--sc2-accent-line);
     background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 0 0 3px var(--accent-soft);
 }

@@ -4,9 +4,10 @@
         <meta charset="utf-8" />
         <meta
             http-equiv="Content-Security-Policy"
-            content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://style.sndcdn.com; img-src https: data:; font-src data: https://assets.web.soundcloud.cloud; connect-src 'none'"
+            content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https: data:; font-src 'self' data:; connect-src 'none'"
         />
-        <link rel="stylesheet" href="https://style.sndcdn.com/css/soehne-6ee1b930cae107f8f71f.css" />
+        <!-- Шрифт интерфейса Onest и цвета бренда: общие для окон клиента, src/shared/tokens.css -->
+        <link rel="stylesheet" href="../shared/tokens.css" />
         <link rel="stylesheet" href="settings.css" />
         <script src="settingsText.js" defer></script>
         <script src="settings.js" defer></script>

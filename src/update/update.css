@@ -12,7 +12,7 @@
     --text-secondary: rgba(255, 255, 255, 0.62);
     --track: rgba(255, 255, 255, 0.1);
     --film: rgba(255, 255, 255, 0.1);
-    --focus: rgba(255, 255, 255, 0.9);
+    --focus: var(--sc2-focus);
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 html,
@@ -27,7 +27,7 @@ body {
     padding: 10px;
     overflow: hidden;
     color: var(--text);
-    font-family: 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-family: var(--sc2-font);
     -webkit-font-smoothing: antialiased;
     user-select: none;
 }
@@ -62,7 +62,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    --tint: #ff5500;
+    --tint: var(--sc2-accent);
 }
 /* Тёплое свечение за звездой, дышит как ореол установщика */
 .logo::before {
@@ -192,7 +192,7 @@ body {
 .mark b {
     margin-left: 3px;
     font-weight: 700;
-    color: #ff5500;
+    color: var(--sc2-accent);
 }
 @keyframes word {
     from {
@@ -261,7 +261,7 @@ button {
     height: 28px;
     padding: 0 13px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--sc2-radius-pill);
     background: var(--film);
     color: var(--text);
     font: inherit;
@@ -285,12 +285,13 @@ button:focus-visible {
 button[hidden] {
     display: none;
 }
+/* Текст на оранжевом тёмный: белый на #ff5500 даёт 3.21, тёмный 6.10 (src/shared/tokens.css) */
 #action {
-    background: #ff5500;
-    color: #fff;
+    background: var(--sc2-accent);
+    color: var(--sc2-on-accent);
 }
 #action:hover {
-    background: #ff6a1f;
+    background: var(--sc2-accent-hover);
 }
 /* Проверка: под текстом бежит полоса с бликом */
 .busy .fill {
