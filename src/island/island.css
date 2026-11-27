@@ -117,18 +117,18 @@ html.playing .bars i:nth-child(5) { animation-duration: 0.83s; animation-delay: 
     display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; line-height: 1; font-weight: 500; white-space: nowrap; color: rgba(var(--fg), 0.88);
     background: linear-gradient(180deg, rgba(var(--fg), 0.16), rgba(var(--fg), 0.08));
     box-shadow: inset 0 0 0 0.5px rgba(var(--fg), 0.16), inset 0 1px 0 rgba(var(--fg), 0.12);
-    opacity: 0; transform: scale(0.85); transform-origin: 100% 50%; pointer-events: none;
+    opacity: 0; transform: scale(0.85); transform-origin: 100% 50%;
     transition: opacity 160ms ease, transform 200ms var(--spring), background 120ms, color 120ms;
 }
 .hide svg { width: 14px; height: 14px; flex: none; }
 .hide span { display: block; padding-bottom: 1px; }
 /* Под пилюлёй название не бежит: при наведении правый край .meta плавно гаснет */
-.island[data-state='expanded']:hover .meta { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 70px), transparent calc(100% - 48px)); mask-image: linear-gradient(90deg, #000 calc(100% - 70px), transparent calc(100% - 48px)); }
-html[data-layout='cover'] .island[data-state='expanded']:hover .meta { -webkit-mask-image: none; mask-image: none; }
+.island[data-state='expanded'] .head:has(.meta:hover) .meta { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 70px), transparent calc(100% - 48px)); mask-image: linear-gradient(90deg, #000 calc(100% - 70px), transparent calc(100% - 48px)); }
+html[data-layout='cover'] .island[data-state='expanded'] .head:has(.meta:hover) .meta { -webkit-mask-image: none; mask-image: none; }
 .hide:hover { background: linear-gradient(180deg, rgba(var(--fg), 0.24), rgba(var(--fg), 0.14)); color: rgb(var(--fg)); }
 .hide:active { transform: scale(0.95); }
-.island[data-state='expanded']:hover .hide { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
-.island[data-state='expanded']:hover .bars.big { opacity: 0; transition-delay: 0s; }
+.island[data-state='expanded'] .head:has(.meta:hover) .hide, .island[data-state='expanded'] .hide:hover, .island[data-state='expanded'] .hide:focus-visible { opacity: 1; transform: none; pointer-events: auto; transition-delay: 120ms; }
+.island[data-state='expanded'] .head:has(.meta:hover, .hide:hover) .bars.big { opacity: 0; transition-delay: 0s; }
 
 /* Полоса перемотки: тянется мышью, под курсором толще (через scaleY, без перерасчёта вёрстки); зона нажатия выше полосы */
 .progress { display: flex; align-items: center; gap: 10px; height: 18px; margin: 10px 0 2px; font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(var(--fg), 0.58); }
@@ -183,6 +183,11 @@ html[data-layout='cover'] .controls > [data-act='lyrics'] { display: grid; }
 .controls > [data-act='previous'] { grid-column: 4; }
 .controls > [data-act='toggle'] { grid-column: 5; }
 .controls > [data-act='next'] { grid-column: 6; }
+.controls > [data-act='repeat'] { grid-column: 7; justify-self: start; }
+.controls > [data-act='cover'] { grid-column: 7; justify-self: end; }
+.ctl.cov svg, .ctl.rep svg { fill: none; }
+.ctl.rep[aria-pressed='true'] { color: var(--accent); }
+.ctl.cov[aria-pressed='true'] { color: var(--accent); }
 .controls > [data-act='open'] { grid-column: 8; }
 .controls > [data-act='menu'] { grid-column: 9; }
 .ctl.lyr svg { fill: none; }
@@ -383,3 +388,9 @@ html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .art.lg 
 html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .meta, html[data-layout='cover'][data-lyrics='over'].lyric-on.lyric-live .head .bars.big { opacity: 0; }
 /* Кнопка текста: поверх обложки — с подложкой цвета обложки, строкой — просто цветом обложки */
 html[data-lyrics='over'] .ctl.lyr[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* Большая обложка: сплошная плашка и читаемая тень у всего текста поверх обложки */
+html[data-layout='cover'] .island { background: var(--island-bg, #18181b); }
+html[data-layout='cover'] .backdrop { background-color: #111; }
+html[data-layout='cover'] .expanded .meta b, html[data-layout='cover'] .expanded .meta span, html[data-layout='cover'] .expanded .progress span, html[data-layout='cover'] .expanded .vol-out, html[data-layout='cover'] .expanded .hide span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.6); }
+html[data-layout='cover'] .expanded .lyric span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.7); }

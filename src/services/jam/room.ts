@@ -80,6 +80,17 @@ export function pruneMembers(state: JamState, live: ReadonlySet<string>): Outcom
     return { state: current, events, reply: [], kick: [] };
 }
 
+/** Соединения, которые вытесняет новое подключение того же клиента. Стабильный идентификатор — cid; у старых клиентов
+ *  (без cid у одной из сторон) двойником считается соединение участника с тем же именем и аватаркой.
+ *  Разные cid при одном имени — это два устройства, оба остаются */
+export function supersededConnections<T extends { id: string; cid?: string }>(state: JamState, connections: readonly T[], joiner: { cid: string; name: string; avatar: string }): T[] {
+    return connections.filter((conn) => {
+        if (conn.cid && joiner.cid) return conn.cid === joiner.cid;
+        const member = memberOf(state, conn.id);
+        return !!member && member.name === joiner.name && (member.avatar ?? '') === (joiner.avatar ?? '');
+    });
+}
+
 function refuse(state: JamState, code: JamErrorCode): Outcome {
     return { state, events: [], reply: [{ t: 'error', code }], kick: [] };
 }

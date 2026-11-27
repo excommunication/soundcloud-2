@@ -103,7 +103,9 @@ function playerBar(): string[] {
         `${BAR} .playControls__inner :has(.playbackTimeline__progressWrapper){position:static!important}`,
         `html body .playControls .playControls__elements>.playControls__timeline{flex:0 0 auto!important;min-width:0!important;width:auto!important}`,
         `${BAR} .playbackTimeline{display:flex!important;align-items:center;gap:6px;width:auto!important}`,
-        `${BAR} .playbackTimeline__progressWrapper{position:absolute!important;left:0!important;right:0!important;top:-8px!important;width:auto!important;height:16px!important;margin:0!important;z-index:6}`,
+        `${BAR} .playbackTimeline__progressWrapper{position:absolute!important;left:0!important;right:0!important;top:-14px!important;width:auto!important;height:16px!important;margin:0!important;z-index:1}`,
+        // Ручка полосы по верхней кромке меньше и с узким ореолом, а сама полоса поднята над краем бара: ни линия, ни ручка не заходят на кнопку паузы
+        `${BAR} .playControls__inner .playbackTimeline__progressHandle{width:10px!important;height:10px!important;margin:-5px 0 0 -5px!important;box-shadow:0 0 0 3px color-mix(in srgb,${C1} 30%,transparent),0 1px 5px rgba(0,0,0,.5)!important}`,
         `${BAR} .playbackTimeline__progressBackground,${BAR} .playbackTimeline__progressBar{height:3px!important;margin-top:-1.5px!important;border-radius:0 999px 999px 0!important;transform-origin:50% 50%}`,
         `${BAR} .playbackTimeline__progressBackground{border-radius:0!important;background:rgba(255,255,255,.12)!important}`,
         `${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBackground,${BAR} .playbackTimeline__progressWrapper:is(:hover,:focus-visible) .playbackTimeline__progressBar,${BAR} .playbackTimeline.is-scrubbing :is(.playbackTimeline__progressBackground,.playbackTimeline__progressBar){scale:1 2}`,

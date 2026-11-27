@@ -82,7 +82,7 @@ const { installJam, jamHelpers } = jamSectionModule;
 const { createSeekWatch, restorePosition, seekBackDelta } = seekGuardModule;
 const { qrMatrix, qrSvg } = qrModule;
 const { installSwap, trackAccess } = swapSectionModule;
-const { installFull } = fullSectionModule;
+const { installFull, isBlockedTrack } = fullSectionModule;
 const { installLikes, likeStreak } = likesSectionModule;
 const { installForYou } = forYouSectionModule;
 const { russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact } = waveVibeModule;
@@ -976,6 +976,8 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         player: () => player,
         disposed: () => disposed,
         resolve: async (query) => (await host.soundcloudAPI?.fullTrack?.(query).catch(() => null)) ?? null,
+        lookup: async (path) => asTrack(await resolveUrl('https://soundcloud.com' + path)),
+        showToast,
     });
     // Дата лайка на странице лайков: раздел в wave/likes.ts
     const likesSection = installLikes({
@@ -3945,6 +3947,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         chev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
         // Три точки: меню трека, то же, что по правому клику
         dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+        repeat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg>',
         heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>',
         x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>',
         shake: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>',
@@ -5145,6 +5148,13 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
         } else top.append(play, lines);
         const canvas = el('canvas', 'scw-wf' + (current || outside ? ' live' : ''));
         const meta = el('div', 'scw-meta');
+        // Повтор трека (2.15.12): ведёт ту же кнопку, что в нижнем баре сайта; горит, пока включён «повтор трека»
+        const repeatButton = (): HTMLButtonElement => {
+            const node = button('scw-like', 'repeat', T.repeat, 'repeat');
+            node.title = T.repeat;
+            node.setAttribute('aria-pressed', String(document.querySelector('.playControls .repeatControl')?.classList.contains('m-one') === true));
+            return node;
+        };
         // «⋯» карточки: то же меню трека, что по правому клику и в нижнем баре (wave/menu.ts)
         const trackMenuButton = (): HTMLButtonElement => {
             const node = button('scw-like', 'track-menu', T.menuActions, 'dots');
@@ -5165,7 +5175,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const more = button('scw-like', 'more', T.more, 'more');
             more.title = T.more + ', Ctrl+M';
             more.setAttribute('aria-pressed', String(moreTracks.has(current.track.id)));
-            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), like, dislike, trackMenuButton(), el('div', 'scw-time'));
+            meta.append(el('div', 'scw-why', reasonText(current.reason, T)), clipSection.button(), volumeSection.card(), later, more, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), repeatButton(), like, dislike, trackMenuButton(), el('div', 'scw-time'));
         } else if (outside) {
             const next = nextUpTitle();
             // Трек не из волны (2.8.5): «Моя волна» и «Волна по треку» компактными капсулами в том же ряду, что
@@ -5179,7 +5189,7 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
             const like = button('scw-like', 'like', T.like, 'heart');
             like.title = T.like + ', Ctrl+L';
             like.setAttribute('aria-pressed', String(currentLiked));
-            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), clipSection.button(), volumeSection.card(), like, trackMenuButton(), el('div', 'scw-time'));
+            meta.append(waveButton, seedButton, ...[lyricsButton()].filter((node): node is HTMLButtonElement => !!node), el('div', 'scw-why'), clipSection.button(), volumeSection.card(), repeatButton(), like, trackMenuButton(), el('div', 'scw-time'));
         } else if (state === 'empty') {
             if (genre) meta.append(textButton('drop-genre', T.dropGenre));
             if (mode === 'fresh') meta.append(textButton('to-similar', T.toSimilar));
@@ -5760,6 +5770,21 @@ export function installWave(config: WaveConfig, createPlayback: typeof installPl
                     setTimeout(render, 150);
                 } else void start();
                 return;
+            case 'repeat': {
+                // Кнопка сайта крутит «выкл → очередь → трек»: жмём, пока не станет «трек», а если он уже включён, выключаем
+                const site = () => document.querySelector<HTMLElement>('.playControls .repeatControl');
+                const node = control;
+                void (async () => {
+                    for (let n = 0; n < 3 && site(); n++) {
+                        const was = site()!.classList.contains('m-one');
+                        site()!.click();
+                        await new Promise((resolve) => setTimeout(resolve, 80));
+                        if (was || site()!.classList.contains('m-one')) break;
+                    }
+                    node.setAttribute('aria-pressed', String(site()?.classList.contains('m-one') === true));
+                })();
+                return;
+            }
             case 'like':
                 (likeButton() as HTMLElement | null)?.click();
                 setTimeout(tick, 400);
@@ -6265,7 +6290,7 @@ const pageHelpers = [
     normalizeTag, tagKeys, tagShares, trackLang, genreKeys, genreEnglish, genreCanon, genrePhrases, genreParts, genreMain, parseGenres, formatGenres, genreKeysFor, classifyLink, classifyTag, canonicalUrl, trackMatchesGenre, trackArtist, rememberRecent, retryDelay,
     isWaveEligible, freshEnough, acceptCandidate, pickSpaced, spacingKeys, spacingGap, tasteMaps, tasteSlot, tasteForTime, sourceBias, trackTraits, seriesTrait, tasteScore, tasteOrder, tasteReason, applyTasteReasons, shuffleInPlace, topGenres, fillText, reasonText, shapeSamples,
     artworkUrl, coversOf, formatTime, playEnd, siteSource, moodTags, trackPath, localDay, countText, tasteGroups, capPerArtist, forgottenPicks, daySample, artistNames, performerNames, sharedPerformer, isNewArtist, spreadBy, balanceShares, pickFinds, lowQuality, qualityScore, consensusScore,
-    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, installLikes, likeStreak, trackAccess, installForYou, installJam, ...jamHelpers,
+    moodList, moodDictionary, trackMood, playlistMood, artistMoods, neighborMood, moodScore, russianTrack, vibeLangOk, vibeScore, vibeRank, vibeExact, installVibe, installDock, installVolume, volumeAt, volumeWheel, installClip, clipArtwork, verticalFrame, clipLineAt, clipSeekStep, clipNextStyle, clipTime, clipVolumeIcon, clipVolumeStep, clipBarLevels, clipBassLevel, clipPseudoWave, clipRecordMime, clipRecordFormats, clipFailReason, clipOutputSize, clipCrop, clipSimpleText, qrMatrix, qrSvg, installSwap, installFull, isBlockedTrack, installLikes, likeStreak, trackAccess, installForYou, installJam, ...jamHelpers,
     ...identity.identityHelpers, ...sources.sourceHelpers, ...libraryMix.libraryHelpers, siteRequires, installPlaybackPage, installPlaybackRecovery, createSeekWatch, restorePosition, seekBackDelta,
     installVersions, installLibrary, installRadar, installShelf, installMenu, installDownload, pickTranscoding, installQuiet, quietBounds, openStream, parseHlsPlaylist, quietOptionsOf, installScout, scoutStart, dropAt, glowPalette, installSources, relatedArtistsOf, scMixesOf, likedOwner, likersOf, tasteNeighbors, likedTracksOf, neighborLikes, interleaveMixes,
 ];

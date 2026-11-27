@@ -7,8 +7,8 @@
     const api = window.islandAPI || demoApi();
 
     const TEXT = {
-        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка', lyrics: 'Текст песни' },
-        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek', lyrics: 'Lyrics' },
+        ru: { open: 'Открыть SoundCloud 2', like: 'Лайк', play: 'Играть', pause: 'Пауза', previous: 'Предыдущий', next: 'Следующий', mute: 'Звук вкл/выкл', volume: 'Громкость', more: 'Ещё', hide: 'Скрыть до следующего трека', hideShort: 'Скрыть', seek: 'Перемотка', lyrics: 'Текст песни', cover: 'Большая обложка', repeat: 'Повтор трека' },
+        en: { open: 'Open SoundCloud 2', like: 'Like', play: 'Play', pause: 'Pause', previous: 'Previous', next: 'Next', mute: 'Mute/unmute', volume: 'Volume', more: 'More', hide: 'Hide until next track', hideShort: 'Hide', seek: 'Seek', lyrics: 'Lyrics', cover: 'Big cover', repeat: 'Repeat track' },
     };
     let state = null;
     let text = TEXT.ru;
@@ -306,11 +306,13 @@
         if (look === 'gradient') light = (luminance(first) + luminance(second)) / 2 > 0.6;
         root.dataset.tone = light ? 'light' : 'dark';
         // Непрозрачность только в прозрачном окне: в режиме совместимости (shaped) фон за плашкой чёрный и сквозь неё не виден
-        const alpha = shaped || !(settings.opacity >= 0.3 && settings.opacity <= 1) ? 1 : settings.opacity;
+        const cover = settings.layout === 'cover';
+        const alpha = shaped || cover || !(settings.opacity >= 0.3 && settings.opacity <= 1) ? 1 : settings.opacity;
         if (look === 'white') root.style.setProperty('--island-bg', withAlpha('#f5f5f7', alpha));
         else if (look === 'black') root.style.setProperty('--island-bg', withAlpha('#000000', alpha));
         else if (look === 'color') root.style.setProperty('--island-bg', withAlpha(first, alpha));
         else if (look === 'gradient') root.style.setProperty('--island-bg', 'linear-gradient(135deg,' + withAlpha(first, alpha) + ',' + withAlpha(second, alpha) + ')');
+        else if (cover) root.style.setProperty('--island-bg', '#18181b');
         else root.style.removeProperty('--island-bg');
     }
 
@@ -344,6 +346,9 @@
         $('author').textContent = track.author || '';
         $('like').setAttribute('aria-pressed', String(track.isLiked === true));
         $('like').setAttribute('aria-label', text.like);
+        $('repeat').setAttribute('aria-pressed', String(track.isRepeat === true));
+        $('repeat').setAttribute('aria-label', text.repeat);
+        $('repeat').title = text.repeat;
         $('lyr').setAttribute('aria-pressed', String(settings.showLyrics !== false));
         root.dataset.lyrics = settings.lyricsStyle === 'line' ? 'line' : 'over';
         $('lyr').setAttribute('aria-label', text.lyrics);
@@ -359,7 +364,14 @@
         for (const button of document.querySelectorAll('[data-act="open"]')) button.setAttribute('aria-label', text.open);
         for (const button of document.querySelectorAll('[data-act="previous"]')) button.setAttribute('aria-label', text.previous);
         for (const button of document.querySelectorAll('[data-act="next"]')) button.setAttribute('aria-label', text.next);
-        island.title = [track.title, track.author].filter(Boolean).join(' — ');
+        // Подсказка с полным названием только над названием трека, а не над всей плашкой
+        const full = [track.title, track.author].filter(Boolean).join(' — ');
+        island.removeAttribute('title');
+        $('title-sm').title = full;
+        document.querySelector('.meta').title = full;
+        $('cover').setAttribute('aria-label', text.cover);
+        $('cover').setAttribute('aria-pressed', String(settings.layout === 'cover'));
+        $('cover').title = text.cover;
         const next = { elapsed: seconds(track.elapsed), duration: seconds(track.duration), at: Date.now(), playing: track.isPlaying === true };
         // Трек сменился или перемотали: без плавного хода, чтобы линия не ехала назад
         if (Math.abs(next.elapsed - position.elapsed - (position.playing ? (next.at - position.at) / 1000 : 0)) > 2.5 || next.duration !== position.duration) settleProgress();

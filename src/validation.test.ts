@@ -155,6 +155,7 @@ describe('validateTrackInfo', () => {
             duration: '3:45',
             isPlaying: true,
             isLiked: true,
+            isRepeat: false,
             url: 'https://soundcloud.com/artist/my-track',
             artistUrl: 'https://soundcloud.com/artist',
         };
@@ -221,6 +222,7 @@ describe('validateTrackInfo', () => {
             duration: '',
             isPlaying: false,
             isLiked: false,
+            isRepeat: false,
             url: '',
             artistUrl: '',
         });
